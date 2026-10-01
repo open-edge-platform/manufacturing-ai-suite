@@ -163,7 +163,7 @@ jobs:
           fi
 
       - name: Checkout edge-ai-suites repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ inputs.suites_repo || github.repository }}
           ref: ${{ inputs.suites_ref || inputs.tag || github.ref }}
@@ -204,7 +204,7 @@ jobs:
 
       - name: Checkout Time Series Analytics microservice (edge-ai-libraries)
         if: ${{ (env.BUILD_NORMALIZED || 'yes') == 'yes' }}
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: open-edge-platform/edge-ai-libraries
           ref: ${{ env.EDGE_AI_LIBRARIES_REF }}
@@ -573,7 +573,7 @@ jobs:
 
       - name: Upload Time Series Wind and Weld HTML test report to GitHub
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: timeseries-core-test-report
           path: /tmp/test_timeseries_core_report
@@ -779,7 +779,7 @@ jobs:
 
       - name: Upload Security HTML test report to GitHub
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: security-test-report
           path: /tmp/test_timeseries_security_report
@@ -986,7 +986,7 @@ jobs:
 
       - name: Upload Multimodal Weld Defect Detection Sample Apps HTML test report to GitHub
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: multimodal-test-report
           path: /tmp/test_multimodal_report
