@@ -119,14 +119,14 @@ jobs:
 
           # Use the downloaded template
           if [[ "$APPLICATION" == "time-series" || "$APPLICATION" == "both" ]]; then
-            cd $CWD/manufacturing-ai-suite/industrial-edge-insights-time-series/
+            cd $CWD/industrial-edge-insights-time-series/
             trivy fs . --format template --template "@$CWD/trivy-html.tpl" -o "trivy_timeseries_fs_full_report_code_scan.html" 
             trivy fs --list-all-pkgs --format template --template "@$CWD/csv.tpl" --output trivy-timeseries-fs-full-report.csv .
             trivy fs --ignore-unfixed . | tee trivy-timeseries-fs-full-report-ignore-unfixed.txt
           fi
 
           if [[ "$APPLICATION" == "multimodal" || "$APPLICATION" == "both" ]]; then
-            cd $CWD/manufacturing-ai-suite/industrial-edge-insights-multimodal/
+            cd $CWD/industrial-edge-insights-multimodal/
             trivy fs . --format template --template "@$CWD/trivy-html.tpl" -o "trivy_multimodal_fs_full_report_code_scan.html" 
             trivy fs --list-all-pkgs --format template --template "@$CWD/csv.tpl" --output trivy-multimodal-fs-full-report.csv .
             trivy fs --ignore-unfixed . | tee trivy-multimodal-fs-full-report-ignore-unfixed.txt
@@ -139,8 +139,8 @@ jobs:
         with:
           name: Trivy Report - Filesystem Scan
           path: |
-                manufacturing-ai-suite/industrial-edge-insights-time-series/trivy*
-                manufacturing-ai-suite/industrial-edge-insights-multimodal/trivy*
+                industrial-edge-insights-time-series/trivy*
+                industrial-edge-insights-multimodal/trivy*
     
   trivy-image-scan:
     if: ${{ (inputs.target == 'trivy-image-scan') || (inputs.target == 'all-scans') }}
@@ -241,7 +241,7 @@ jobs:
             
             if [[ "$APPLICATION" == "time-series" || "$APPLICATION" == "both" ]]; then
               echo "Building Time Series Sample app and scanning docker images"
-              cd $CWD/manufacturing-ai-suite/industrial-edge-insights-time-series/
+              cd $CWD/industrial-edge-insights-time-series/
               make down
 
               sed -i "s|^INFLUXDB_USERNAME=.*|INFLUXDB_USERNAME=$INFLUXDB_USERNAME|g" .env
@@ -282,7 +282,7 @@ jobs:
 
             if [[ "$APPLICATION" == "multimodal" || "$APPLICATION" == "both" ]]; then
               echo "Building Multimodal Weld Defect Detection Sample app and scanning docker images"
-              cd $CWD/manufacturing-ai-suite/industrial-edge-insights-multimodal/
+              cd $CWD/industrial-edge-insights-multimodal/
               make down              
 
               sed -i "s/INFLUXDB_USERNAME=.*/INFLUXDB_USERNAME=${INFLUXDB_USERNAME}/g" .env
@@ -351,8 +351,8 @@ jobs:
         with:
           name: Trivy Report - Image Scan
           path: |
-            manufacturing-ai-suite/industrial-edge-insights-time-series/trivy-image-scan*
-            manufacturing-ai-suite/industrial-edge-insights-multimodal/trivy-image-scan*
+            industrial-edge-insights-time-series/trivy-image-scan*
+            industrial-edge-insights-multimodal/trivy-image-scan*
 
   trivy-config-helm-scan:
     if: ${{ (inputs.target == 'trivy-config-scan') || (inputs.target == 'trivy-helm-scan') || (inputs.target == 'all-scans') }}
@@ -420,7 +420,7 @@ jobs:
           APPLICATION: ${{ inputs.application }}
         run: |
           if [[ "$APPLICATION" == "time-series" || "$APPLICATION" == "both" ]]; then
-            cd manufacturing-ai-suite/industrial-edge-insights-time-series/
+            cd industrial-edge-insights-time-series/
             make gen_helm_charts
             cd helm
             INFLUXDB_USERNAME=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
@@ -445,7 +445,7 @@ jobs:
         with:
           name: Trivy Report - Config scan for Helm
           path: |
-            manufacturing-ai-suite/industrial-edge-insights-time-series/helm/trivy-timeseries-*.txt
+            industrial-edge-insights-time-series/helm/trivy-timeseries-*.txt
       
   trivy-config-time-series-dockerfile-scan:
     if: ${{ ((inputs.target == 'trivy-config-scan') || (inputs.target == 'trivy-dockerfile-scan') || (inputs.target == 'all-scans')) && ((inputs.application == 'time-series') || (inputs.application == 'both')) }}
@@ -457,10 +457,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - dockerfile-path: manufacturing-ai-suite/industrial-edge-insights-time-series/simulator/opcua-server/Dockerfile
+          - dockerfile-path: industrial-edge-insights-time-series/simulator/opcua-server/Dockerfile
             output-report-path: trivy-opcua-dockerfile.json
             scan-name: Time Series OPCUA Dockerfile
-          - dockerfile-path: manufacturing-ai-suite/industrial-edge-insights-time-series/simulator/mqtt-publisher/Dockerfile
+          - dockerfile-path: industrial-edge-insights-time-series/simulator/mqtt-publisher/Dockerfile
             output-report-path: trivy-mqttpublisher-dockerfile.json
             scan-name: Time Series mqttpublisher Dockerfile
     uses: open-edge-platform/edge-ai-libraries/.github/workflows/trivy-config-mode.yaml@e6e04af3dbca805db9118b85a22ad2998f7eec39
@@ -481,16 +481,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - dockerfile-path: manufacturing-ai-suite/industrial-edge-insights-multimodal/weld-data-simulator/Dockerfile
+          - dockerfile-path: industrial-edge-insights-multimodal/weld-data-simulator/Dockerfile
             output-report-path: trivy-weld-simulator-dockerfile.json
             scan-name: Multimodal Weld Data Simulator Dockerfile
-          - dockerfile-path: manufacturing-ai-suite/industrial-edge-insights-multimodal/fusion-analytics/Dockerfile
+          - dockerfile-path: industrial-edge-insights-multimodal/fusion-analytics/Dockerfile
             output-report-path: trivy-fusion-analytics-dockerfile.json
             scan-name: Multimodal Fusion Analytics Dockerfile
-          - dockerfile-path: manufacturing-ai-suite/industrial-edge-insights-multimodal/insights-workbench/Dockerfile
+          - dockerfile-path: industrial-edge-insights-multimodal/insights-workbench/Dockerfile
             output-report-path: trivy-insights-workbench-dockerfile.json
             scan-name: Multimodal Insights Workbench Dockerfile
-          - dockerfile-path: manufacturing-ai-suite/industrial-edge-insights-multimodal/ui-service/Dockerfile
+          - dockerfile-path: industrial-edge-insights-multimodal/ui-service/Dockerfile
             output-report-path: trivy-multimodal-ui-dockerfile.json
             scan-name: Multimodal UI Service Dockerfile
     uses: open-edge-platform/edge-ai-libraries/.github/workflows/trivy-config-mode.yaml@e6e04af3dbca805db9118b85a22ad2998f7eec39
@@ -527,11 +527,11 @@ jobs:
         docker pull ghcr.io/pycqa/bandit/bandit
         echo "### Bandit Scan Results" >> $GITHUB_STEP_SUMMARY
         if [[ "$APPLICATION" == "time-series" || "$APPLICATION" == "both" ]]; then
-          docker run --rm -v "${{ github.workspace }}:/src" ghcr.io/pycqa/bandit/bandit -r /src/manufacturing-ai-suite/industrial-edge-insights-time-series/ -f json -o /src/reports/bandit-timeseries-report.json || true >> $GITHUB_STEP_SUMMARY
+          docker run --rm -v "${{ github.workspace }}:/src" ghcr.io/pycqa/bandit/bandit -r /src/industrial-edge-insights-time-series/ -f json -o /src/reports/bandit-timeseries-report.json || true >> $GITHUB_STEP_SUMMARY
           echo "Please find full report in bandit-timeseries-report.txt" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "$APPLICATION" == "multimodal" || "$APPLICATION" == "both" ]]; then
-          docker run --rm -v "${{ github.workspace }}:/src" ghcr.io/pycqa/bandit/bandit -r /src/manufacturing-ai-suite/industrial-edge-insights-multimodal/ -f json -o /src/reports/bandit-multimodal-report.json || true >> $GITHUB_STEP_SUMMARY
+          docker run --rm -v "${{ github.workspace }}:/src" ghcr.io/pycqa/bandit/bandit -r /src/industrial-edge-insights-multimodal/ -f json -o /src/reports/bandit-multimodal-report.json || true >> $GITHUB_STEP_SUMMARY
           echo "Please find full report in bandit-multimodal-report.txt" >> $GITHUB_STEP_SUMMARY
         fi
         ls -al 
@@ -601,12 +601,12 @@ jobs:
         docker pull clamav/clamav
         echo "### Virus Scan Results" >> $GITHUB_STEP_SUMMARY
         if [[ "$APPLICATION" == "time-series" || "$APPLICATION" == "both" ]]; then
-          docker run --rm -v "${{ github.workspace }}:/src" clamav/clamav clamscan -r  /src/manufacturing-ai-suite/industrial-edge-insights-time-series/ > ./reports/clamav-timeseries-report.txt || true
+          docker run --rm -v "${{ github.workspace }}:/src" clamav/clamav clamscan -r  /src/industrial-edge-insights-time-series/ > ./reports/clamav-timeseries-report.txt || true
           echo "Please find full report in clamav-timeseries-report.txt" >> $GITHUB_STEP_SUMMARY
         fi
 
         if [[ "$APPLICATION" == "multimodal" || "$APPLICATION" == "both" ]]; then
-          docker run --rm -v "${{ github.workspace }}:/src" clamav/clamav clamscan -r  /src/manufacturing-ai-suite/industrial-edge-insights-multimodal/ > ./reports/clamav-multimodal-report.txt || true
+          docker run --rm -v "${{ github.workspace }}:/src" clamav/clamav clamscan -r  /src/industrial-edge-insights-multimodal/ > ./reports/clamav-multimodal-report.txt || true
           echo "Please find full report in clamav-multimodal-report.txt" >> $GITHUB_STEP_SUMMARY
         fi
     - name: Upload Scan Reports
@@ -665,7 +665,7 @@ jobs:
       - name: Deploy Time Series Wind Turbine Sample App 
         if: ${{ (inputs.application == 'time-series') || (inputs.application == 'both') }}
         run: |
-          cd manufacturing-ai-suite/industrial-edge-insights-time-series/
+          cd industrial-edge-insights-time-series/
           make down 
           # Generate random values for sensitive environment variables
           INFLUXDB_USERNAME=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
@@ -685,7 +685,7 @@ jobs:
       - name: DBS download and scan for Time Series Wind Turbine Sample App
         if: ${{ (inputs.application == 'time-series') || (inputs.application == 'both') }}
         run: |
-          cd manufacturing-ai-suite/industrial-edge-insights-time-series/
+          cd industrial-edge-insights-time-series/
           docker run --rm --net host --pid host --userns host --cap-add audit_control \
           -e DOCKER_CONTENT_TRUST=$DOCKER_CONTENT_TRUST \
           -v /etc:/etc:ro \
@@ -700,7 +700,7 @@ jobs:
       - name: Undeploy Time Series Analytics microservice
         if: ${{ (inputs.application == 'time-series') || (inputs.application == 'both') }}
         run: |
-          cd manufacturing-ai-suite/industrial-edge-insights-time-series/
+          cd industrial-edge-insights-time-series/
           make down
           
       - name: Upload Scan artifact to Github
@@ -708,12 +708,12 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f #v6.0.0
         with:
           name: DBS_time-series-analytics
-          path:  manufacturing-ai-suite/industrial-edge-insights-time-series/dbs_scan_*
+          path:  industrial-edge-insights-time-series/dbs_scan_*
 
       - name: Deploy Multimodal Weld Defect Detection Sample App
         if: ${{ (inputs.application == 'multimodal') || (inputs.application == 'both') }}
         run: |
-          cd manufacturing-ai-suite/industrial-edge-insights-multimodal/
+          cd industrial-edge-insights-multimodal/
           make down 
           # Generate random values for sensitive environment variables
           INFLUXDB_USERNAME=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
@@ -743,7 +743,7 @@ jobs:
       - name: DBS download and scan for Multimodal Weld Defect Detection Sample App
         if: ${{ (inputs.application == 'multimodal') || (inputs.application == 'both') }}
         run: |
-          cd manufacturing-ai-suite/industrial-edge-insights-multimodal/
+          cd industrial-edge-insights-multimodal/
           docker run --rm --net host --pid host --userns host --cap-add audit_control \
           -e DOCKER_CONTENT_TRUST=$DOCKER_CONTENT_TRUST \
           -v /etc:/etc:ro \
@@ -758,7 +758,7 @@ jobs:
       - name: Undeploy Multimodal Weld Defect Detection Sample App
         if: ${{ (inputs.application == 'multimodal') || (inputs.application == 'both') }}
         run: |
-          cd manufacturing-ai-suite/industrial-edge-insights-multimodal/
+          cd industrial-edge-insights-multimodal/
           make down
 
       - name: Upload Scan artifact to Github
@@ -766,7 +766,7 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f #v6.0.0
         with:
           name: DBS_multimodal_weld_defect_detection
-          path:  manufacturing-ai-suite/industrial-edge-insights-multimodal/dbs_scan_*
+          path:  industrial-edge-insights-multimodal/dbs_scan_*
 
   codeql-timeseries-job:
     name: CodeQL Scan - Time Series Python
@@ -800,7 +800,7 @@ jobs:
           mkdir -p results-timeseries
           codeql database create results-timeseries/codeql-db \
             --language=python \
-            --source-root=manufacturing-ai-suite/industrial-edge-insights-time-series \
+            --source-root=industrial-edge-insights-time-series \
             --build-mode=none \
             --overwrite
 
@@ -894,7 +894,7 @@ jobs:
           mkdir -p results-multimodal
           codeql database create results-multimodal/codeql-db \
             --language=python \
-            --source-root=manufacturing-ai-suite/industrial-edge-insights-multimodal \
+            --source-root=industrial-edge-insights-multimodal \
             --build-mode=none \
             --overwrite
 
@@ -983,10 +983,10 @@ jobs:
           APPLICATION: ${{ inputs.application }}
         run: |
           if [[ "$APPLICATION" == "time-series" || "$APPLICATION" == "both" ]]; then
-            pylint manufacturing-ai-suite/industrial-edge-insights-time-series/ > manufacturing-ai-suite/industrial-edge-insights-time-series/pylint-report.txt 2>&1 || true
+            pylint industrial-edge-insights-time-series/ > industrial-edge-insights-time-series/pylint-report.txt 2>&1 || true
           fi
           if [[ "$APPLICATION" == "multimodal" || "$APPLICATION" == "both" ]]; then
-            pylint manufacturing-ai-suite/industrial-edge-insights-multimodal/ > manufacturing-ai-suite/industrial-edge-insights-multimodal/pylint-report.txt 2>&1 || true
+            pylint industrial-edge-insights-multimodal/ > industrial-edge-insights-multimodal/pylint-report.txt 2>&1 || true
           fi
 
       - name: Upload Pylint reports
@@ -994,8 +994,8 @@ jobs:
         with:
           name: pylint-reports
           path: |
-            manufacturing-ai-suite/industrial-edge-insights-time-series/pylint-report.txt
-            manufacturing-ai-suite/industrial-edge-insights-multimodal/pylint-report.txt
+            industrial-edge-insights-time-series/pylint-report.txt
+            industrial-edge-insights-multimodal/pylint-report.txt
 
   shellcheck-scan:
     name: Run ShellCheck Scan
@@ -1020,11 +1020,11 @@ jobs:
         run: |
           mkdir -p reports
           if [[ "$APPLICATION" == "time-series" || "$APPLICATION" == "both" ]]; then
-            shellcheck --format=json $(find manufacturing-ai-suite/industrial-edge-insights-time-series -name "*.sh") \
+            shellcheck --format=json $(find industrial-edge-insights-time-series -name "*.sh") \
               > reports/shellcheck-timeseries-report.json || true
           fi
           if [[ "$APPLICATION" == "multimodal" || "$APPLICATION" == "both" ]]; then
-            shellcheck --format=json $(find manufacturing-ai-suite/industrial-edge-insights-multimodal -name "*.sh") \
+            shellcheck --format=json $(find industrial-edge-insights-multimodal -name "*.sh") \
               > reports/shellcheck-multimodal-report.json || true
           fi
 

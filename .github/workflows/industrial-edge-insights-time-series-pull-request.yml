@@ -8,8 +8,8 @@ run-name: "[Industrial Edge Insights Time Series and Multimodal] PR workflow (by
 on:
   pull_request:
     paths:
-      - 'manufacturing-ai-suite/industrial-edge-insights-time-series/**'
-      - 'manufacturing-ai-suite/industrial-edge-insights-multimodal/**'
+      - 'industrial-edge-insights-time-series/**'
+      - 'industrial-edge-insights-multimodal/**'
   workflow_call:
   workflow_dispatch:
 
@@ -52,7 +52,7 @@ jobs:
           persist-credentials: false
     - name: Building Time Series Sample App
       run: |
-        cd ./timeseries/manufacturing-ai-suite/industrial-edge-insights-time-series
+        cd ./timeseries/industrial-edge-insights-time-series
         make down 
         # Generate random values for sensitive environment variables
         INFLUXDB_USERNAME=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
@@ -71,7 +71,7 @@ jobs:
     - name: Deploying Wind Turbine Anomaly Detection Sample App
       run: |
         cd "${{ github.workspace }}"
-        cd ./timeseries/manufacturing-ai-suite/industrial-edge-insights-time-series
+        cd ./timeseries/industrial-edge-insights-time-series
         echo "Deploying Wind Turbine Anomaly Detection Sample App"
         echo "Deploying using mqtt ingestion"
         make up_mqtt_ingestion app=wind-turbine-anomaly-detection
@@ -112,12 +112,12 @@ jobs:
     - name: Undeploying Wind Turbine Anomaly Detection Sample App
       run: |
         cd "${{ github.workspace }}"
-        cd ./timeseries/manufacturing-ai-suite/industrial-edge-insights-time-series
+        cd ./timeseries/industrial-edge-insights-time-series
         make down
 
     - name: Building Multimodal Sample App
       run: |
-        cd ./timeseries/manufacturing-ai-suite/industrial-edge-insights-multimodal
+        cd ./timeseries/industrial-edge-insights-multimodal
         make down 
         # Generate random values for sensitive environment variables
         INFLUXDB_USERNAME=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
@@ -146,13 +146,13 @@ jobs:
     - name: Deploying Multimodal Weld Defect Detection Sample App
       run: |
         cd "${{ github.workspace }}"
-        cd ./timeseries/manufacturing-ai-suite/industrial-edge-insights-multimodal
+        cd ./timeseries/industrial-edge-insights-multimodal
         echo "Deploying Multimodal Weld Defect Detection Sample App"
         make up
     - name: Undeploying Multimodal Weld Defect Detection Sample App
       run: |
         cd "${{ github.workspace }}"
-        cd ./timeseries/manufacturing-ai-suite/industrial-edge-insights-multimodal
+        cd ./timeseries/industrial-edge-insights-multimodal
         make down
 
   industrial-edge-insights-time-series-scans:

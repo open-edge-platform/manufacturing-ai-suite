@@ -177,8 +177,8 @@ jobs:
           # falls back to the undated ${IMAGE_SUFFIX} tag instead of the requested
           # weekly build, so it must be kept in sync with the workflow input.
           for env_file in \
-            "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-time-series/.env" \
-            "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-multimodal/.env"; do
+            "${{ github.workspace }}/industrial-edge-insights-time-series/.env" \
+            "${{ github.workspace }}/industrial-edge-insights-multimodal/.env"; do
             if [[ -f "$env_file" ]]; then
               sed -i "s/^WEEKLY_BUILD_DATE=.*/WEEKLY_BUILD_DATE=${WEEKLY_BUILD_DATE_INPUT}/" "$env_file"
               echo "Updated $env_file -> WEEKLY_BUILD_DATE=${WEEKLY_BUILD_DATE_INPUT}"
@@ -221,21 +221,21 @@ jobs:
       - name: Building Multimodal Sample App images
         if: ${{ (env.BUILD_NORMALIZED || 'yes') == 'yes' }}
         run: |
-          cd "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-multimodal/"
+          cd "${{ github.workspace }}/industrial-edge-insights-multimodal/"
           make down
           make build
 
       - name: Generate Helm charts for Multimodal Sample App
         if: ${{ (env.BUILD_NORMALIZED || 'yes') == 'yes' }}
         run: |
-          cd "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-multimodal/"
+          cd "${{ github.workspace }}/industrial-edge-insights-multimodal/"
           echo "Generating Helm charts for multimodal..."
           make gen_helm_charts
 
       - name: Building Time Series Sample App images
         if: ${{ (env.BUILD_NORMALIZED || 'yes') == 'yes' }}
         run: |
-          cd "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-time-series/"
+          cd "${{ github.workspace }}/industrial-edge-insights-time-series/"
           make down
           make build
 
@@ -244,7 +244,7 @@ jobs:
         env:
           TESTS: ${{ inputs.tests || env.DEFAULT_TESTS }}
         run: |
-          cd "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-time-series/"
+          cd "${{ github.workspace }}/industrial-edge-insights-time-series/"
 
           if echo "$TESTS" | grep -qwE "all-tests|timeseries-all|timeseries-functional|test_helm_deployment_wind_turbine|test_helm_influxdb_retention|test_docker_helm_deployment_security|test_GPU_helm"; then
             echo "Generating Helm chart package for wind-turbine-anomaly-detection..."
@@ -280,28 +280,28 @@ jobs:
 
           if echo "$TESTS" | grep -qwE "all-tests|timeseries-all|timeseries-functional|test_helm_deployment_wind_turbine|test_helm_influxdb_retention|test_docker_helm_deployment_security|test_GPU_helm"; then
             TS_IMAGE_SUFFIX=$(grep 'image_suffix:' \
-              "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-time-series/helm/values.yaml" \
+              "${{ github.workspace }}/industrial-edge-insights-time-series/helm/values.yaml" \
               | head -1 | awk -F'"' '{print $2}')
             TS_CHART_VERSION="${TS_IMAGE_SUFFIX}-${WEEKLY_BUILD_DATE_INPUT}-weekly"
             echo "Time Series Helm chart pull: image_suffix=$TS_IMAGE_SUFFIX chart_version=$TS_CHART_VERSION"
             pull_chart \
               "oci://registry-1.docker.io/intel/wind-turbine-anomaly-detection-sample-app" \
               "$TS_CHART_VERSION" \
-              "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-time-series/helm-packages"
+              "${{ github.workspace }}/industrial-edge-insights-time-series/helm-packages"
           else
             echo "No Time Series Helm tests selected, skipping Time Series chart pull"
           fi
 
           if echo "$TESTS" | grep -qwE "all-tests|multimodal-all|test_helm_deployment_multimodal|test_GPU_helm_multimodal|test_NPU_helm_multimodal"; then
             MM_IMAGE_SUFFIX=$(grep 'image_suffix:' \
-              "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-multimodal/helm/values.yaml" \
+              "${{ github.workspace }}/industrial-edge-insights-multimodal/helm/values.yaml" \
               | head -1 | awk -F'"' '{print $2}')
             MM_CHART_VERSION="${MM_IMAGE_SUFFIX}-${WEEKLY_BUILD_DATE_INPUT}-weekly"
             echo "Multimodal Helm chart pull: image_suffix=$MM_IMAGE_SUFFIX chart_version=$MM_CHART_VERSION"
             pull_chart \
               "oci://registry-1.docker.io/intel/multimodal-weld-defect-detection-sample-app" \
               "$MM_CHART_VERSION" \
-              "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-multimodal/helm-packages"
+              "${{ github.workspace }}/industrial-edge-insights-multimodal/helm-packages"
           else
             echo "No Multimodal Helm tests selected, skipping Multimodal chart pull"
           fi
@@ -361,7 +361,7 @@ jobs:
 
           # Clean up any leftover docker resources
           echo "Cleaning up docker resources..."
-          cd "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-time-series/"
+          cd "${{ github.workspace }}/industrial-edge-insights-time-series/"
           make down 2>/dev/null || true
 
           # Give cluster time to stabilize
@@ -421,7 +421,7 @@ jobs:
             exit 0
           fi
 
-          cd "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-time-series/tests/functional"
+          cd "${{ github.workspace }}/industrial-edge-insights-time-series/tests/functional"
           echo "Running Time Series Wind and Weld functional tests"
           python3 -m venv env
           source env/bin/activate
@@ -605,7 +605,7 @@ jobs:
           fi
 
           echo "Cleaning up docker resources..."
-          cd "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-time-series/"
+          cd "${{ github.workspace }}/industrial-edge-insights-time-series/"
           make down 2>/dev/null || true
 
           echo "Waiting for cluster to stabilize..."
@@ -651,7 +651,7 @@ jobs:
             exit 0
           fi
 
-          cd "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-time-series/tests/functional"
+          cd "${{ github.workspace }}/industrial-edge-insights-time-series/tests/functional"
           echo "Running Security functional tests"
           python3 -m venv env
           source env/bin/activate
@@ -818,9 +818,9 @@ jobs:
 
           # Clean up any leftover docker resources from prior segments
           echo "Cleaning up docker resources..."
-          cd "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-time-series/"
+          cd "${{ github.workspace }}/industrial-edge-insights-time-series/"
           make down 2>/dev/null || true
-          cd "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-multimodal/"
+          cd "${{ github.workspace }}/industrial-edge-insights-multimodal/"
           make down 2>/dev/null || true
 
           # Give cluster time to stabilize
@@ -879,7 +879,7 @@ jobs:
             exit 0
           fi
 
-          cd "${{ github.workspace }}/manufacturing-ai-suite/industrial-edge-insights-multimodal/tests/functional"
+          cd "${{ github.workspace }}/industrial-edge-insights-multimodal/tests/functional"
           echo "Running Multimodal Weld Defect Detection Sample Apps functional tests"
           python3 -m venv env
           source env/bin/activate
