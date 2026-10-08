@@ -1,7 +1,6 @@
+# Manufacturing AI Suite Contributor Guide
 
-# Manufacturing-AI-Suite Contributor Guide
-
-The following are guidelines for contributing to the Manufacturing-AI-Suite project, including the code of conduct, submitting issues, and contributing code.
+The following are guidelines for contributing to the Manufacturing AI Suite, including the code of conduct, submitting issues, and contributing code.
 
 ## Table of Contents
 
@@ -41,7 +40,7 @@ article.
 
 ### Contribute Code Changes
 
-If you want to help improve Manufacturing-AI-Suite, choose one of the issues reported in [`GitHub Issues`](https://github.com/open-edge-platform/manufacturing-ai-suite/issues) and create a [`Pull Request`](https://github.com/open-edge-platform/manufacturing-ai-suite/pulls) to address it.
+If you want to help improve the Manufacturing AI Suite, choose one of the issues reported in [`GitHub Issues`](https://github.com/open-edge-platform/manufacturing-ai-suite/issues) and create a [`Pull Request`](https://github.com/open-edge-platform/manufacturing-ai-suite/pulls) to address it.
 
 > [!NOTE]
 > Please check that the change has not been implemented before you start working on it.
