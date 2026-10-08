@@ -97,7 +97,7 @@ If you prefer to run the tests in a virtual environment, please follow these ste
    # Expected output
    ============================================================================================== test session starts ==============================================================================================
    platform linux -- Python 3.10.12, pytest-8.1.1, pluggy-1.6.0
-   rootdir: /home/user/edge-ai-suites/edge-ai-suites/manufacturing-ai-suite/hmi-augmented-worker/tests
+   rootdir: /home/user/manufacturing-ai-suite/hmi-augmented-worker/tests
    collected 12 items
 
    test_file_watcher.py ............                                                                                                                                                                         [100%]
@@ -112,9 +112,9 @@ If you prefer to run the tests in a virtual environment, please follow these ste
 
    # Expected output with --verbose:
    ============================================================================================== test session starts ==============================================================================================
-   platform linux -- Python 3.10.12, pytest-8.1.1, pluggy-1.6.0 -- /home/user/edge-ai-suites/edge-ai-suites/manufacturing-ai-suite/hmi-augmented-worker/tests/venv/bin/python
+   platform linux -- Python 3.10.12, pytest-8.1.1, pluggy-1.6.0 -- /home/user/manufacturing-ai-suite/hmi-augmented-worker/tests/venv/bin/python
    cachedir: .pytest_cache
-   rootdir: /home/user/edge-ai-suites/edge-ai-suites/manufacturing-ai-suite/hmi-augmented-worker/tests
+   rootdir: /home/user/manufacturing-ai-suite/hmi-augmented-worker/tests
    collected 12 items
 
    test_file_watcher.py::test_send_file_to_api_success PASSED                                                                                                                                                [  8%]

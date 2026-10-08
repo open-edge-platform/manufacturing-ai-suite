@@ -15,7 +15,7 @@ optimal stream density and performance characteristics.
 
 ### Benchmark Script Usage
 
-Navigate to the `[WORKDIR]/edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision` directory and use the benchmark script:
+Navigate to the `[WORKDIR]/manufacturing-ai-suite/industrial-edge-insights-vision` directory and use the benchmark script:
 
 ```bash
 ./calc_stream_density.sh -p <pipeline_name> [-t <target_fps>] [-i <interval>]

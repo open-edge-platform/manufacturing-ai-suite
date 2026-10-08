@@ -78,7 +78,7 @@ cd manufacturing-ai-suite/industrial-edge-insights-time-series
 >   as per the rules called out in `.env` file.
 > - The sample app is deployed by pulling the pre-built container images of the sample app
 >   from the docker hub OR from the internal container registry (login to the docker registry from cli and configure `DOCKER_REGISTRY`
->   env variable in `.env` file at `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series`)
+>   env variable in `.env` file at `manufacturing-ai-suite/industrial-edge-insights-time-series`)
 > - The `CONTINUOUS_SIMULATOR_INGESTION` variable in the `.env` file (for Docker Compose) and in `helm/values.yaml` (for Helm deployments)
 >   is set to `true` by default, enabling continuous looping of simulator data. To ingest the simulator data only once (without looping),
 >   set this variable to `false`.

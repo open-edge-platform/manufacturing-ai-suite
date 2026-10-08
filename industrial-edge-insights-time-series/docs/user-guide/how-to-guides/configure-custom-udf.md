@@ -61,9 +61,9 @@ This guide provides instructions for setting up a custom UDF deployment package 
 > [!NOTE]
 > Follow the [Get started](../get-started.md) guide to deploy the `Wind Turbine Anomaly Detection` sample app.
 
-The UDF deployment package (UDFs, TICKscripts, models) and `config.json` for each sample app are uploaded into the Time Series Analytics Microservice container via `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/Makefile`:
+The UDF deployment package (UDFs, TICKscripts, models) and `config.json` for each sample app are uploaded into the Time Series Analytics Microservice container via `manufacturing-ai-suite/industrial-edge-insights-time-series/Makefile`:
 
-- **Wind Turbine Anomaly Detection**: `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config`
+- **Wind Turbine Anomaly Detection**: `manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config`
 
 To apply changes to the UDF deployment package or `config.json`, update the files at the relevant path above, then follow the steps below to upload the updated package:
 

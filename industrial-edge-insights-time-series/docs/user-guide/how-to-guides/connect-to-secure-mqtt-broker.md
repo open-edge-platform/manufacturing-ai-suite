@@ -75,7 +75,7 @@ cd ..
 
 ## Step 2: Configure Docker Services
 
-Make the below changes to the `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/docker-compose.yml` file.
+Make the below changes to the `manufacturing-ai-suite/industrial-edge-insights-time-series/docker-compose.yml` file.
 
 ### Update docker-compose.yml
 
@@ -151,7 +151,7 @@ ia-mqtt-publisher:
 ### 3.1 Update Telegraf Configuration
 
 Edit your Telegraf configuration file:
-`edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/<sample_app>/telegraf-config/Telegraf.conf`
+`manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/telegraf-config/Telegraf.conf`
 
 ```toml
 [[inputs.mqtt_consumer]]
@@ -185,7 +185,7 @@ Edit the `kapacitor.conf` file:
   ssl-ca = "/run/secrets/ca_certificate.pem"
 ```
 
-Then mount this file in your `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/docker-compose.yml`:
+Then mount this file in your `manufacturing-ai-suite/industrial-edge-insights-time-series/docker-compose.yml`:
 
 ```yaml
 ia-time-series-analytics-microservice:
@@ -197,7 +197,7 @@ ia-time-series-analytics-microservice:
 ### 3.3 Update Sample app configuration
 
 Edit your sample app config file:
-`edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/<sample_app>/time-series-analytics-config/config.json`
+`manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json`
 
 ```json
 {
@@ -212,6 +212,7 @@ Edit your sample app config file:
 ```
 
 **Replace:**
+
 - `YOUR_MQTT_BROKER_IP` with your broker's IP or hostname
 - `MQTT_PORT` with your broker's TLS port
 
@@ -219,7 +220,7 @@ Edit your sample app config file:
 
 ### For Mosquitto Broker
 
-If you're using Mosquitto as your external broker, configure it to use the certificates:
+If you are using Mosquitto as your external broker, configure it to use the certificates:
 
 ```
 # /etc/mosquitto/mosquitto.conf
@@ -236,6 +237,7 @@ allow_anonymous true
 ```
 
 Copy certificates to your MQTT broker:
+
 ```bash
 # On your MQTT broker server
 sudo mkdir -p /etc/mosquitto/certs

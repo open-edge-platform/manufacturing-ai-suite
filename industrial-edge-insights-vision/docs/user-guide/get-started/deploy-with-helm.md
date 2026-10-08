@@ -108,7 +108,7 @@ configured Kubernetes cluster.
 
    > [!NOTE]
    > Download the Helm chart if you are not using the Helm chart provided in
-   > `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision/helm`
+   > `manufacturing-ai-suite/industrial-edge-insights-vision/helm`
 
      - Download the Helm chart with the following command:
 
