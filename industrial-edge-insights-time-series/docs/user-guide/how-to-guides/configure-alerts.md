@@ -15,7 +15,7 @@ The following MQTT alerts are configured for both `Wind Turbine Anomaly Detectio
 <!--hide_directive:sync: tab1hide_directive-->
 
 [wind-turbine-anomaly-detection/time-series-analytics-config/config.json](
-https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json)
+https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json)
 
 
 <!--hide_directive:::
@@ -31,7 +31,7 @@ Refer to the `alert()` section of each app's TICK script:
 <!--hide_directive:sync: tab1hide_directive-->
 
 [wind-turbine-anomaly-detection/time-series-analytics-config/tick_scripts/windturbine_anomaly_detector.tick](
-https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/tick_scripts/windturbine_anomaly_detector.tick)
+https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/tick_scripts/windturbine_anomaly_detector.tick)
 
 
 <!--hide_directive:::
@@ -59,7 +59,7 @@ docker exec -ti ia-mqtt-broker mosquitto_sub -h localhost -v -t '#' -p 1883
   <!--hide_directive:sync: tab1hide_directive-->
 
   [wind-turbine-anomaly-detection/time-series-analytics-config/tick_scripts/windturbine_anomaly_detector.tick](
-  https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/tick_scripts/windturbine_anomaly_detector.tick)
+  https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/tick_scripts/windturbine_anomaly_detector.tick)
 
   ```bash
   docker exec -ti ia-mqtt-broker mosquitto_sub -h localhost -v -t alerts/wind_turbine -p 1883
@@ -89,7 +89,7 @@ already added, replace this in place of MQTT alert section in the TICK script.
 <!--hide_directive:sync: tab1hide_directive-->
 
 [wind-turbine-anomaly-detection/time-series-analytics-config/tick_scripts/windturbine_anomaly_detector.tick](
-https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/tick_scripts/windturbine_anomaly_detector.tick)
+https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/tick_scripts/windturbine_anomaly_detector.tick)
 
 ```bash
 data0
@@ -110,7 +110,7 @@ data0
 To copy the TICK script and upload the new UDF deployment package, run the following commands:
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection # path relative to git  clone   folder
+cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection # path relative to git  clone   folder
 cd time-series-analytics-config
 export SAMPLE_APP="wind-turbine-anomaly-detection"
 
@@ -125,7 +125,7 @@ curl -X POST https://localhost:3000/ts-api/udfs/package -F "file=@${SAMPLE_APP}.
 #### 3. Configuring OPC-UA Alert in config.json
 
 Make the following REST API call to the Time Series Analytics microservice using
-[`config-opcua.json`](https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config-opcua.json),
+[`config-opcua.json`](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config-opcua.json),
 which replaces the `mqtt` alerts key from `config.json` with the `opcua` key and its specific details:
 
 <!--hide_directive::::{tab-set}
@@ -133,10 +133,10 @@ which replaces the `mqtt` alerts key from `config.json` with the `opcua` key and
 <!--hide_directive:sync: tab1hide_directive-->
 
 [wind-turbine-anomaly-detection/time-series-analytics-config/config.json](
-https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json)
+https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json)
 
 ```sh
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
+cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
 curl -k -X 'POST' \
 'https://localhost:3000/ts-api/config' \
 -H 'accept: application/json' \
@@ -237,7 +237,7 @@ To enable OPC-UA alerts in `Time Series Analytics Microservice`, please follow b
    <!--hide_directive:sync: tab1hide_directive-->
 
    ```sh
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection # path relative to git  clone   folder
+   cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection # path relative to git  clone   folder
    cd time-series-analytics-config
    export SAMPLE_APP="wind-turbine-anomaly-detection"
    rm -f ${SAMPLE_APP}.tar
@@ -252,7 +252,7 @@ To enable OPC-UA alerts in `Time Series Analytics Microservice`, please follow b
 3. Configuring OPC-UA Alert in `config.json`
 
    Make the following REST API call to the Time Series Analytics microservice using
-   [`config-opcua.json`](https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config-opcua.json),
+   [`config-opcua.json`](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config-opcua.json),
    which replaces the `mqtt` alerts key from `config.json` with the `opcua` key and its specific details:
 
    <!--hide_directive::::{tab-set}
@@ -260,10 +260,10 @@ To enable OPC-UA alerts in `Time Series Analytics Microservice`, please follow b
    <!--hide_directive:sync: tab1hide_directive-->
 
    [wind-turbine-anomaly-detection/time-series-analytics-config/config.json](
-   https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json)
+   https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json)
 
    ```sh
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
+   cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
    curl -k -X 'POST' \
    'https://localhost:30001/ts-api/config' \
    -H 'accept: application/json' \

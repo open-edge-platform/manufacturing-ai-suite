@@ -2,10 +2,10 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/edge-ai-suites/tree/main/manufacturing-ai-suite/industrial-edge-insights-vision/win-vision-ai">
+  <a class="icon_github" href="https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/industrial-edge-insights-vision/win-vision-ai">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/industrial-edge-insights-vision/win-vision-ai/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-vision/win-vision-ai/README.md">
      Readme
   </a>
 </div>

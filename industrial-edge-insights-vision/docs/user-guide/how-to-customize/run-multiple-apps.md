@@ -22,8 +22,8 @@ This tutorial demonstrates how to simultaneously deploy and manage multiple indu
 1. Clone the **edge-ai-suites** repository and navigate to the `industrial-edge-insights-vision` directory:
 
    ```bash
-   git clone https://github.com/open-edge-platform/edge-ai-suites.git -b main
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision/
+   git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b main
+   cd industrial-edge-insights-vision/
    ```
 
 2. Create a `config.yml` file to define your application instances and their unique port configurations. Add the following sample contents and save.

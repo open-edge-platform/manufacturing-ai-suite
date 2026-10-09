@@ -31,7 +31,7 @@ This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Q
 2. Go to the root folder of the multimodal sample app:
 
    ```bash
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+   cd industrial-edge-insights-multimodal
    ```
 
 3. Download the model and adapter:
@@ -63,7 +63,7 @@ This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Q
 1. Run the Makefile target:
 
    ```bash
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+   cd industrial-edge-insights-multimodal
    make up_vllm
    ```
 
@@ -71,7 +71,7 @@ This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Q
    following for a fresh build before deployment:
 
    ```bash
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+   cd industrial-edge-insights-multimodal
    make build
    make up_vllm
    ```
@@ -87,7 +87,7 @@ This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Q
    > `user token not found` and other minor errors in the Grafana logs.
 
    ```bash
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+   cd industrial-edge-insights-multimodal
    make status
    ```
 
@@ -128,7 +128,7 @@ This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Q
 To bring down the full stack:
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+cd industrial-edge-insights-multimodal
 make down
 ```
 

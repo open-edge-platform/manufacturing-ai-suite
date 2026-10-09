@@ -27,7 +27,7 @@ If you prefer to run the tests in a virtual environment, please follow these ste
    Clone the repository to your local machine or download the source code as a ZIP file directly from the [repository](https://github.com/open-edge-platform/edge-ai-suites):
 
    ```bash
-   git clone https://github.com/open-edge-platform/edge-ai-suites.git edge-ai-suites -b main
+   git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b main
    ```
 
 2. **Create a Virtual Environment**
@@ -65,7 +65,7 @@ If you prefer to run the tests in a virtual environment, please follow these ste
     - On Windows:
       ```bash
       # Navigate to the test folder
-      cd edge-ai-suites\manufacturing-ai-suite\hmi-augmented-worker\tests
+      cd manufacturing-ai-suite\hmi-augmented-worker\tests
 
       # Install the packages
       pip install -r requirements_dev.txt --no-cache-dir
@@ -81,7 +81,7 @@ If you prefer to run the tests in a virtual environment, please follow these ste
     - On Linux:
       ```bash
       # Navigate to the test folder
-      cd edge-ai-suites/manufacturing-ai-suite/hmi-augmented-worker/tests
+      cd hmi-augmented-worker/tests
 
       # Install the packages
       pip install -r requirements_dev.txt --no-cache-dir

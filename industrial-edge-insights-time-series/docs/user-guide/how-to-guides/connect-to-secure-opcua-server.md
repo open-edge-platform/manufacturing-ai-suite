@@ -10,7 +10,7 @@ Follow the below steps to generate the required certificates:
 
 ```bash
 # Navigate to the application directory
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series
+cd industrial-edge-insights-time-series
 
 # Load environment variables
 source ./.env

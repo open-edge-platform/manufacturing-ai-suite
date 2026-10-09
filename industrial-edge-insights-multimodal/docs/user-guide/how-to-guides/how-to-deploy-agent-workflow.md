@@ -47,14 +47,14 @@ Run the full agentic stack (downloads the LLM model first, then starts all conta
 > - Supported devices for Agentic Workflow are : `CPU`, `GPU`
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+cd industrial-edge-insights-multimodal
 make up_agentic
 ```
 
 For a fresh build before deployment:
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+cd industrial-edge-insights-multimodal
 make build
 make up_agentic
 ```
@@ -132,7 +132,7 @@ Agent reasoning prompts are in `configs/agentic/prompts/weld-quality-monitoring.
 1. Check overall stack health:
 
    ```bash
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+   cd industrial-edge-insights-multimodal
    make status
    ```
 
@@ -160,6 +160,6 @@ Agent reasoning prompts are in `configs/agentic/prompts/weld-quality-monitoring.
 ## Stop the Stack
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+cd industrial-edge-insights-multimodal
 make down
 ```
