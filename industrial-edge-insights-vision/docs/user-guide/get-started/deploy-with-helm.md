@@ -74,7 +74,7 @@ configured Kubernetes cluster.
 > [!NOTE]
 > The following instructions assume Kubernetes is already running in the host system with Helm package manager installed.
 
-1. Clone the **edge-ai-suites** repository and change into industrial-edge-insights-vision directory. The directory contains the utility scripts required in the instructions that follow.
+1. Clone the **manufacturing-ai-suite** repository and change into industrial-edge-insights-vision directory. The directory contains the utility scripts required in the instructions that follow.
 
    ```sh
    git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b main
