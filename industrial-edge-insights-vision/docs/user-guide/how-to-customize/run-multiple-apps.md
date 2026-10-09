@@ -19,7 +19,7 @@ This tutorial demonstrates how to simultaneously deploy and manage multiple indu
 
 ## Set up the Applications
 
-1. Clone the **edge-ai-suites** repository and navigate to the `industrial-edge-insights-vision` directory:
+1. Clone the **manufacturing-ai-suite** repository and navigate to the `industrial-edge-insights-vision` directory:
 
    ```bash
    git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b main
