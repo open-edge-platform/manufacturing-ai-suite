@@ -29,7 +29,6 @@ You can either generate or download the Helm charts.
      helm pull oci://registry-1.docker.io/intel/multimodal-weld-defect-detection-sample-app --version 2026.3.0-<date>-weekly
      ```
 
-
   2. Unzip the package using the following command:
 
      ```bash
@@ -104,11 +103,11 @@ kubectl get all -n multimodal-sample-app
 
 ## Step 4: Copy the UDF package for Helm deployment
 
-**DL Streamer Pipeline Server**
+**DL Streamer Pipeline Server**:
 
 To copy your own or existing model into DL Streamer Pipeline Server in order to run this sample application in Kubernetes environment:
 
-The model package is available in the repository at `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server/`.
+The model package is available in the repository at `manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server/`.
 
 Copy the resources such as video and model from local directory to the to the
 `dlstreamer-pipeline-server` pod to make them available for application while launching pipelines.
@@ -121,12 +120,12 @@ POD_NAME=$(kubectl get pods -n multimodal-sample-app -o jsonpath='{.items[*].met
 kubectl cp models $POD_NAME:/home/pipeline-server/resources/ -c dlstreamer-pipeline-server -n multimodal-sample-app
 ```
 
-**Time Series Analytics Microservice**
+**Time Series Analytics Microservice**:
 
 To copy your own or existing model into Time Series Analytics Microservice in order to run
 this sample application in Kubernetes environment:
 
-1. The following udf package is placed in the repository under `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/time-series-analytics-microservice`.
+1. The following udf package is placed in the repository under `manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/time-series-analytics-microservice`.
 
    ```text
    - time-series-analytics-microservice/
@@ -154,7 +153,7 @@ this sample application in Kubernetes environment:
 
 ## Step 5: Activate the Pipeline and UDF Deployment Package
 
-**DL Streamer Pipeline Server**
+**DL Streamer Pipeline Server**:
 
 You use a Client URL (cURL) command to start the pipeline. Start this pipeline with the
 following cURL command.
@@ -212,7 +211,7 @@ following cURL command.
     -d "$(sed 's/"device": "CPU"/"device": "NPU"/' pipeline-request-cpu.json)"
   ```
 
-**Time Series Analytics Microservice**
+**Time Series Analytics Microservice**:
 
 By default, UDF inference runs on `CPU`.
 To activate the UDF deployment package and run UDF inference on `CPU` or `GPU`, use one of the following commands.

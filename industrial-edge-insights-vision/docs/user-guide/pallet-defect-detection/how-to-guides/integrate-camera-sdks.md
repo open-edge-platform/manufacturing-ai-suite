@@ -298,7 +298,7 @@ docker compose up -d
 
 ### Step 7: Modify the Payload File
 
-Edit `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision/apps/pallet-defect-detection/payload.json` and remove the `source` section so that it looks like this.
+Edit `manufacturing-ai-suite/industrial-edge-insights-vision/apps/pallet-defect-detection/payload.json` and remove the `source` section so that it looks like this.
 
 ```json
 [

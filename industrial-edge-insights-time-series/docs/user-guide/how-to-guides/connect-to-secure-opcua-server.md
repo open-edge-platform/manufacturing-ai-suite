@@ -109,7 +109,7 @@ export OPCUA_CLIENT_KEY=client_key.pem
 
 ## Step 2: Configure Docker Services
 
-Make the below changes to the `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/docker-compose.yml` file.
+Make the below changes to the `manufacturing-ai-suite/industrial-edge-insights-time-series/docker-compose.yml` file.
 
 ### Update docker-compose.yml
 
@@ -175,7 +175,7 @@ ia-time-series-analytics-microservice:
 ### 3.1 Update Telegraf Configuration
 
 Edit your Telegraf configuration file:
-`edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/telegraf-config/Telegraf.conf`
+`manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/telegraf-config/Telegraf.conf`
 
 ```toml
 [[inputs.opcua]]
@@ -239,7 +239,7 @@ Edit your Telegraf configuration file:
 ### 3.2 Update Wind Turbine Anomaly Detection Sample app configuration
 
 Edit your sample app config file if you want to send alerts to OPC UA server:
-`edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json`
+`manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json`
 
 ```
 {

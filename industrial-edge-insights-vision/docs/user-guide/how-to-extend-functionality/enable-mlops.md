@@ -40,7 +40,7 @@ hide_directive-->
    > [!NOTE]
    > Ensure that the pipeline inference element, such as gvadetect/gvaclassify/gvainference, does not have a `model-instance-id` property set. If set, this would not allow the new model to be run with the same value provided in the `model-instance-id`.
 
-   Navigate to the `[WORKDIR]/edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision` directory and set up the app.
+   Navigate to the `[WORKDIR]/manufacturing-ai-suite/industrial-edge-insights-vision` directory and set up the app.
 
    <!--hide_directive ::::{tab-set} hide_directive-->
    <!--hide_directive :::{tab-item} hide_directive--> **Pallet Defect Detection**

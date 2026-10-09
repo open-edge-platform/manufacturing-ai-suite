@@ -125,7 +125,7 @@ To install Helm charts, use one of the following options:
 
 To upload your own or existing model into Time Series Analytics Microservice in order to run this sample application in Kubernetes environment:
 
-1. The following udf package is placed in the repository under `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config`.
+1. The following udf package is placed in the repository under `manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config`.
 
    ```text
    - time-series-analytics-config/
