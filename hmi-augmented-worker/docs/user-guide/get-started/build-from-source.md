@@ -101,7 +101,7 @@ To learn more on partial cloning, check the [Repository Cloning guide](https://d
 
 6. Set up Environment Variables using `.bat`.
 
-   To configure the file watcher service, you need to set up the environment variables using the [`set_env_vars.bat`](https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/hmi-augmented-worker/file_watcher/set_env_vars.bat) file provided. Follow the steps below to ensure proper configuration:
+   To configure the file watcher service, you need to set up the environment variables using the [`set_env_vars.bat`](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/hmi-augmented-worker/file_watcher/set_env_vars.bat) file provided. Follow the steps below to ensure proper configuration:
 
    - Open and edit the values for the variables with your corresponding setup.
 
