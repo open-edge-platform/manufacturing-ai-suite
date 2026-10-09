@@ -92,7 +92,7 @@
 
    ```text
    # Example output for Pallet Defect Detection
-   Environment variables loaded from /home/intel/OEP/edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision/.env
+   Environment variables loaded from /home/intel/OEP/manufacturing-ai-suite/industrial-edge-insights-vision/.env
    Running sample app: pallet-defect-detection
    Checking status of dlstreamer-pipeline-server...
    Server reachable. HTTP Status Code: 200
@@ -132,11 +132,11 @@
 
    ```sh
    # Example output for Pallet Defect Detection
-   Environment variables loaded from /home/intel/OEP/edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision/.env
+   Environment variables loaded from /home/intel/OEP/manufacturing-ai-suite/industrial-edge-insights-vision/.env
    Running sample app: pallet-defect-detection
    Checking status of dlstreamer-pipeline-server...
    Server reachable. HTTP Status Code: 200
-   Loading payload from /home/intel/OEP/edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision/helm/apps/pallet-defect-detection/payload.json
+   Loading payload from /home/intel/OEP/manufacturing-ai-suite/industrial-edge-insights-vision/helm/apps/pallet-defect-detection/payload.json
    Payload loaded successfully.
    Starting pipeline: pallet_defect_detection
    Launching pipeline: pallet_defect_detection
@@ -162,7 +162,7 @@
 
    ```text
    # Example output for Pallet Defect Detection
-   Environment variables loaded from /home/intel/OEP/edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision/.env
+   Environment variables loaded from /home/intel/OEP/manufacturing-ai-suite/industrial-edge-insights-vision/.env
    Running sample app: pallet-defect-detection
    [
    {
@@ -189,7 +189,7 @@
    ```text
    # Example output for Pallet Defect Detection
    No pipelines specified. Stopping all pipeline instances
-   Environment variables loaded from /home/intel/OEP/edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision/.env
+   Environment variables loaded from /home/intel/OEP/manufacturing-ai-suite/industrial-edge-insights-vision/.env
    Running sample app: pallet-defect-detection
    Checking status of dlstreamer-pipeline-server...
    Server reachable. HTTP Status Code: 200
