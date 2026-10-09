@@ -29,9 +29,7 @@ If you want to clone a specific release branch, replace `main` with the desired 
 To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
    ```bash
-   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-   cd edge-ai-suites
-   git sparse-checkout set manufacturing-ai-suite
+   git clone --filter=blob:none --branch main https://github.com/open-edge-platform/manufacturing-ai-suite.git
    ```
 
 2. Set up the Virtual Environment with Python venv.
@@ -62,7 +60,7 @@ To learn more on partial cloning, check the [Repository Cloning guide](https://d
 4. Navigate to the Project folder downloaded in Step 1.
 
    ```sh
-   cd edge-ai-suites\manufacturing-ai-suite\hmi-augmented-worker\file_watcher
+   cd manufacturing-ai-suite\hmi-augmented-worker\file_watcher
    ```
 
 5. Install Packages Inside the Virtual Environment.

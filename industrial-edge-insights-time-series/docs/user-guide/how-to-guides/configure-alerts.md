@@ -110,7 +110,7 @@ data0
 To copy the TICK script and upload the new UDF deployment package, run the following commands:
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection # path relative to git  clone   folder
+cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection # path relative to git  clone   folder
 cd time-series-analytics-config
 export SAMPLE_APP="wind-turbine-anomaly-detection"
 
@@ -136,7 +136,7 @@ which replaces the `mqtt` alerts key from `config.json` with the `opcua` key and
 https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json)
 
 ```sh
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
+cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
 curl -k -X 'POST' \
 'https://localhost:3000/ts-api/config' \
 -H 'accept: application/json' \
@@ -237,7 +237,7 @@ To enable OPC-UA alerts in `Time Series Analytics Microservice`, please follow b
    <!--hide_directive:sync: tab1hide_directive-->
 
    ```sh
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection # path relative to git  clone   folder
+   cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection # path relative to git  clone   folder
    cd time-series-analytics-config
    export SAMPLE_APP="wind-turbine-anomaly-detection"
    rm -f ${SAMPLE_APP}.tar
@@ -263,7 +263,7 @@ To enable OPC-UA alerts in `Time Series Analytics Microservice`, please follow b
    https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json)
 
    ```sh
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
+   cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
    curl -k -X 'POST' \
    'https://localhost:30001/ts-api/config' \
    -H 'accept: application/json' \

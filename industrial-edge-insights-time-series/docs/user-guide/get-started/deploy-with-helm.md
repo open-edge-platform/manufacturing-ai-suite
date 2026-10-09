@@ -40,7 +40,7 @@ Choose **one** of the following approaches to get the Helm charts:
 1. Navigate to the source directory:
 
    ```bash
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series  # path relative to git clone folder
+   cd industrial-edge-insights-time-series  # path relative to git clone folder
    ```
 
 2. Generate the charts:
@@ -142,7 +142,7 @@ To upload your own or existing model into Time Series Analytics Microservice in 
 
    ```sh
    export SAMPLE_APP="wind-turbine-anomaly-detection"
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config # path relative to git clone folder
+   cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config # path relative to git clone folder
    rm -f ${SAMPLE_APP}.tar
    tar cf ${SAMPLE_APP}.tar models/ tick_scripts/ udfs/
 
@@ -160,7 +160,7 @@ To upload your own or existing model into Time Series Analytics Microservice in 
 > To activate the UDF inference on GPU, additionally run the following command as a prerequisite before activating the UDF deployment package:
 >
 > ```sh
-> cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
+> cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
 > curl -k -X 'POST' \
 > 'https://localhost:30001/ts-api/config' \
 > -H 'accept: application/json' \
@@ -173,7 +173,7 @@ To upload your own or existing model into Time Series Analytics Microservice in 
 Run the following command to activate the UDF deployment package:
 
 ```sh
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/apps/${SAMPLE_APP}/time-series-analytics-config
+cd industrial-edge-insights-time-series/apps/${SAMPLE_APP}/time-series-analytics-config
 
 curl -s -X POST https://localhost:30001/ts-api/config   -H 'accept: application/json'   -H 'Content-Type: application/json'   -d @config.json   -k
 ```

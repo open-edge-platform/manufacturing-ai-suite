@@ -28,7 +28,7 @@ You can either generate or download the Helm charts.
      ```bash
      helm pull oci://registry-1.docker.io/intel/multimodal-weld-defect-detection-sample-app --version 2026.3.0-<date>-weekly
      ```
-    
+
 
   2. Unzip the package using the following command:
 
@@ -45,7 +45,7 @@ You can either generate or download the Helm charts.
 - To generate the Helm charts:
 
   ```bash
-  cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal # path relative to git clone folder
+  cd industrial-edge-insights-multimodal # path relative to git clone folder
 
   make gen_helm_charts
 
@@ -114,7 +114,7 @@ Copy the resources such as video and model from local directory to the to the
 `dlstreamer-pipeline-server` pod to make them available for application while launching pipelines.
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server/
+cd industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server/
 
 POD_NAME=$(kubectl get pods -n multimodal-sample-app -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep deployment-dlstreamer-pipeline-server | head -n 1)
 
@@ -142,7 +142,7 @@ this sample application in Kubernetes environment:
 2. Upload your new UDF package to the `time-series-analytics-microservice` pod:
 
    ```bash
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/time-series-analytics-microservice # path relative to git clone folder
+   cd industrial-edge-insights-multimodal/configs/time-series-analytics-microservice # path relative to git clone folder
    rm -f weld_anomaly_detector.tar
    tar cf weld_anomaly_detector.tar udfs/ models/ tick_scripts/
 
@@ -168,7 +168,7 @@ following cURL command.
 - To run inference on `CPU` (Default),
 
   ```bash
-  cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server;
+  cd industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server;
 
   # Deletes all existing pipelines before starting a new one
   for id in $(curl -k --location https://localhost:30001/dsps-api/pipelines/status \
@@ -183,7 +183,7 @@ following cURL command.
 - To run inference on `GPU`,
 
   ```bash
-  cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
+  cd industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
 
   # Deletes all existing pipelines before starting a new one
   for id in $(curl -k --location https://localhost:30001/dsps-api/pipelines/status \
@@ -199,7 +199,7 @@ following cURL command.
 - To run inference on `NPU`,
 
   ```bash
-  cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
+  cd industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
 
   # Deletes all existing pipelines before starting a new one
   for id in $(curl -k --location https://localhost:30001/dsps-api/pipelines/status \
@@ -220,7 +220,7 @@ To activate the UDF deployment package and run UDF inference on `CPU` or `GPU`, 
 - CPU
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/time-series-analytics-microservice
+cd industrial-edge-insights-multimodal/configs/time-series-analytics-microservice
 
 curl -s -X POST https://localhost:30001/ts-api/config   -H 'accept: application/json'   -H 'Content-Type: application/json'   -d @config.json   -k
 ```
@@ -228,7 +228,7 @@ curl -s -X POST https://localhost:30001/ts-api/config   -H 'accept: application/
 - GPU
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/time-series-analytics-microservice
+cd industrial-edge-insights-multimodal/configs/time-series-analytics-microservice
 curl -s -X POST https://localhost:30001/ts-api/config \
   -H 'accept: application/json' -H 'Content-Type: application/json' \
   -d "$(sed 's/"device": "CPU"/"device": "GPU"/' config.json)" -k

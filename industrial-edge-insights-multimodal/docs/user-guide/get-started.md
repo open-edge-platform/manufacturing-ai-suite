@@ -59,10 +59,10 @@ If you want to clone a specific release branch, replace `main` with the desired 
 To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
 ```bash
-git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-cd edge-ai-suites
-git sparse-checkout set manufacturing-ai-suite
-cd manufacturing-ai-suite/industrial-edge-insights-multimodal
+git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/manufacturing-ai-suite.git
+cd manufacturing-ai-suite
+git sparse-checkout set industrial-edge-insights-multimodal
+cd industrial-edge-insights-multimodal
 ```
 
 ## Deploy with Docker Compose
@@ -100,7 +100,7 @@ cd manufacturing-ai-suite/industrial-edge-insights-multimodal
    >   This may result in a delay before Fusion Analytics becomes fully operational.
 
    ```bash
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+   cd industrial-edge-insights-multimodal
    make up
    ```
 
@@ -112,7 +112,7 @@ cd manufacturing-ai-suite/industrial-edge-insights-multimodal
    > ignore `user token not found` errors along with other minor errors which may show up in Grafana logs.
 
    ```sh
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+   cd industrial-edge-insights-multimodal
    make status
    ```
 
@@ -123,7 +123,7 @@ By default, UDF for Time Series Analytics Microservice is configured to run on `
 To trigger the UDF inference on `GPU` in Time Series Analytics Microservice, run the following command:
 
 ```sh
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/time-series-analytics-microservice
+cd industrial-edge-insights-multimodal/configs/time-series-analytics-microservice
 curl -k -X 'POST' \
  'https://localhost:3000/ts-api/config' \
  -H 'accept: application/json' \
@@ -139,7 +139,7 @@ To trigger the model inference on `GPU` in DL Streamer Pipeline Server, run the 
 - To run inference on with GPU,
 
   ```sh
-  cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
+  cd industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
 
   for id in $(curl -k --location https://localhost:3000/dsps-api/pipelines/status \
   | grep -oP '"id":\s*"\K[^"]+'); do
@@ -157,7 +157,7 @@ To trigger the model inference on `GPU` in DL Streamer Pipeline Server, run the 
   > Ensure NPU support is available on your platform before running NPU inference.
 
   ```sh
-  cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
+  cd industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
 
   for id in $(curl -k --location https://localhost:3000/dsps-api/pipelines/status \
   | grep -oP '"id":\s*"\K[^"]+'); do
@@ -232,7 +232,7 @@ To trigger the model inference on `GPU` in DL Streamer Pipeline Server, run the 
 ## Bring down the sample app
 
 ```sh
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+cd industrial-edge-insights-multimodal
 make down
 ```
 
