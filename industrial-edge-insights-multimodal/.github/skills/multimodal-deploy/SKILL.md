@@ -32,7 +32,7 @@ files — do not invent Make targets, flags, ports, or env vars. **Run the
 commands yourself and relay actual output**; never fabricate results.
 
 Scope: this skill only applies to
-`manufacturing-ai-suite/industrial-edge-insights-multimodal`. The companion
+`industrial-edge-insights-multimodal`. The companion
 component `industrial-edge-insights-time-series` has its own
 `time-series-deploy` skill — do not mix the two.
 
@@ -48,7 +48,7 @@ component `industrial-edge-insights-time-series` has its own
 
 1. Resolve the app root: walk up from cwd, or ask git
    (`git rev-parse --show-toplevel`) for the enclosing repo and look for
-   `manufacturing-ai-suite/industrial-edge-insights-multimodal/Makefile`.
+   `industrial-edge-insights-multimodal/Makefile`.
    `cd` into that directory before running any command below.
 2. Confirm `.env` exists (copy/adjust from repo conventions if missing — do
    not invent credentials; ask the user for required secrets such as

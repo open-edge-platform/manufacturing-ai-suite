@@ -33,7 +33,7 @@ not invent Make targets, flags, ports, or env vars. **Run the commands
 yourself and relay actual output**; never fabricate results.
 
 Scope: this skill only applies to
-`manufacturing-ai-suite/industrial-edge-insights-time-series`. The companion
+`industrial-edge-insights-time-series`. The companion
 component `industrial-edge-insights-multimodal` has its own
 `multimodal-deploy` skill — do not mix the two.
 
@@ -48,7 +48,7 @@ component `industrial-edge-insights-multimodal` has its own
 
 1. Resolve the app root: walk up from cwd, or ask git
    (`git rev-parse --show-toplevel`) for the enclosing repo and look for
-   `manufacturing-ai-suite/industrial-edge-insights-time-series/Makefile`.
+   `industrial-edge-insights-time-series/Makefile`.
    `cd` into that directory before running any command below.
 2. Confirm `.env` exists and required creds (`INFLUXDB_USERNAME/PASSWORD`,
    `VISUALIZER_GRAFANA_USER/PASSWORD`) are set — ask the user rather than
