@@ -166,7 +166,7 @@ jobs:
       AGENTIC_OVR: DOCKER_COMPOSE_FILE_AGENTIC=./docker-compose-agentic.yml -f ${{ github.workspace }}/agentic-cpu.yml
     defaults:
       run:
-        working-directory: timeseries/manufacturing-ai-suite/industrial-edge-insights-multimodal
+        working-directory: timeseries/industrial-edge-insights-multimodal
     steps:
     - name: Checkout edge-ai-libraries (main)
       uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
