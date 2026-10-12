@@ -141,6 +141,8 @@ jobs:
         sed -i "s/MTX_WEBRTCICESERVERS2_0_PASSWORD=.*/MTX_WEBRTCICESERVERS2_0_PASSWORD=${MTX_WEBRTCICESERVERS2_0_PASSWORD}/g" .env
         sed -i "s/S3_STORAGE_USERNAME=.*/S3_STORAGE_USERNAME=${S3_STORAGE_USERNAME}/g" .env
         sed -i "s/S3_STORAGE_PASSWORD=.*/S3_STORAGE_PASSWORD=${S3_STORAGE_PASSWORD}/g" .env
+        sed -i "s/SEAWEEDFS_WEB_AUTH_USER=.*/SEAWEEDFS_WEB_AUTH_USER=${S3_STORAGE_USERNAME}/g" .env
+        sed -i "s/SEAWEEDFS_WEB_AUTH_PASSWORD=.*/SEAWEEDFS_WEB_AUTH_PASSWORD=${S3_STORAGE_PASSWORD}/g" .env
         sed -i "s/HOST_IP=.*/HOST_IP=${HOST_IP}/g" .env
         make build
     - name: Deploying Multimodal Weld Defect Detection Sample App
