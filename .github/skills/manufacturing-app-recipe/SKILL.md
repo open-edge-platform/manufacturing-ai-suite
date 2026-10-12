@@ -37,9 +37,9 @@ Compose, in one of **five deployment modes** (Question 0 picks the shape):
 vision-only or sensor-only VLM/agentic mode; both require the Fusion
 Analytics correlator from `multimodal` as their foundation, since the thing being
 explained is a **fused** verdict. Follows the open-edge-platform
-[Industrial Edge Insights — Time Series](https://github.com/open-edge-platform/edge-ai-suites/tree/main/manufacturing-ai-suite/industrial-edge-insights-time-series)
+[Industrial Edge Insights — Time Series](https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/industrial-edge-insights-time-series)
 reference (wind-turbine-anomaly-detection sample, `ts` mode) and
-[Industrial Edge Insights — Multimodal](https://github.com/open-edge-platform/edge-ai-suites/tree/main/manufacturing-ai-suite/industrial-edge-insights-multimodal)
+[Industrial Edge Insights — Multimodal](https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/industrial-edge-insights-multimodal)
 reference (weld-defect-detection sample, `multimodal`/`vllm`/`agentic` modes).
 
 ## When to use this skill
@@ -348,9 +348,9 @@ If available, invoke; otherwise write files from the reference templates.
 ## Reference implementation — a template to read, not a folder to clone
 
 The upstream
-[`industrial-edge-insights-time-series/`](https://github.com/open-edge-platform/edge-ai-suites/tree/main/manufacturing-ai-suite/industrial-edge-insights-time-series)
+[`industrial-edge-insights-time-series/`](https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/industrial-edge-insights-time-series)
 wind-turbine-anomaly-detection sample (`ts` mode) and
-[`industrial-edge-insights-multimodal/`](https://github.com/open-edge-platform/edge-ai-suites/tree/main/manufacturing-ai-suite/industrial-edge-insights-multimodal)
+[`industrial-edge-insights-multimodal/`](https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/industrial-edge-insights-multimodal)
 weld-defect-detection sample (`multimodal`/`vllm`/`agentic` modes) are the
 **shape reference** — read them to learn the structure, then **author the
 new stack's files with vertical-specific names and content**; do **not**

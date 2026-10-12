@@ -298,9 +298,9 @@ ignore `*-weekly` pre-releases.
 ## Reference implementation — a template to read, not a folder to clone
 
 The upstream
-[`industrial-edge-insights-time-series/`](https://github.com/open-edge-platform/edge-ai-suites/tree/main/manufacturing-ai-suite/industrial-edge-insights-time-series)
+[`industrial-edge-insights-time-series/`](https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/industrial-edge-insights-time-series)
 wind-turbine-anomaly-detection sample (`ts` mode) and
-[`industrial-edge-insights-multimodal/`](https://github.com/open-edge-platform/edge-ai-suites/tree/main/manufacturing-ai-suite/industrial-edge-insights-multimodal)
+[`industrial-edge-insights-multimodal/`](https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/industrial-edge-insights-multimodal)
 weld-defect-detection sample (`multimodal`/`vllm`/`agentic` modes) are the
 **shape reference** — read them to learn the structure, then **author the
 new stack's files with vertical-specific names and content**. Do **not**
