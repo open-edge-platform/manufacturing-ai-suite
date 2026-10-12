@@ -35,7 +35,7 @@ jobs:
         fi
         docker images --quiet --filter=dangling=true | xargs --no-run-if-empty docker rmi -f
     - name: Checkout edge-ai-libraries (main)
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         repository: open-edge-platform/edge-ai-libraries
         ref: main
@@ -46,7 +46,7 @@ jobs:
         cd ./edge-ai-libraries/microservices/time-series-analytics/docker
         docker compose down -v 
         docker compose build
-    - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
           path: timeseries
           persist-credentials: false
@@ -132,6 +132,8 @@ jobs:
         HOST_IP=$(hostname -I | awk '{print $1}')
         S3_STORAGE_USERNAME=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
         S3_STORAGE_PASSWORD=$(openssl rand -hex 10)
+        SEAWEEDFS_WEB_AUTH_USER=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
+        SEAWEEDFS_WEB_AUTH_PASSWORD=$(openssl rand -hex 10)
 
         sed -i "s/INFLUXDB_USERNAME=.*/INFLUXDB_USERNAME=${INFLUXDB_USERNAME}/g" .env
         sed -i "s/INFLUXDB_PASSWORD=.*/INFLUXDB_PASSWORD=${INFLUXDB_PASSWORD}/g" .env
@@ -141,6 +143,8 @@ jobs:
         sed -i "s/MTX_WEBRTCICESERVERS2_0_PASSWORD=.*/MTX_WEBRTCICESERVERS2_0_PASSWORD=${MTX_WEBRTCICESERVERS2_0_PASSWORD}/g" .env
         sed -i "s/S3_STORAGE_USERNAME=.*/S3_STORAGE_USERNAME=${S3_STORAGE_USERNAME}/g" .env
         sed -i "s/S3_STORAGE_PASSWORD=.*/S3_STORAGE_PASSWORD=${S3_STORAGE_PASSWORD}/g" .env
+        sed -i "s/SEAWEEDFS_WEB_AUTH_USER=.*/SEAWEEDFS_WEB_AUTH_USER=${SEAWEEDFS_WEB_AUTH_USER}/g" .env
+        sed -i "s/SEAWEEDFS_WEB_AUTH_PASSWORD=.*/SEAWEEDFS_WEB_AUTH_PASSWORD=${SEAWEEDFS_WEB_AUTH_PASSWORD}/g" .env
         sed -i "s/HOST_IP=.*/HOST_IP=${HOST_IP}/g" .env
         make build
     - name: Deploying Multimodal Weld Defect Detection Sample App
