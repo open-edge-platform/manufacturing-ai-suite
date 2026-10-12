@@ -155,7 +155,7 @@ jobs:
         cd ./timeseries/industrial-edge-insights-multimodal
         make down
 
-    industrial-edge-insights-multimodal-vllm-agentic-cpu:
+  industrial-edge-insights-multimodal-vllm-agentic-cpu:
     permissions:
       contents: read
       packages: read
