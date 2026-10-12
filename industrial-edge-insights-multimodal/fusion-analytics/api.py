@@ -12,10 +12,9 @@ stored in InfluxDB. Separated from the MQTT fusion loop for clarity.
 """
 
 import os
+import re
 import time
 import logging
-import json
-from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from fastapi.responses import PlainTextResponse
@@ -27,20 +26,7 @@ APM_API_KEY = os.getenv("APM_API_KEY", "")
 API_PORT = int(os.getenv("API_PORT", "8080"))
 FUSION_MEASUREMENT = "fusion_result"
 
-_PROJECT_PATH = Path(__file__).with_name("project.json")
-if not _PROJECT_PATH.exists():
-    _PROJECT_PATH = Path(__file__).resolve().parents[1] / "configs/dlstreamer-pipeline-server/models/weld-defect-classification-f16-DeiT/deployment/project.json"
-
-with _PROJECT_PATH.open(encoding="utf-8") as project_file:
-    _project = json.load(project_file)
-
-DETECTION_LABELS = tuple(
-    label["name"]
-    for task in _project["pipeline"]["tasks"]
-    if task["task_type"] == "classification"
-    for label in task.get("labels", [])
-    if not label.get("is_empty", False)
-)
+_SAFE_LABEL_RE = re.compile(r"^[A-Za-z0-9_\-\. ]+$")
 
 _api_start_time = time.time()
 _api_request_count = 0
@@ -72,12 +58,12 @@ def require_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Ke
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
-def _influx_points(query: str) -> list:
+def _influx_points(query: str, bind_params: dict | None = None) -> list:
     """Execute an InfluxQL query and return results as a list of dicts."""
     if _influx_client is None:
         raise HTTPException(status_code=503, detail="InfluxDB client not initialized")
     try:
-        result = _influx_client.query(query)
+        result = _influx_client.query(query, bind_params=bind_params)
         data = []
         for (measurement, tags), points in result.items():
             fc = (tags or {}).get("fusion_classification", "UNKNOWN")
@@ -117,12 +103,14 @@ def get_detections(
     global _api_request_count
     _api_request_count += 1
 
-    logger.info(f"Detections request: label={label}, min_confidence={min_confidence}, min_id={min_id}, max_id={max_id}, limit={limit}")
+    logger.info("Detections request: label=%r, min_confidence=%s, min_id=%s, max_id=%s, limit=%s", label, min_confidence, min_id, max_id, limit)
     conditions = []
+    bind_params = {}
     if label is not None:
-        if label not in DETECTION_LABELS:
-            raise HTTPException(status_code=400, detail="Unsupported detection label")
-        conditions.append(f"fusion_classification = '{label}'")
+        if not _SAFE_LABEL_RE.fullmatch(label):
+            raise HTTPException(status_code=400, detail="Invalid label")
+        conditions.append("fusion_classification = $label")
+        bind_params["label"] = label
     if min_confidence is not None:
         conditions.append(f"fusion_confidence >= {min_confidence}")
     if min_id is not None:
@@ -133,13 +121,17 @@ def get_detections(
     where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ""
     limit_clause = f" LIMIT {limit}" if limit else ""
     query = f"SELECT fused_decision, fusion_classification as label, fusion_confidence as confidence, mode, timeseries_anomaly, timeseries_classification, timeseries_confidence, timeseries_timestamp, ts_anomaly, vision_anomaly, vision_classification, vision_confidence, vision_rtsp_ts_diff_ms, vision_timestamp FROM \"{FUSION_MEASUREMENT}\"{where_clause} ORDER BY time DESC{limit_clause}"
-    return _influx_points(query)
+    return _influx_points(query, bind_params or None)
 
 
 @api_app.get("/detections/labels")
 def get_detection_labels():
-    """Return labels available in the detections filter."""
-    return list(DETECTION_LABELS)
+    """Return distinct detection labels currently stored in InfluxDB."""
+    # Reads the tag index only; no detection rows are scanned.
+    points = _influx_points(
+        f'SHOW TAG VALUES FROM "{FUSION_MEASUREMENT}" WITH KEY = "fusion_classification"'
+    )
+    return sorted({p["value"] for p in points if p.get("value")})
 
 
 @api_app.get("/detections/summary")

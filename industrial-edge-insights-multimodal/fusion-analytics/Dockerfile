@@ -20,7 +20,6 @@ RUN pip install -r requirements.txt
 
 # Copy application code
 COPY fusion.py api.py /app/
-COPY --from=weld_model /project.json /app/project.json
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
