@@ -79,9 +79,8 @@ cd industrial-edge-insights-time-series
 > - The sample app is deployed by pulling the pre-built container images of the sample app
 >   from the docker hub OR from the internal container registry (login to the docker registry from cli and configure `DOCKER_REGISTRY`
 >   env variable in `.env` file at `manufacturing-ai-suite/industrial-edge-insights-time-series`)
-> - The `CONTINUOUS_SIMULATOR_INGESTION` variable in the `.env` file (for Docker Compose) and in `helm/values.yaml` (for Helm deployments)
->   is set to `true` by default, enabling continuous looping of simulator data. To ingest the simulator data only once (without looping),
->   set this variable to `false`.
+> - The `CONTINUOUS_SIMULATOR_INGESTION` variable in the `.env` file is set to `true` by default, enabling continuous looping of
+>   simulator data. To ingest the simulator data only once (without looping), set this variable to `false`.
 > - If `CONTINUOUS_SIMULATOR_INGESTION` is set to `false`, you may see the `[inputs.opcua] status not OK for node` message in the `telegraf`
 >   logs for OPC-UA ingestion after a single data ingestion loop. This message can be ignored.
 > - `make up_opcua_ingestion` is supported only for `Wind Turbine Anomaly Detection` sample app
@@ -131,11 +130,6 @@ curl -k -X 'POST' \
 
 1. Get into the InfluxDB* container:
 
-   > [!NOTE]
-   > Use `kubectl exec -it <influxdb-pod-name> -n <namespace> -- /bin/bash` for the Helm deployment
-   > where for <namespace> replace with namespace name where the application was deployed and
-   > for <influxdb-pod-name> replace with InfluxDB pod name.
-
    ``` bash
     docker exec -it ia-influxdb bash
    ```
@@ -148,7 +142,6 @@ curl -k -X 'POST' \
 
    ``` bash
    # For below command, the INFLUXDB_USERNAME and INFLUXDB_PASSWORD needs to be fetched from `.env` file
-   # for docker compose deployment and `values.yml` for helm deployment
    influx -username <username> -password <passwd>
    use datain # database access
    show measurements
@@ -162,7 +155,6 @@ curl -k -X 'POST' \
    - Use link `https://localhost:3000/` to launch Grafana from browser (preferably Chrome browser)
 
      > [!NOTE]
-     > - Use link `https://localhost:30001` to launch Grafana from browser (preferably Chrome browser) for the Helm deployment
      > - If you are accessing the UI remotely, replace `localhost` with the host system IP address.
 
    - Login to the Grafana with values set for `VISUALIZER_GRAFANA_USER` and `VISUALIZER_GRAFANA_PASSWORD`
@@ -200,15 +192,9 @@ docker logs -f <container_name>
 docker logs -f <container_name> | grep -i error
 ```
 
-## Other Deployment options
-
-See [How to Deploy with Helm](./get-started/deploy-with-helm.md)
-guide to learn how to deploy the sample application on a k8s cluster using Helm.
-
 ## Advanced setup
 
 - [How to build from source and deploy](./get-started/build-from-source.md): Guide to build from source and docker compose deployment
-- [Deploy with Helm](./get-started/deploy-with-helm.md)
 - [How to configure OPC-UA/MQTT alerts](./how-to-guides/configure-alerts.md): Guide for configuring the OPC-UA/MQTT alerts in the Time Series Analytics microservice
 - [How to configure custom UDF deployment package](./how-to-guides/configure-custom-udf.md): Guide for deploying a customized UDF deployment package (UDFs/models/TICKscripts)
 - [How to enable multi-stream ingestion](./how-to-guides/multi-stream-ingestion.md): Guide to deploy sample apps with multiple parallel ingestion streams
@@ -221,7 +207,6 @@ guide to learn how to deploy the sample application on a k8s cluster using Helm.
 
 get-started/system-requirements
 get-started/build-from-source
-get-started/deploy-with-helm
 
 :::
 hide_directive-->

@@ -238,7 +238,7 @@ def setup_wind_turbine_environment(request):
       ~36 make-up/make-down cycles that cause the suite to take 6 hours.
     - **Polling readiness** — uses ``wait_until_containers_up`` and
       ``wait_until_service_ready`` (HTTP health endpoint poll) instead of fixed
-      ``wait_for_stability`` sleeps, mirroring the Helm ``verify_pods`` approach.
+      ``wait_for_stability`` sleeps.
     - The ``deploy_mqtt`` / ``deploy_opcua`` helpers call the polling functions after
       each deployment so individual tests receive a ready stack immediately.
 

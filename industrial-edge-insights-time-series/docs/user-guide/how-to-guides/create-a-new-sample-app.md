@@ -16,7 +16,7 @@ folder and replace the folder name with the sample app name to be created.
 
    1. Update the OPC-UA/MQTT simulator containers (`manufacturing-ai-suite/industrial-edge-insights-time-series/simulator`) as needed
       to ingest the needed dataset to analyze via a CSV file
-   2. If you have existing `OPC-UA/MQTT` simulators, you can use that too. Just adjust the Compose and Helm template files similar to
+   2. If you have existing `OPC-UA/MQTT` simulators, you can use that too. Just adjust the Compose template files similar to
       the above existing OPC-UA/MQTT simulators
    3. Directly configure `Telegraf` to connect to the device acting as `OPC-UA` server OR `MQTT publisher/broker`.
       Refer to the [Telegraf plugin documentation](https://docs.influxdata.com/telegraf/v1/plugins#input-plugins) for more details
@@ -46,7 +46,6 @@ folder and replace the folder name with the sample app name to be created.
 
 > [!NOTE]
 > Adjust the `manufacturing-ai-suite/industrial-edge-insights-time-series/Makefile` to add the support for the new sample
-> app name for both Docker Compose and Helm deployments.
+> app name for Docker Compose deployment.
 
 1. For docker compose deployment, follow the [Get Started](../get-started.md) guide/
-2. For helm deployment, follow the [How to deploy with helm](../get-started/deploy-with-helm.md)

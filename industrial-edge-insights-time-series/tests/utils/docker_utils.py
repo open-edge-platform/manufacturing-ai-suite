@@ -102,7 +102,7 @@ def remove_container(name):
 def get_docker_env_values():
     """Load Docker-specific configuration and extract values."""
     # Docker-specific environment variables
-    wait_time = int(os.getenv("wait_time_for_containers_to_come_up", os.getenv("wait_time_for_pods_to_come_up", "30")))
+    wait_time = int(os.getenv("wait_time_for_containers_to_come_up", "30"))
     target = os.getenv("docker_target", "localhost")  # Default to localhost for Docker
 
     # Get dynamic ports from configuration files - no hardcoded fallbacks
@@ -358,10 +358,9 @@ def wait_for_stability(seconds=30):
 def wait_until_containers_up(expected_containers, timeout=constants.WIND_TURBINE_CONTAINER_READY_TIMEOUT, poll_interval=constants.WIND_TURBINE_POLL_INTERVAL):
     """Poll docker ps until all expected containers are running, instead of sleeping blindly.
 
-    This is the Docker equivalent of helm's verify_pods — it returns ``True`` as soon
-    as every container in ``expected_containers`` is confirmed running, or ``False``
-    if the deadline is exceeded (the function does not raise; callers should assert
-    the return value if a missed deadline must abort the test).
+    Returns ``True`` as soon as every container in ``expected_containers`` is confirmed
+    running, or ``False`` if the deadline is exceeded (the function does not raise;
+    callers should assert the return value if a missed deadline must abort the test).
 
     Args:
         expected_containers (list): List of container name strings to wait for.
@@ -448,9 +447,8 @@ def wait_until_scaled_containers_up(prefix, expected_count,
 def wait_until_service_ready(timeout=constants.WIND_TURBINE_CONTAINER_READY_TIMEOUT, poll_interval=constants.WIND_TURBINE_POLL_INTERVAL, accept_503=True):
     """Poll the ts-api health endpoint until the service responds, instead of sleeping blindly.
 
-    This is the Docker equivalent of helm's verify_pods at the service layer — it returns
-    as soon as the time-series analytics REST API acknowledges the request (HTTP 200 or 503),
-    or gives up after ``timeout`` seconds.
+    Returns as soon as the time-series analytics REST API acknowledges the request
+    (HTTP 200 or 503), or gives up after ``timeout`` seconds.
 
     Args:
         timeout (int): Maximum seconds to wait (default: 120).

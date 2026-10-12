@@ -116,7 +116,7 @@ This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Q
 
 4. Check the output in Grafana dashboard:
    - Use the link `https://127.0.0.1:3000` to open the Grafana dashboard in a browser, preferably
-     the Chrome browser. For Helm deployment, use the link `https://127.0.0.1:30001`.
+     the Chrome browser.
    - Log in to the Grafana dashboard using the `VISUALIZER_GRAFANA_USER` and `VISUALIZER_GRAFANA_PASSWORD`
      values from the `.env` file:
 

@@ -17,7 +17,6 @@ Refer to [Wind Turbine Anomaly Detection](./docs/user-guide/wind-turbine-anomaly
 ## Learn More
 
 - [How to build from source and deploy](./docs/user-guide/get-started/build-from-source.md): Guide for building from source and docker compose deployment.
-- [How to Deploy with Helm](./docs/user-guide/get-started/deploy-with-helm.md): Guide for deploying the sample applications on a k8s cluster using Helm.
 - [How to configure OPC-UA/MQTT alerts](./docs/user-guide/how-to-guides/configure-alerts.md): Guide for configuring the OPC-UA/MQTT alerts in the Time Series Analytics microservice
 - [How to configure custom UDF deployment package](./docs/user-guide/how-to-guides/configure-custom-udf.md): Guide for deploying a customized UDF deployment package (UDFs/models/TICKscripts).
 - [How to connect to secure MQTT broker](./docs/user-guide/how-to-guides/connect-to-secure-mqtt-broker.md): Guide for connecting to a secure MQTT broker.
