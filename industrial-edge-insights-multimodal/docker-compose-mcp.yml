@@ -25,6 +25,8 @@ services:
       KAPACITOR_API_URL: http://ia-time-series-analytics-microservice:${KAPACITOR_PORT:-9092}
       EXPLAIN_API_URL: http://multimodal-agentic-ui:5003
       APM_AGENT_URL: http://apm-agent:5002
+      MCP_USERNAME: ${MCP_USERNAME:-}
+      MCP_PASSWORD: ${MCP_PASSWORD:-}
       no_proxy: "${no_proxy:-},ia-influxdb,vllm-server,seaweedfs-filer,apm-agent,ia-fusion-analytics,ia-mqtt-broker,multimodal-agentic-ui,localhost"
       NO_PROXY: "${no_proxy:-},ia-influxdb,vllm-server,seaweedfs-filer,apm-agent,ia-fusion-analytics,ia-mqtt-broker,multimodal-agentic-ui,localhost"
     ports:

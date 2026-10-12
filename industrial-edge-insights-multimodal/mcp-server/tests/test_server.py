@@ -1,24 +1,161 @@
 """Behavioral tests for the standalone weld MCP service."""
 
+import base64
 import json
+import secrets
 import tarfile
 import unittest
 from unittest.mock import AsyncMock, call, patch
 
 import httpx
+import httpx2
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
 
 import server
 
 
 class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
+    @staticmethod
+    def _basic_header(username: str, password: str) -> str:
+        credentials = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
+        return f"Basic {credentials}"
+
     async def asyncSetUp(self) -> None:
+        self.username = f"user-{secrets.token_hex(8)}"
+        self.password = secrets.token_urlsafe(32)
+        self.auth_header = self._basic_header(self.username, self.password)
+        credentials_patch = patch.multiple(server, MCP_USERNAME=self.username, MCP_PASSWORD=self.password)
+        credentials_patch.start()
+        self.addCleanup(credentials_patch.stop)
+        app = server.mcp.http_app(stateless_http=True)
         self.client = httpx.AsyncClient(
-            transport=httpx.ASGITransport(app=server.mcp.http_app(stateless_http=True)),
+            transport=httpx.ASGITransport(app=app),
+            base_url="http://localhost:8000",
+            headers={"Authorization": self.auth_header},
+        )
+        self.anon_client = httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app),
             base_url="http://localhost:8000",
         )
 
     async def asyncTearDown(self) -> None:
         await self.client.aclose()
+        await self.anon_client.aclose()
+
+    async def test_pipeline_http_requires_auth_before_upstream(self) -> None:
+        with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
+            for path, payload in (
+                ("/start_pipeline", {"device": "CPU"}),
+                ("/stop_pipeline", {"pipeline_id": "pipeline-1"}),
+            ):
+                with self.subTest(path=path):
+                    response = await self.anon_client.post(path, json=payload)
+                    self.assertEqual(401, response.status_code)
+                    self.assertEqual('Basic realm="weld-mcp", charset="UTF-8"', response.headers["www-authenticate"])
+                    response = await self.anon_client.post(
+                        path, json=payload, headers={"Authorization": "Basic invalid"}
+                    )
+                    self.assertEqual(401, response.status_code)
+            upstream.assert_not_awaited()
+
+    async def test_pipeline_http_rejects_wrong_or_unconfigured_credentials(self) -> None:
+        invalid_headers = (
+            self._basic_header(self.username, self.password + "x"),
+            self._basic_header(self.username + "x", self.password),
+            "Basic " + base64.b64encode(self.username.encode("utf-8")).decode("ascii"),
+            self.auth_header + "?",
+            "Basic " + "A" * 8193,
+            "Bearer " + self.auth_header.removeprefix("Basic "),
+        )
+        with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
+            for header in invalid_headers:
+                for path, payload in (
+                    ("/start_pipeline", {"device": "CPU"}),
+                    ("/stop_pipeline", {"pipeline_id": "pipeline-1"}),
+                ):
+                    with self.subTest(path=path, header=header[:10]):
+                        response = await self.anon_client.post(
+                            path, json=payload, headers={"Authorization": header}
+                        )
+                        self.assertEqual(401, response.status_code)
+            with patch.multiple(server, MCP_USERNAME=None, MCP_PASSWORD=None):
+                response = await self.client.post("/start_pipeline", json={"device": "CPU"})
+                self.assertEqual(401, response.status_code)
+            upstream.assert_not_awaited()
+
+    async def test_public_http_route_requires_no_auth(self) -> None:
+        with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
+            upstream.return_value = httpx.Response(200, json={"markdown": "Weld report"})
+            response = await self.anon_client.post("/explain", json={"selected_time": "2026-10-01T12:00:00Z"})
+            self.assertEqual(200, response.status_code)
+            self.assertEqual({"markdown": "Weld report"}, response.json())
+
+    async def test_mcp_pipeline_tools_require_auth_and_other_tools_do_not(self) -> None:
+        app = server.mcp.http_app(stateless_http=True)
+
+        def transport(authorization: str | None = None) -> StreamableHttpTransport:
+            return StreamableHttpTransport(
+                "http://localhost:8000/mcp",
+                headers={"Authorization": authorization} if authorization else None,
+                httpx_client_factory=lambda **kwargs: httpx2.AsyncClient(
+                    transport=httpx2.ASGITransport(app=app), **kwargs
+                ),
+            )
+
+        with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
+            async with app.lifespan(app):
+                async with Client(transport()) as anonymous:
+                    tools = await anonymous.list_tools()
+                    self.assertIn("run_agent", {tool.name for tool in tools})
+                    self.assertFalse((await anonymous.call_tool("describe")).is_error)
+                    upstream.return_value = httpx.Response(200, json={"status": "running"})
+                    for name, arguments in (
+                        ("explain", {"selected_time": "2026-10-01T12:00:00Z"}),
+                        ("list_insights_data", {}),
+                        ("get_run_results", {"run_id": "123e4567-e89b-12d3-a456-426614174000"}),
+                    ):
+                        with self.subTest(name=name):
+                            self.assertFalse((await anonymous.call_tool(name, arguments)).is_error)
+                    upstream.return_value = httpx.Response(
+                        303, headers={"location": "/agentic-ui/results/123e4567-e89b-12d3-a456-426614174000"}
+                    )
+                    self.assertFalse((await anonymous.call_tool("run_agent")).is_error)
+                    upstream.reset_mock()
+                    for name, arguments in (
+                        ("start_pipeline", {}),
+                        ("stop_pipeline", {"pipeline_id": "pipeline-1"}),
+                    ):
+                        with self.subTest(name=name):
+                            result = await anonymous.call_tool(name, arguments, raise_on_error=False)
+                            self.assertTrue(result.is_error)
+                    upstream.assert_not_awaited()
+
+                async with Client(transport("Basic invalid")) as invalid:
+                    self.assertFalse((await invalid.call_tool("run_agent")).is_error)
+                    upstream.assert_awaited_once()
+                    upstream.reset_mock()
+                    for name, arguments in (
+                        ("start_pipeline", {}),
+                        ("stop_pipeline", {"pipeline_id": "pipeline-1"}),
+                    ):
+                        self.assertTrue((await invalid.call_tool(name, arguments, raise_on_error=False)).is_error)
+                    upstream.assert_not_awaited()
+
+                async with Client(transport(self.auth_header)) as authorized:
+                    upstream.side_effect = [
+                        httpx.Response(200), httpx.Response(200),
+                        httpx.Response(200, json={"status": "enabled"}),
+                        httpx.Response(200, json={"id": "pipeline-1"}),
+                        httpx.Response(204), httpx.Response(200),
+                        httpx.Response(303, headers={"location": "/agentic-ui/results/123e4567-e89b-12d3-a456-426614174000"}),
+                    ]
+                    self.assertFalse((await authorized.call_tool("start_pipeline")).is_error)
+                    self.assertFalse((await authorized.call_tool(
+                        "stop_pipeline", {"pipeline_id": "pipeline-1"}
+                    )).is_error)
+                    self.assertFalse((await authorized.call_tool("run_agent")).is_error)
+                    self.assertEqual(7, upstream.await_count)
 
     async def test_mcp_tools_are_registered(self) -> None:
         tools = await server.mcp.list_tools()

@@ -145,6 +145,18 @@ check_env_variables:
 					exit 1; \
 				fi \
 				;; \
+			MCP_USERNAME) \
+				if ! echo "$$value" | grep -Eq "^[A-Za-z]{5,}$$"; then \
+					echo "MCP_USERNAME must contain only alphabets and be at least 5 characters minimum"; \
+					exit 1; \
+				fi \
+				;; \
+			MCP_PASSWORD) \
+				if ! echo "$$value" | grep -Eq "^[A-Za-z0-9]{10,}$$" || ! echo "$$value" | grep -q "[0-9]" || ! echo "$$value" | grep -q "[A-Za-z]"; then \
+					echo "MCP_PASSWORD length must be a minimum of 10 alphanumeric characters with at least one digit"; \
+					exit 1; \
+				fi \
+				;; \
 		esac; \
 	done
 

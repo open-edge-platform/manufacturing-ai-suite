@@ -1,10 +1,13 @@
 """MCP tools for controlling weld detection and explaining fused results."""
 
 import asyncio
+import base64
+import binascii
 import io
 import json
 import os
 import re
+import secrets
 import tarfile
 import uuid
 from pathlib import Path
@@ -13,6 +16,9 @@ from urllib.parse import urlsplit
 
 import httpx
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
+from fastmcp.server.dependencies import get_http_headers
+from fastmcp.server.middleware import Middleware, MiddlewareContext
 from pydantic import BaseModel, ValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -34,6 +40,13 @@ PIPELINE_REQUEST_PATH = (
 )
 TIME_SERIES_CONFIG_DIR = Path(__file__).resolve().parent.parent / "configs/time-series-analytics-microservice"
 TIME_SERIES_CONFIG_PATH = TIME_SERIES_CONFIG_DIR / "config.json"
+MCP_USERNAME = os.getenv("MCP_USERNAME")
+MCP_PASSWORD = os.getenv("MCP_PASSWORD")
+
+if bool(MCP_USERNAME) != bool(MCP_PASSWORD):
+    raise ValueError("MCP_USERNAME and MCP_PASSWORD must be set together")
+if MCP_USERNAME and ":" in MCP_USERNAME:
+    raise ValueError("MCP_USERNAME cannot contain ':'")
 
 mcp = FastMCP("Weld defect detection")
 
@@ -62,6 +75,33 @@ def _upstream_error(error: httpx.HTTPError) -> str:
     if isinstance(error, httpx.HTTPStatusError):
         return f"HTTP {error.response.status_code}"
     return "unavailable"
+
+
+def _authorized_control(authorization: str | None) -> bool:
+    if not MCP_USERNAME or not MCP_PASSWORD or not authorization or len(authorization) > 8192:
+        return False
+    scheme, separator, credentials = authorization.partition(" ")
+    if scheme.lower() != "basic" or not separator or not credentials:
+        return False
+    try:
+        username, password = base64.b64decode(credentials, validate=True).split(b":", 1)
+    except (binascii.Error, ValueError):
+        return False
+    valid_username = secrets.compare_digest(username, MCP_USERNAME.encode("utf-8"))
+    valid_password = secrets.compare_digest(password, MCP_PASSWORD.encode("utf-8"))
+    return valid_username and valid_password
+
+
+class ControlAuthMiddleware(Middleware):
+    async def on_call_tool(self, context: MiddlewareContext, call_next):
+        if context.message.name in {"start_pipeline", "stop_pipeline"}:
+            headers = get_http_headers(include={"authorization"})
+            if not _authorized_control(headers.get("authorization")):
+                raise ToolError("Authentication required")
+        return await call_next(context)
+
+
+mcp.add_middleware(ControlAuthMiddleware())
 
 
 async def _request(method: str, url: str, *, allow_redirect: bool = False, **kwargs: Any) -> httpx.Response:
@@ -243,7 +283,14 @@ async def _http_tool(
     request: Request,
     schema: type[BaseModel],
     action: Callable[..., Awaitable[dict[str, Any]]],
+    *,
+    require_auth: bool = False,
 ) -> JSONResponse:
+    if require_auth and not _authorized_control(request.headers.get("authorization")):
+        return JSONResponse(
+            {"error": "Authentication required"}, status_code=401,
+            headers={"WWW-Authenticate": 'Basic realm="weld-mcp", charset="UTF-8"'},
+        )
     try:
         payload = schema.model_validate(await request.json())
         return JSONResponse(await action(**payload.model_dump()))
@@ -265,12 +312,12 @@ async def _http_tool(
 
 @mcp.custom_route("/start_pipeline", methods=["POST"])
 async def http_start_pipeline(request: Request) -> JSONResponse:
-    return await _http_tool(request, StartRequest, start_pipeline)
+    return await _http_tool(request, StartRequest, start_pipeline, require_auth=True)
 
 
 @mcp.custom_route("/stop_pipeline", methods=["POST"])
 async def http_stop_pipeline(request: Request) -> JSONResponse:
-    return await _http_tool(request, StopRequest, stop_pipeline)
+    return await _http_tool(request, StopRequest, stop_pipeline, require_auth=True)
 
 
 @mcp.custom_route("/explain", methods=["POST"])
