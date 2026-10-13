@@ -47,7 +47,7 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
             for path, payload in (
                 ("/start_pipeline", {"device": "CPU"}),
-                ("/stop_pipeline", {"pipeline_id": "pipeline-1"}),
+                ("/stop_pipeline", {}),
             ):
                 with self.subTest(path=path):
                     response = await self.anon_client.post(path, json=payload)
@@ -72,7 +72,7 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
             for header in invalid_headers:
                 for path, payload in (
                     ("/start_pipeline", {"device": "CPU"}),
-                    ("/stop_pipeline", {"pipeline_id": "pipeline-1"}),
+                    ("/stop_pipeline", {}),
                 ):
                     with self.subTest(path=path, header=header[:10]):
                         response = await self.anon_client.post(
@@ -124,7 +124,7 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
                     upstream.reset_mock()
                     for name, arguments in (
                         ("start_pipeline", {}),
-                        ("stop_pipeline", {"pipeline_id": "pipeline-1"}),
+                        ("stop_pipeline", {}),
                     ):
                         with self.subTest(name=name):
                             result = await anonymous.call_tool(name, arguments, raise_on_error=False)
@@ -137,7 +137,7 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
                     upstream.reset_mock()
                     for name, arguments in (
                         ("start_pipeline", {}),
-                        ("stop_pipeline", {"pipeline_id": "pipeline-1"}),
+                        ("stop_pipeline", {}),
                     ):
                         self.assertTrue((await invalid.call_tool(name, arguments, raise_on_error=False)).is_error)
                     upstream.assert_not_awaited()
@@ -147,15 +147,14 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
                         httpx.Response(200), httpx.Response(200),
                         httpx.Response(200, json={"status": "enabled"}),
                         httpx.Response(200, json={"id": "pipeline-1"}),
+                        httpx.Response(200, json=[{"id": "pipeline-1", "state": "RUNNING"}]),
                         httpx.Response(204), httpx.Response(200),
                         httpx.Response(303, headers={"location": "/agentic-ui/results/123e4567-e89b-12d3-a456-426614174000"}),
                     ]
                     self.assertFalse((await authorized.call_tool("start_pipeline")).is_error)
-                    self.assertFalse((await authorized.call_tool(
-                        "stop_pipeline", {"pipeline_id": "pipeline-1"}
-                    )).is_error)
+                    self.assertFalse((await authorized.call_tool("stop_pipeline")).is_error)
                     self.assertFalse((await authorized.call_tool("run_agent")).is_error)
-                    self.assertEqual(7, upstream.await_count)
+                    self.assertEqual(8, upstream.await_count)
 
     async def test_mcp_tools_are_registered(self) -> None:
         tools = await server.mcp.list_tools()
@@ -163,6 +162,8 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
             {"start_pipeline", "stop_pipeline", "explain", "list_insights_data", "run_agent", "get_run_results", "describe"},
             {tool.name for tool in tools},
         )
+        stop_tool = next(tool for tool in tools if tool.name == "stop_pipeline")
+        self.assertEqual({}, stop_tool.parameters["properties"])
         run_tool = next(tool for tool in tools if tool.name == "run_agent")
         time_range = run_tool.parameters["properties"]["time_range"]
         self.assertEqual(["30s", "1m", "5m", "10m", "30m"], time_range["enum"])
@@ -206,7 +207,7 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
                     httpx.Response(200, json={"status": "success"}),
                     httpx.Response(200, json={"status": "success"}),
                     httpx.Response(200, json={"status": "enabled"}),
-                    httpx.Response(200, json={"id": "pipeline-1"}),
+                    httpx.Response(200, json="pipeline-1"),
                 ]
                 self.assertEqual(
                     {"id": "pipeline-1", "time_series_task": "weld_anomaly_detector",
@@ -268,8 +269,7 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
             [
                 ("POST", "http://ia-time-series-analytics-microservice:5000/udfs/package"),
                 ("POST", "http://ia-time-series-analytics-microservice:5000/config"),
-                ("GET", "http://ia-time-series-analytics-microservice:9092/kapacitor/v1/"
-                 "tasks/weld_anomaly_detector"),
+                ("GET", "http://ia-time-series-analytics-microservice:5000/pipeline_status"),
                 ("POST", "http://dlstreamer-pipeline-server:8080/pipelines/"
                  "user_defined_pipelines/weld_defect_classification"),
             ],
@@ -280,7 +280,7 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual("GPU", upstream.await_args_list[1].kwargs["json"]["udfs"]["device"])
 
     async def test_start_waits_for_enabled_timeseries_task_before_dlstreamer(self) -> None:
-        task_url = "http://ia-time-series-analytics-microservice:9092/kapacitor/v1/tasks/weld_anomaly_detector"
+        task_url = "http://ia-time-series-analytics-microservice:5000/pipeline_status"
         with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
             upstream.side_effect = [
                 httpx.Response(200, json={"status": "success"}),
@@ -289,7 +289,10 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
                 httpx.Response(200, json={"id": "pipeline-1"}),
             ]
             await server.start_pipeline()
-            self.assertEqual(call("GET", task_url, timeout=10), upstream.await_args_list[2])
+            self.assertEqual(
+                call("GET", task_url, timeout=10, params={"expected_task_id": "weld_anomaly_detector"}),
+                upstream.await_args_list[2],
+            )
             self.assertEqual("POST", upstream.await_args_list[3].args[0])
 
     async def test_start_packages_mounted_udf_files_without_generated_tar(self) -> None:
@@ -309,20 +312,37 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual("pipeline-1", (await server.start_pipeline())["id"])
 
     async def test_start_retries_until_timeseries_task_is_enabled(self) -> None:
-        task_url = "http://ia-time-series-analytics-microservice:9092/kapacitor/v1/tasks/weld_anomaly_detector"
+        task_url = "http://ia-time-series-analytics-microservice:5000/pipeline_status"
         with patch.object(server, "_request", new_callable=AsyncMock) as upstream, \
              patch.object(server.asyncio, "sleep", new_callable=AsyncMock) as delay:
             upstream.side_effect = [
                 httpx.Response(200),
                 httpx.Response(200),
                 httpx.ConnectError("Starting", request=httpx.Request("GET", task_url)),
+                httpx.HTTPStatusError("Not ready", request=httpx.Request("GET", task_url),
+                                      response=httpx.Response(502)),
                 httpx.Response(200, json={"status": "disabled"}),
                 httpx.Response(200, json={"status": "enabled"}),
                 httpx.Response(200, json={"id": "pipeline-1"}),
             ]
             self.assertEqual("pipeline-1", (await server.start_pipeline())["id"])
-            self.assertEqual(2, delay.await_count)
-            self.assertEqual(3, sum(request.args[0] == "GET" for request in upstream.await_args_list))
+            self.assertEqual(3, delay.await_count)
+            self.assertEqual(4, sum(request.args[0] == "GET" for request in upstream.await_args_list))
+
+    async def test_start_fails_on_mismatched_timeseries_task(self) -> None:
+        task_url = "http://ia-time-series-analytics-microservice:5000/pipeline_status"
+        with patch.object(server, "_request", new_callable=AsyncMock) as upstream, \
+             patch.object(server.asyncio, "sleep", new_callable=AsyncMock) as delay:
+            upstream.side_effect = [
+                httpx.Response(200),
+                httpx.Response(200),
+                httpx.HTTPStatusError("Mismatch", request=httpx.Request("GET", task_url),
+                                      response=httpx.Response(409)),
+            ]
+            result = await self.client.post("/start_pipeline", json={"device": "CPU"})
+            self.assertEqual(409, result.status_code)
+            self.assertEqual(3, upstream.await_count)
+            delay.assert_not_awaited()
 
     async def test_start_times_out_without_starting_dlstreamer_when_task_is_disabled(self) -> None:
         with patch.object(server, "TIME_SERIES_READY_TIMEOUT", 0), \
@@ -372,55 +392,125 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(422, result.status_code)
             upstream.assert_awaited_once()
 
-    async def test_stop_rejects_invalid_id_without_upstream_calls(self) -> None:
+    async def test_stop_rejects_unexpected_input_without_upstream_calls(self) -> None:
         with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
-            with self.assertRaises(ValueError):
-                await server.stop_pipeline("../other")
+            response = await self.client.post("/stop_pipeline", json={"pipeline_id": "pipeline-1"})
+            self.assertEqual(400, response.status_code)
             upstream.assert_not_awaited()
 
     async def test_stop_pipeline_disables_named_timeseries_task(self) -> None:
         with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
+            upstream.side_effect = [
+                httpx.Response(200, json=[
+                    {"id": "pipeline-1", "state": "RUNNING"},
+                    {"id": "pipeline-2", "state": "QUEUED"},
+                    {"id": "old-pipeline", "state": "COMPLETED"},
+                ]),
+                httpx.Response(200), httpx.Response(200), httpx.Response(200),
+            ]
             self.assertEqual(
                 {
-                    "stopped_pipeline_id": "pipeline-1",
+                    "stopped_pipeline_ids": ["pipeline-1", "pipeline-2"],
                     "stopped_time_series_task": "weld_anomaly_detector",
                 },
-                await server.stop_pipeline("pipeline-1"),
+                await server.stop_pipeline(),
             )
             self.assertEqual(
                 [
+                    call("GET", "http://dlstreamer-pipeline-server:8080/pipelines/status"),
                     call("DELETE", "http://dlstreamer-pipeline-server:8080/pipelines/pipeline-1"),
-                    call("PATCH", "http://ia-time-series-analytics-microservice:9092/kapacitor/v1/"
-                         "tasks/weld_anomaly_detector", json={"status": "disabled"}),
+                    call("DELETE", "http://dlstreamer-pipeline-server:8080/pipelines/pipeline-2"),
+                    call("POST", "http://ia-time-series-analytics-microservice:5000/stop_pipeline",
+                         params={"expected_task_id": "weld_anomaly_detector"}),
                 ],
                 upstream.await_args_list,
             )
 
+    async def test_stop_with_no_active_pipelines_still_disables_timeseries_task(self) -> None:
+        with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
+            upstream.side_effect = [
+                httpx.Response(200, json=[{"id": "old-pipeline", "state": "COMPLETED"}]),
+                httpx.Response(200),
+            ]
+            response = await self.client.post("/stop_pipeline")
+            self.assertEqual(200, response.status_code)
+            self.assertEqual(
+                {"stopped_pipeline_ids": [], "stopped_time_series_task": "weld_anomaly_detector"},
+                response.json(),
+            )
+            self.assertEqual(
+                [
+                    call("GET", "http://dlstreamer-pipeline-server:8080/pipelines/status"),
+                    call("POST", "http://ia-time-series-analytics-microservice:5000/stop_pipeline",
+                         params={"expected_task_id": "weld_anomaly_detector"}),
+                ],
+                upstream.await_args_list,
+            )
+
+    async def test_stop_succeeds_when_no_timeseries_task_is_configured(self) -> None:
+        task_url = "http://ia-time-series-analytics-microservice:5000/stop_pipeline"
+        request = httpx.Request("POST", task_url)
+        with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
+            upstream.side_effect = [
+                httpx.Response(200, json=[]),
+                httpx.HTTPStatusError(
+                    "No task", request=request,
+                    response=httpx.Response(409, json={"detail": "No UDF task is configured"}, request=request),
+                ),
+            ]
+            self.assertEqual(
+                {"stopped_pipeline_ids": [], "time_series_task": "not configured"},
+                await server.stop_pipeline(),
+            )
+            self.assertEqual(2, upstream.await_count)
+
     async def test_stop_reports_partial_failure_without_skipping_other_service(self) -> None:
-        task_url = "http://ia-time-series-analytics-microservice:9092/kapacitor/v1/tasks/weld_anomaly_detector"
+        task_url = "http://ia-time-series-analytics-microservice:5000/stop_pipeline"
         dlstreamer_url = "http://dlstreamer-pipeline-server:8080/pipelines/pipeline-1"
+        status_url = "http://dlstreamer-pipeline-server:8080/pipelines/status"
         for responses, completed, failed in (
             (
-                [httpx.Response(204), httpx.ConnectError("Refused", request=httpx.Request("PATCH", task_url))],
-                {"stopped_pipeline_id": "pipeline-1"},
+                [httpx.Response(200, json=[{"id": "pipeline-1", "state": "RUNNING"}]),
+                 httpx.Response(204), httpx.ConnectError("Refused", request=httpx.Request("POST", task_url))],
+                {"stopped_pipeline_ids": ["pipeline-1"]},
                 {"time_series": "unavailable"},
             ),
             (
-                [httpx.HTTPStatusError("Unavailable", request=httpx.Request("DELETE", dlstreamer_url),
-                                       response=httpx.Response(503)), httpx.Response(200)],
-                {"stopped_time_series_task": "weld_anomaly_detector"},
-                {"dlstreamer": "HTTP 503"},
+                [httpx.Response(200, json=[{"id": "pipeline-1", "state": "RUNNING"},
+                                           {"id": "pipeline-2", "state": "QUEUED"}]),
+                 httpx.HTTPStatusError("Unavailable", request=httpx.Request("DELETE", dlstreamer_url),
+                                       response=httpx.Response(503)),
+                 httpx.Response(204), httpx.Response(200)],
+                {"stopped_pipeline_ids": ["pipeline-2"],
+                 "stopped_time_series_task": "weld_anomaly_detector"},
+                {"dlstreamer:pipeline-1": "HTTP 503"},
+            ),
+            (
+                [httpx.ConnectError("Refused", request=httpx.Request("GET", status_url)), httpx.Response(200)],
+                {"stopped_pipeline_ids": [], "stopped_time_series_task": "weld_anomaly_detector"},
+                {"dlstreamer": "unavailable"},
+            ),
+            (
+                [httpx.Response(200, json=[]),
+                 httpx.HTTPStatusError(
+                     "Mismatch", request=httpx.Request("POST", task_url),
+                     response=httpx.Response(409, json={"detail": "Configured UDF task does not match the requested task"}),
+                 )],
+                {"stopped_pipeline_ids": []},
+                {"time_series": "HTTP 409"},
             ),
         ):
             with self.subTest(failed=failed), patch.object(server, "_request", new_callable=AsyncMock) as upstream:
                 upstream.side_effect = responses
-                result = await self.client.post("/stop_pipeline", json={"pipeline_id": "pipeline-1"})
+                result = await self.client.post("/stop_pipeline")
                 self.assertEqual(502, result.status_code)
                 self.assertEqual(
-                    {"error": "Could not stop both pipelines", "completed": completed, "failed": failed},
+                    {"error": "Could not stop all pipelines (" + ", ".join(
+                        f"{service}: {reason}" for service, reason in failed.items()
+                    ) + ")", "completed": completed, "failed": failed},
                     result.json(),
                 )
-                self.assertEqual(2, upstream.await_count)
+                self.assertEqual(len(responses), upstream.await_count)
 
     async def test_explain_forwards_single_timestamp(self) -> None:
         with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
@@ -544,14 +634,18 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
                 "GPU", upstream.await_args.kwargs["json"]["parameters"]["classification-properties"]["device"]
             )
 
-            upstream.side_effect = None
-            response = await self.client.post("/stop_pipeline", json={"pipeline_id": "pipeline-1"})
+            upstream.side_effect = [
+                httpx.Response(200, json=[{"id": "pipeline-1", "state": "RUNNING"}]),
+                httpx.Response(204), httpx.Response(200),
+            ]
+            response = await self.client.post("/stop_pipeline")
             self.assertEqual(200, response.status_code)
             self.assertEqual(
-                {"stopped_pipeline_id": "pipeline-1", "stopped_time_series_task": "weld_anomaly_detector"},
+                {"stopped_pipeline_ids": ["pipeline-1"], "stopped_time_series_task": "weld_anomaly_detector"},
                 response.json(),
             )
 
+            upstream.side_effect = None
             upstream.return_value = httpx.Response(200, json={"markdown": "Weld report"})
             response = await self.client.post("/explain", json={"selected_time": "2026-10-01T12:00:00Z"})
             self.assertEqual(200, response.status_code)
@@ -561,12 +655,13 @@ class WeldMCPServerTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(server, "_request", new_callable=AsyncMock) as upstream:
             for path, payload in (
                 ("/start_pipeline", {"device": "FPGA"}),
-                ("/stop_pipeline", {"pipeline_id": "../other"}),
+                ("/stop_pipeline", {"pipeline_id": "pipeline-1"}),
                 ("/explain", {}),
             ):
                 with self.subTest(path=path):
                     response = await self.client.post(path, json=payload)
                     self.assertEqual(400, response.status_code)
+            self.assertEqual(400, (await self.client.post("/start_pipeline")).status_code)
             upstream.assert_not_awaited()
 
             request = httpx.Request("POST", "http://multimodal-agentic-ui:5003/insights-ui/api/explain")

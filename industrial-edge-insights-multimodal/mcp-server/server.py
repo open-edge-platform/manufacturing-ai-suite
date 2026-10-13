@@ -25,7 +25,7 @@ from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.dependencies import get_http_headers
 from fastmcp.server.middleware import Middleware, MiddlewareContext
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -34,9 +34,6 @@ EXPLAIN_API_URL = os.getenv("EXPLAIN_API_URL", "http://multimodal-agentic-ui:500
 AGENT_SERVICE_URL = os.getenv("AGENT_SERVICE_URL", "http://apm-agent:5002").rstrip("/")
 TIME_SERIES_API_URL = os.getenv(
     "TIME_SERIES_API_URL", "http://ia-time-series-analytics-microservice:5000"
-).rstrip("/")
-KAPACITOR_API_URL = os.getenv(
-    "KAPACITOR_API_URL", "http://ia-time-series-analytics-microservice:9092"
 ).rstrip("/")
 TIME_SERIES_TASK_NAME = "weld_anomaly_detector"
 TIME_SERIES_READY_TIMEOUT = 120
@@ -63,7 +60,7 @@ class StartRequest(BaseModel):
 
 
 class StopRequest(BaseModel):
-    pipeline_id: str
+    model_config = ConfigDict(extra="forbid")
 
 
 class ExplainRequest(BaseModel):
@@ -71,7 +68,7 @@ class ExplainRequest(BaseModel):
 
 
 class PipelineControlError(RuntimeError):
-    def __init__(self, message: str, completed: dict[str, str], failed: dict[str, str]) -> None:
+    def __init__(self, message: str, completed: dict[str, Any], failed: dict[str, str]) -> None:
         super().__init__(message)
         self.completed = completed
         self.failed = failed
@@ -120,14 +117,16 @@ async def _request(method: str, url: str, *, allow_redirect: bool = False, **kwa
 
 async def _wait_for_time_series_task() -> None:
     deadline = asyncio.get_running_loop().time() + TIME_SERIES_READY_TIMEOUT
-    url = f"{KAPACITOR_API_URL}/kapacitor/v1/tasks/{TIME_SERIES_TASK_NAME}"
+    url = f"{TIME_SERIES_API_URL}/pipeline_status"
     while True:
         try:
-            response = await _request("GET", url, timeout=10)
+            response = await _request(
+                "GET", url, timeout=10, params={"expected_task_id": TIME_SERIES_TASK_NAME}
+            )
             if response.json().get("status") == "enabled":
                 return
         except httpx.HTTPStatusError as error:
-            if error.response.status_code not in (404, 503):
+            if error.response.status_code not in (502, 503):
                 raise
         except httpx.RequestError:
             pass
@@ -142,15 +141,15 @@ async def _wait_for_time_series_task() -> None:
 
 @mcp.tool()
 async def start_pipeline(
-    device: Literal["CPU", "GPU", "NPU"] = "CPU",
-    time_series_device: Literal["CPU", "GPU"] = "CPU",
+    vision_inf_device: Literal["CPU", "GPU", "NPU"] = "CPU",
+    time_series_inf_device: Literal["CPU", "GPU"] = "CPU",
 ) -> dict[str, Any]:
     
     """Start weld classification and time-series detection on independently selected devices."""
     payload = json.loads(PIPELINE_REQUEST_PATH.read_text(encoding="utf-8"))
-    payload["parameters"]["classification-properties"]["device"] = device
+    payload["parameters"]["classification-properties"]["device"] = vision_inf_device
     time_series_config = json.loads(TIME_SERIES_CONFIG_PATH.read_text(encoding="utf-8"))
-    time_series_config["udfs"]["device"] = time_series_device
+    time_series_config["udfs"]["device"] = time_series_inf_device
     with io.BytesIO() as package:
         with tarfile.open(fileobj=package, mode="w") as archive:
             for folder in ("udfs", "tick_scripts", "models"):
@@ -177,37 +176,67 @@ async def start_pipeline(
             {"configured_time_series_task": TIME_SERIES_TASK_NAME},
             {"dlstreamer": _upstream_error(error)},
         ) from error
-    
+    pipeline_result = response.json()
+    if isinstance(pipeline_result, str):
+        pipeline_result = {"id": pipeline_result}
+
     return {
-        **response.json(),
+        **pipeline_result,
         "time_series_task": TIME_SERIES_TASK_NAME,
-        "time_series_device": time_series_config["udfs"]["device"],
+        "time_series_inf_device": time_series_config["udfs"]["device"],
     }
 
 
 @mcp.tool()
-async def stop_pipeline(pipeline_id: str) -> dict[str, str]:
-    """Stop a DLStreamer instance and disable the weld time-series task."""
-    if not re.fullmatch(r"[A-Za-z0-9_-]+", pipeline_id):
-        raise ValueError("pipeline_id must be an alphanumeric pipeline ID")
-    completed: dict[str, str] = {}
+async def stop_pipeline() -> dict[str, Any]:
+    """Stop all active DLStreamer instances and disable the weld time-series task."""
+    completed: dict[str, Any] = {"stopped_pipeline_ids": []}
     failed: dict[str, str] = {}
     try:
-        await _request("DELETE", f"{PIPELINE_API_URL}/pipelines/{pipeline_id}")
-        completed["stopped_pipeline_id"] = pipeline_id
+        response = await _request("GET", f"{PIPELINE_API_URL}/pipelines/status")
+        pipelines = response.json()
+        if not isinstance(pipelines, list):
+            raise ValueError("Invalid pipeline status response")
+        for pipeline in pipelines:
+            if not isinstance(pipeline, dict):
+                failed["dlstreamer"] = "invalid pipeline status response"
+                continue
+            if pipeline.get("state") not in ("QUEUED", "RUNNING"):
+                continue
+            pipeline_id = pipeline.get("id")
+            if not isinstance(pipeline_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", pipeline_id):
+                failed["dlstreamer"] = "invalid pipeline ID in status response"
+                continue
+            try:
+                await _request("DELETE", f"{PIPELINE_API_URL}/pipelines/{pipeline_id}")
+                completed["stopped_pipeline_ids"].append(pipeline_id)
+            except httpx.HTTPError as error:
+                failed[f"dlstreamer:{pipeline_id}"] = _upstream_error(error)
     except httpx.HTTPError as error:
         failed["dlstreamer"] = _upstream_error(error)
+    except ValueError:
+        failed["dlstreamer"] = "invalid pipeline status response"
     try:
         await _request(
-            "PATCH",
-            f"{KAPACITOR_API_URL}/kapacitor/v1/tasks/{TIME_SERIES_TASK_NAME}",
-            json={"status": "disabled"},
+            "POST",
+            f"{TIME_SERIES_API_URL}/stop_pipeline",
+            params={"expected_task_id": TIME_SERIES_TASK_NAME},
         )
         completed["stopped_time_series_task"] = TIME_SERIES_TASK_NAME
-    except httpx.HTTPError as error:
+    except httpx.HTTPStatusError as error:
+        try:
+            detail = error.response.json().get("detail")
+        except (ValueError, AttributeError):
+            detail = None
+        if error.response.status_code == 409 and detail == "No UDF task is configured":
+            completed["time_series_task"] = "not configured"
+        else:
+            failed["time_series"] = _upstream_error(error)
+    except httpx.RequestError as error:
         failed["time_series"] = _upstream_error(error)
     if failed:
-        raise PipelineControlError("Could not stop both pipelines", completed, failed)
+        reasons = ", ".join(f"{service}: {reason}" for service, reason in failed.items())
+        raise PipelineControlError(f"Could not stop all pipelines ({reasons})", completed, failed)
     return completed
 
 
@@ -291,6 +320,7 @@ async def _http_tool(
     action: Callable[..., Awaitable[dict[str, Any]]],
     *,
     require_auth: bool = False,
+    allow_empty_body: bool = False,
 ) -> JSONResponse:
     if require_auth and not _authorized_control(request.headers.get("authorization")):
         return JSONResponse(
@@ -298,7 +328,9 @@ async def _http_tool(
             headers={"WWW-Authenticate": 'Basic realm="weld-mcp", charset="UTF-8"'},
         )
     try:
-        payload = schema.model_validate(await request.json())
+        payload = schema.model_validate(
+            {} if allow_empty_body and not await request.body() else await request.json()
+        )
         return JSONResponse(await action(**payload.model_dump()))
     except (ValueError, ValidationError) as error:
         return JSONResponse({"error": str(error)}, status_code=400)
@@ -323,7 +355,7 @@ async def http_start_pipeline(request: Request) -> JSONResponse:
 
 @mcp.custom_route("/stop_pipeline", methods=["POST"])
 async def http_stop_pipeline(request: Request) -> JSONResponse:
-    return await _http_tool(request, StopRequest, stop_pipeline, require_auth=True)
+    return await _http_tool(request, StopRequest, stop_pipeline, require_auth=True, allow_empty_body=True)
 
 
 @mcp.custom_route("/explain", methods=["POST"])
