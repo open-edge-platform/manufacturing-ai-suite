@@ -230,17 +230,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y nmap
 
-      - name: Cleanup before Time Series Wind and Weld tests
+      - name: Cleanup before Time Series Wind tests
         run: |
-          echo "=== Cleaning up resources before Time Series Wind and Weld tests ==="
+          echo "=== Cleaning up resources before Time Series Wind tests ==="
 
           # Clean up any leftover docker resources
           echo "Cleaning up docker resources..."
           cd "${{ github.workspace }}/industrial-edge-insights-time-series/"
           make down 2>/dev/null || true
-          echo "=== Time Series Wind and Weld cleanup complete ==="
+          echo "=== Time Series Wind cleanup complete ==="
 
-      - name: Run Time Series Wind and Weld functional tests
+      - name: Run Time Series Wind functional tests
         env:
           TESTS: ${{ inputs.tests || env.DEFAULT_TESTS }}
           INCLUDE_GPU_TESTS: ${{ inputs.include_gpu_tests || 'no' }}
@@ -286,7 +286,7 @@ jobs:
           fi
 
           cd "${{ github.workspace }}/industrial-edge-insights-time-series/tests/functional"
-          echo "Running Time Series Wind and Weld functional tests"
+          echo "Running Time Series Wind functional tests"
           python3 -m venv env
           source env/bin/activate
           pip3 install -r ../requirements.txt
@@ -405,7 +405,7 @@ jobs:
           deactivate
           exit $PYTEST_RC
 
-      - name: Upload Time Series Wind and Weld HTML test report to GitHub
+      - name: Upload Time Series Wind HTML test report to GitHub
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -811,7 +811,7 @@ jobs:
               out.write(f'- **Skip Long Tests:** {skip_long}\n\n')
 
               sections = [
-                  ('\U0001f30a Time Series Wind and Weld Tests', '/tmp/test_timeseries_core_report/junit.xml', ts_core_exit),
+                  ('\U0001f30a Time Series Wind Tests', '/tmp/test_timeseries_core_report/junit.xml', ts_core_exit),
                   ('\U0001f512 Security Tests', '/tmp/test_timeseries_security_report/junit.xml', ts_security_exit),
                   ('\U0001f3ad Multimodal Tests', '/tmp/test_multimodal_report/junit.xml', mm_exit),
               ]
