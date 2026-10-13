@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Test contracts (per mode)
 
 Only load/author this file when `{{GENERATE_TESTS}}=yes` (asked explicitly
@@ -83,9 +86,10 @@ the self-signed Nginx cert).
 ### `test_sensor_pipeline.py`
 
 - `test_telegraf_ingest_influxdb` — query InfluxDB
-  `{{SENSOR_MEASUREMENT}}`, assert row count increases after feeding a known
-  number of simulator/test points.
-- `test_ts_topic_every_point` — subscribe `{{TS_TOPIC}}`, assert a message
+  `{{SENSOR_MEASUREMENT}}`, assert row count increases after publishing known
+  raw points to `{{TS_RAW_TOPIC}}` (MQTT input) or feeding the selected
+  non-MQTT input.
+- `test_ts_processed_topic_every_point` — subscribe `{{TS_PROCESSED_TOPIC}}`, assert a message
   arrives for **every** ingested sensor point, not just anomalies (validates
   the "always-crit" alert block in the TICKscript — see `TIMESERIES.md`).
 - `test_sensor_alert_topic_anomalies_only` — feed one known-anomalous row and
@@ -129,7 +133,7 @@ the self-signed Nginx cert).
 
 ### `test_explanation.py`
 
-- `test_llm_health` — `GET /v3/config` on `apm-llm` returns 200.
+- `test_llm_health` — `GET /v1/config` on `apm-llm` returns 200.
 - `test_batch_complete_produces_explanation` — publish a synthetic
   batch-complete MQTT event, assert one explanation output appears in the
   explainer's (`vllm-explainer` or `apm-agent`'s) `OUTPUT_DIR`, quote it

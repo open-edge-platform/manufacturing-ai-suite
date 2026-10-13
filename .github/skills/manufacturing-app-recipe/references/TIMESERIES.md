@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Telegraf + Time Series Analytics Microservice reference (the sensor half, inside `multimodal`/`vllm`/`agentic`)
 
 > **Skill pointer:** for authoring the UDF + TICKscript pattern itself
@@ -20,7 +23,9 @@ Required env on the `ia-telegraf` service:
 - `MQTT_BROKER_HOST=ia-mqtt-broker`, `TELEGRAF_INPUT_PLUGIN=mqtt_consumer`
   (default) — set to `opcua_listener`/another Telegraf input plugin if
   `{{INPUT_TYPE}}=opcua` or a different live sensor bus; the recipe's
-  `entrypoint.sh` picks the plugin block from `TELEGRAF_INPUT_PLUGIN`.
+  `entrypoint.sh` picks the plugin block from `TELEGRAF_INPUT_PLUGIN`. For
+  MQTT input, configure `mqtt_consumer.topics` with `{{TS_RAW_TOPIC}}`; map
+  the simulator's service-local `TS_TOPIC` to `${TS_RAW_TOPIC}` in Compose.
 - `INFLUX_SERVER=ia-influxdb`, `INFLUXDB_DBNAME=datain`,
   `INFLUXDB_USERNAME`/`INFLUXDB_PASSWORD` from `.env`.
 - `TS_MS_SERVER_URL=http://ia-time-series-analytics-microservice:${KAPACITOR_PORT}`
@@ -98,7 +103,7 @@ data0
                 .message('{"time": "{{ index .Time }}", "anomaly_status": {{ index .Fields "anomaly_status" }}, "predicted_category": "{{ index .Fields "predicted_category" }}", "confidence": "{{ index .Fields "confidence" }}"}')
                 .noRecoveries()
                 .mqtt('my_mqtt_broker')
-                .topic('{{TS_TOPIC}}')
+                .topic('{{TS_PROCESSED_TOPIC}}')
                 .qos(1)
 
 data0
@@ -113,7 +118,7 @@ data0
 
 - **Two separate alert blocks, two different crit conditions, by design**:
   the first (`>= 0`, i.e. always) publishes **every processed point** to
-  `{{TS_TOPIC}}` — this is Fusion Analytics' sensor-side input and needs
+  `{{TS_PROCESSED_TOPIC}}` — this is Fusion Analytics' sensor-side input and needs
   every point (even non-anomalous ones) so timestamp correlation always has a
   candidate to compare against. The second (`> 0`, anomalies only) publishes
   to `{{SENSOR_ALERT_TOPIC}}` for a human/ops-facing MQTT alert subscriber.
@@ -133,19 +138,22 @@ Keep these three names in lockstep across `TIMESERIES.md` and `FUSION.md`:
 | Name | Set here | Consumed by |
 |---|---|---|
 | `{{SENSOR_MEASUREMENT}}` | TICKscript `.measurement(...)` + Telegraf output | InfluxDB queries only |
-| `{{TS_TOPIC}}` | TICKscript first `.topic(...)` | Fusion Analytics `TS_TOPIC` env var |
+| `{{TS_RAW_TOPIC}}` | simulator's service-local `TS_TOPIC` (MQTT input) | Telegraf `mqtt_consumer`; not Fusion Analytics |
+| `{{TS_PROCESSED_TOPIC}}` | TICKscript first `.topic(...)` | Fusion Analytics' service-local `TS_TOPIC` env var |
 | `{{SENSOR_ALERT_TOPIC}}` | TICKscript second `.topic(...)` | ops/human MQTT subscriber only — **not** consumed by Fusion Analytics |
 
 ## Verifying the sensor half in isolation (before wiring multimodal)
 
 ```bash
-docker exec -ti ia-mqtt-broker mosquitto_sub -h localhost -v -t '{{TS_TOPIC}}' -p 1883
+docker exec -ti ia-mqtt-broker mosquitto_sub -h localhost -v -t '{{TS_RAW_TOPIC}}' -p 1883
+docker exec -ti ia-mqtt-broker mosquitto_sub -h localhost -v -t '{{TS_PROCESSED_TOPIC}}' -p 1883
 docker exec -ti ia-mqtt-broker mosquitto_sub -h localhost -v -t '{{SENSOR_ALERT_TOPIC}}' -p 1883
 docker exec -it ia-influxdb influx -username <user> -password <pass> \
   -execute 'use datain; select * from "{{SENSOR_MEASUREMENT}}-anomaly-data"'
 ```
 
-Confirm both topics carry data and the UDF's flagged rows land in InfluxDB
-**before** authoring/troubleshooting `references/FUSION.md` — Fusion Analytics
+Confirm the raw input and processed output topics carry data and the UDF's
+flagged rows land in InfluxDB **before** authoring/troubleshooting
+`references/FUSION.md` — Fusion Analytics
 failures are much easier to diagnose once the sensor half is proven working
 standalone.

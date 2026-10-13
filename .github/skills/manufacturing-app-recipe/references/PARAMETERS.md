@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Parameters (from invoking prompt)
 
 | Param | Purpose | Modes |
@@ -12,10 +15,11 @@
 | `{{PIPELINE_NAME}}` | canonical DLSPS pipeline `name` (e.g. `weld_defect_classification`); variants `<name>`/`_gpu`/`_npu` | `vision`, `multimodal`, `vllm`, `agentic` |
 | `{{VISION_TOPIC}}` | MQTT topic DLSPS publishes classification/detection metadata to | `multimodal`, `vllm`, `agentic` |
 | `{{SENSOR_UDF_NAME}}` | Time Series Analytics UDF name; backed by a pretrained model or a threshold/rate-of-change rule (time-series-analytics-user's `references/patterns.md` patterns) | `ts`, `multimodal`, `vllm`, `agentic` |
-| `{{SENSOR_MEASUREMENT}}` | InfluxDB measurement / MQTT topic the raw sensor stream lands on | `ts`, `multimodal`, `vllm`, `agentic` |
+| `{{SENSOR_MEASUREMENT}}` | InfluxDB measurement where the raw sensor stream lands | `ts`, `multimodal`, `vllm`, `agentic` |
 | `{{SENSOR_TAGS}}` | OPC-UA node IDs / MQTT field names to ingest | `ts` |
 | `{{INGEST_TRANSPORT}}` | `opcua` \| `mqtt` (default `opcua` for `ts`) — which simulator/Telegraf input plugin drives ingestion | `ts`, `multimodal`, `vllm`, `agentic` |
-| `{{TS_TOPIC}}` | MQTT topic the Time Series Analytics UDF publishes **every** flagged point to | `multimodal`, `vllm`, `agentic` |
+| `{{TS_RAW_TOPIC}}` | MQTT topic for raw sensor points published by an MQTT-backed simulator/device and consumed by Telegraf; not used for Fusion input | `multimodal`, `vllm`, `agentic` (MQTT-backed input) |
+| `{{TS_PROCESSED_TOPIC}}` | MQTT topic the Time Series Analytics UDF publishes **every processed point** to; Fusion Analytics subscribes here | `multimodal`, `vllm`, `agentic` |
 | `{{SENSOR_ALERT_TOPIC}}` | MQTT topic for the sensor-only crit alert | `multimodal`, `vllm`, `agentic` |
 | `{{ALERT_CHANNEL}}` | `mqtt` (default) \| `opcua` — **enable only one** | `ts` |
 | `{{ALERT_TOPIC}}` | MQTT topic for crit alerts, only when `{{ALERT_CHANNEL}}=mqtt` | `ts` |

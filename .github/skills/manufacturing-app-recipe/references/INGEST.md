@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Ingestion reference — OPC-UA / MQTT simulators + Telegraf wiring (`ts` mode)
 
 ## Choosing a transport

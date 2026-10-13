@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # The `apps/<name>/` convention — `ts` mode's core differentiator
 
 The Time Series AI Stack is one shared Compose topology

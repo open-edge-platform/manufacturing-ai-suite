@@ -1,4 +1,6 @@
 ---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
 name: manufacturing-app-recipe
 description: >-
   Stand up a complete, ready-to-run manufacturing analytics stack on Intel
@@ -184,7 +186,12 @@ Production questions:
    z-score, pretrained model — see `time-series-analytics-user`
    `references/patterns.md`)
 6. Sensor input [simulator sample CSV] (or MQTT/OPC UA live feed); sets
-   Telegraf `TELEGRAF_INPUT_PLUGIN`
+  Telegraf `TELEGRAF_INPUT_PLUGIN`. For the MQTT-publishing simulator or
+  another MQTT source, set raw topic [`{{TS_RAW_TOPIC}}`, default
+  `{{OBJECT}}/sensor/raw`] for simulator output
+  and Telegraf input; set processed UDF output topic
+  [`{{TS_PROCESSED_TOPIC}}`, default `{{OBJECT}}/sensor/processed`] for
+  Fusion Analytics. These topics must be distinct.
 7. Multimodal mode [`{{FUSION_MODE}}`, default `OR`] + `{{TOLERANCE_NS}}`
    [default `50e6`]
 8. Alert channels [MQTT `{{SENSOR_ALERT_TOPIC}}` + `{{FUSION_TOPIC}}`]
@@ -298,8 +305,9 @@ error.
   is `CN=localhost` with no SAN, so `--resolve` is required for hostname
   verification to match) — never fall back to `-k` on a non-localhost target.
 - `multimodal`/`vllm`/`agentic`: test multimodal end-to-end via MQTT, not just REST
-  200s — confirm `{{VISION_TOPIC}}`, `{{TS_TOPIC}}`, `{{FUSION_TOPIC}}` all
-  appear on the broker.
+  200s — confirm `{{VISION_TOPIC}}`, `{{TS_RAW_TOPIC}}` (when the simulator or
+  sensor source publishes over MQTT), `{{TS_PROCESSED_TOPIC}}`, and
+  `{{FUSION_TOPIC}}` appear on the broker.
 - **Known startup-order caveat** (`multimodal`/`vllm`/`agentic`): Fusion Analytics
   only starts fusing once the vision metadata carries an RTP sender
   timestamp — DLSPS may not emit that for its first ~300 packets, so allow a

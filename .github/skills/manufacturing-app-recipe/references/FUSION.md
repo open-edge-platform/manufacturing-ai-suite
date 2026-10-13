@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Fusion Analytics reference (the correlator — core of `multimodal`/`vllm`/`agentic` modes)
 
 No delegate skill exists for this component yet — author it from these
@@ -5,11 +8,17 @@ templates directly (Python, `paho-mqtt` + `influxdb` client + a small FastAPI
 health/API app), matching the reference `fusion-analytics/` service
 (`Dockerfile`, `fusion.py`, `api.py`, `requirements.txt`).
 
+For MQTT sensor input, the simulator publishes raw points to
+`{{TS_RAW_TOPIC}}` and Telegraf consumes that topic. The UDF publishes every
+processed point to `{{TS_PROCESSED_TOPIC}}`; Fusion subscribes to this
+processed topic, never the raw input topic. Keep Fusion's service-local
+`TS_TOPIC` environment key, mapped to `{{TS_PROCESSED_TOPIC}}` in Compose.
+
 ## Responsibilities
 
 1. Subscribe to **both** MQTT topics: `{{VISION_TOPIC}}` (DLSPS) and
-   `{{TS_TOPIC}}` (Time Series Analytics Microservice, *every* processed
-   point — not just the alert-only topic).
+  `{{TS_PROCESSED_TOPIC}}` (Time Series Analytics Microservice, *every*
+  processed point — not just the alert-only topic).
 2. Buffer each stream in a bounded rolling deque (`BUFFER_SIZE`, default
    `100`–`1000`).
 3. Match one vision message with one sensor message whose timestamps are
@@ -31,7 +40,7 @@ health/API app), matching the reference `fusion-analytics/` service
 MQTT_BROKER=ia-mqtt-broker
 MQTT_PORT=1883
 VISION_TOPIC={{VISION_TOPIC}}
-TS_TOPIC={{TS_TOPIC}}
+TS_TOPIC={{TS_PROCESSED_TOPIC}}          # service-local key; subscribes to the UDF output, not raw sensor input
 FUSION_TOPIC={{FUSION_TOPIC}}
 BUFFER_SIZE=100
 TOLERANCE_NS={{TOLERANCE_NS}}            # e.g. 50e6 = 50 ms
@@ -89,8 +98,10 @@ different rates and out of lockstep. Use first-come-first-served pairing:
    - `OR`: an unmatched source's own anomaly flag is already sufficient to
      satisfy `OR`, so if the source message is itself anomalous, still
      publish a fused verdict using only the source's flag (the missing
-     modality's flag recorded as `0`, its timestamp/delta fields omitted);
-     if the source message is not anomalous, emit no fused alert.
+    modality's flag recorded as `0`); if the source message is not anomalous,
+    emit no fused alert. Publish and persist every such verdict. Set the
+    missing modality's timestamp and `delta_ms` to JSON `null` in MQTT; omit
+    unavailable fields from the InfluxDB point so they read as null there.
 4. If a match is found, pop it from the target queue too and combine the two
    per-modality anomaly flags with `{{FUSION_MODE}}`:
    - `AND`: fused anomaly = `vision_anomaly AND timeseries_anomaly`
@@ -108,10 +119,13 @@ different rates and out of lockstep. Use first-come-first-served pairing:
   of multimodal outcome, tagged with `label`/`confidence`/`search_time`, so
   Grafana can show a vision-only trend even when no sensor match was found.
   This happens in the MQTT `on_message` callback, not in the multimodal step.
-- **Fused verdict** — write only on an actual successful pairing, to a
-  separate `FUSION_MEASUREMENT` (e.g. `multimodal-anomaly-detection-results`),
-  including both source timestamps, the timestamp delta, `{{FUSION_MODE}}`,
-  and the fused decision.
+- **Fused verdict** — write every verdict published to `{{FUSION_TOPIC}}` to
+  a separate `FUSION_MEASUREMENT` (e.g. `multimodal-anomaly-detection-results`).
+  Include both source timestamps and the timestamp delta for matched pairs;
+  for unmatched `OR` verdicts, set the missing modality's timestamp and the
+  delta to JSON `null` in the MQTT payload and omit those unavailable fields
+  from the InfluxDB point (they read as null in queries). Always include
+  `{{FUSION_MODE}}` and the fused decision.
 
 ## MQTT publish — the fused verdict
 
@@ -187,4 +201,6 @@ sensor anomaly (for `AND`) or either one, matched **or unmatched** (for
 `OR`) land within/without `{{TOLERANCE_NS}}` — inject one modality's anomaly
 without the other and confirm the multimodal behavior matches `{{FUSION_MODE}}`
 exactly (if `{{GENERATE_TESTS}}=yes`, this is the single most important test
-in [`TESTS.md`](TESTS.md); otherwise verify it manually).
+in [`TESTS.md`](TESTS.md); otherwise verify it manually). Confirm every
+published verdict, including unmatched `OR` verdicts, is present in
+`FUSION_MEASUREMENT` with unavailable timestamp/delta fields reading as null.

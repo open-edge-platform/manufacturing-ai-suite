@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Skill catalog — manufacturing business objective → skill
 
 Curated routing table for the `manufacturing-ai-app-builder` orchestrator.

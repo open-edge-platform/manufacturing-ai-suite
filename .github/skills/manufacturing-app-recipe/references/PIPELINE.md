@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # DLSPS vision pipeline reference (the video half — `vision`/`multimodal`/`vllm`/`agentic` modes)
 
 > **Skill pointer:** for DL Streamer Pipeline Server deployment/operation
@@ -75,7 +78,7 @@ rtspsrc add-reference-timestamp-meta=true location="rtsp://mediamtx:8554/live.st
 Swap `gvaclassify inference-region=full-frame` for
 `gvadetect model-instance-id=inst0 name=detection ! queue ! gvaclassify
 inference-region=1 name=classification` (classifier optional) exactly as in
-`metro-ai-app-recipe`'s [PIPELINE.md](../metro-ai-app-recipe/references/PIPELINE.md)
+`metro-ai-app-recipe`'s [PIPELINE.md](https://github.com/open-edge-platform/metro-ai-suite/blob/main/metro-vision-ai-app-recipe/.github/skills/metro-ai-app-recipe/references/PIPELINE.md)
 — reuse that skill's GPU/NPU `vapostproc` guidance verbatim if this vertical
 needs bounding-box localization instead of a whole-frame label.
 

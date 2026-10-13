@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Agent-orchestration overlay (`agentic` mode only — wraps `VLM.md`)
 
 Adds full agent orchestration on top of the bare LLM/VLM call described in
@@ -57,7 +60,7 @@ Same as `VLM.md` — `apm-llm` is the GPU/memory-heavy service either way;
 ## Completion criteria (`agentic` mode, in addition to `VLM.md`'s criteria 10–12)
 
 13. `model-download` completes and `apm-llm`'s health check passes
-    (`GET /v3/config` returns 200) before `apm-agent` is marked healthy.
+    (`GET /v1/config` returns 200) before `apm-agent` is marked healthy.
 14. Publishing a synthetic `apm/batch-complete` MQTT event produces one
     agent-orchestrated explanation output in `apm-agent`'s `OUTPUT_DIR`,
     quoted verbatim in the final summary.

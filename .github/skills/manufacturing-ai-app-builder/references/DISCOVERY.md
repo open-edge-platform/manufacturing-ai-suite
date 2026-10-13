@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Discovering & installing skills at runtime
 
 How the `manufacturing-ai-app-builder` orchestrator confirms a delegate is

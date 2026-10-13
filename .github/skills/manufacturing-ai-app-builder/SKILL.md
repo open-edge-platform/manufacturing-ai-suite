@@ -1,4 +1,6 @@
 ---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
 name: manufacturing-ai-app-builder
 description: >-
   Conversational orchestrator that turns a plain manufacturing-quality business
@@ -10,7 +12,7 @@ license: Apache-2.0
 compatibility: >-
   Requires: `git`/`gh` and network access to github.com if a delegate skill
   needs to be fetched from `open-edge-platform/skills` or its own repo; `npx
-  skills@1.5.23` CLI for that install step. `manufacturing-app-recipe` ships
+  skills@latest` CLI for that install step. `manufacturing-app-recipe` ships
   locally in this workspace under `.github/skills/` — no install needed for
   it. Individual delegate skills add their own requirements (Docker +
   Compose v2, Intel CPU/GPU/NPU) — surface those during planning, do not

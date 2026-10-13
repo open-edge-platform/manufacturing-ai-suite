@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Time Series Analytics Microservice reference (`ts` mode — delegates to `time-series-analytics-user`)
 
 > **Skill pointer:** for choosing the UDF pattern (threshold, rate-of-change,

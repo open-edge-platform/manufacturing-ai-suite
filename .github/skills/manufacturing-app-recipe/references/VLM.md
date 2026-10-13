@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # VLM narrative-explanation layer (`vllm`/`agentic` modes — always on top of `multimodal`)
 
 A bare LLM/VLM layer that turns a fused anomaly verdict into a human-readable
@@ -70,7 +73,7 @@ rather than skipping validation.
 ## Completion criteria (`vllm` mode, in addition to the base `multimodal` criteria 1–9)
 
 10. `model-download` completes and `apm-llm`'s health check passes
-    (`GET /v3/config` returns 200) before `vllm-explainer` is marked healthy.
+    (`GET /v1/config` returns 200) before `vllm-explainer` is marked healthy.
 11. Publishing a synthetic batch-complete MQTT event produces one
     explanation output in `vllm-explainer`'s `OUTPUT_DIR`, quoted verbatim in
     the final summary.

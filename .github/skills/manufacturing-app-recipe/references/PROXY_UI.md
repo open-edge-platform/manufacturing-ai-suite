@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Nginx + Grafana + Mosquitto + (multimodal family) SeaweedFS reference
 
 Two topologies share this file: the flat `{{STACK_DIR}}/` used by

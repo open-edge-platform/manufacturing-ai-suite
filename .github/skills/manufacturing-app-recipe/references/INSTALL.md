@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # File layout, `.env`, validation, install/Makefile steps (per mode)
 
 ## Layout — `multimodal`/`vllm`/`agentic` modes (flat `{{STACK_DIR}}/`)
@@ -6,9 +9,11 @@
 {{STACK_DIR}}/
 ├── README.md
 ├── docker-compose.yml
+├── docker-compose-vllm.yml        # {{DEPLOYMENT}}=vllm or agentic
+├── docker-compose-agentic.yml     # {{DEPLOYMENT}}=agentic only; layers the vLLM service
 ├── .env
-├── install.sh                   # HOST_IP, model dl, dataset dl, TLS cert
-├── Makefile                     # up/down/status wrapping docker compose; check_env_variables/validate_host_ip targets (optional; sample_*.sh also fine)
+├── install.sh                   # preflight, .env bootstrap (HOST_IP/TURN/GIDs), model/data preparation
+├── Makefile                     # required production entry points: check_env_variables, up_*, status, down
 ├── configs/
 │   ├── dlstreamer-pipeline-server/
 │   │   ├── config.json          # PIPELINE.md
@@ -40,12 +45,16 @@
 │   └── simulation-data/*.avi + *.csv pairs
 ├── vllm/                          # {{DEPLOYMENT}}=vllm or agentic only — see VLM.md
 │   └── vllm-explainer/{Dockerfile,explainer.py,requirements.txt}
-├── agentic/                      # {{DEPLOYMENT}}=agentic only — see AGENTIC.md
-│   └── docker-compose-agentic.yml + docker-compose-vllm.yml overlays
 └── tests/                        # only if {{GENERATE_TESTS}}=yes — TESTS.md
     ├── conftest.py
     └── test_fusion_pipeline.py  # TESTS.md
 ```
+
+Keep Compose overlays at the stack root beside `docker-compose.yml`: the
+Makefile targets pass `docker-compose-vllm.yml` and
+`docker-compose-agentic.yml` as root-relative filenames. `vllm` mode includes
+the vLLM overlay; `agentic` mode includes both overlays, with the agentic
+overlay layering on top of the vLLM service.
 
 This is a curated layout, not a mirror of the reference repo — omit
 `docker-compose-vllm.yml`/`docker-compose-agentic.yml`/`configs/agentic/`
@@ -75,13 +84,17 @@ VISUALIZER_GRAFANA_USER=      # alphabets only, >=5 chars
 VISUALIZER_GRAFANA_PASSWORD=  # same rule as INFLUXDB_PASSWORD
 S3_STORAGE_USERNAME=
 S3_STORAGE_PASSWORD=
+# HTTP Basic Auth for the SeaweedFS filer UI at /image-store; both are required.
+SEAWEEDFS_WEB_AUTH_USER=
+SEAWEEDFS_WEB_AUTH_PASSWORD=
 MTX_WEBRTCICESERVERS2_0_USERNAME={{TURN_USER}}
 MTX_WEBRTCICESERVERS2_0_PASSWORD=   # generated: openssl rand -hex 16
 
 CONTINUOUS_SIMULATOR_INGESTION=true   # false = ingest once, no loop
 SIMULATION_REPLAY_COUNT=3
 SIMULATION_TARGET_FPS=10
-TS_TOPIC={{SENSOR_MEASUREMENT}}       # topic the simulator/device publishes RAW points to (Telegraf's mqtt_consumer input) — name it TS_TOPIC, matching the reference Compose simulator service's `${TS_TOPIC}` env var verbatim
+TS_RAW_TOPIC={{TS_RAW_TOPIC}}         # raw MQTT input from MQTT-publishing simulator/device; Telegraf mqtt_consumer subscribes here (e.g. weld-data)
+TS_PROCESSED_TOPIC={{TS_PROCESSED_TOPIC}} # every UDF-processed point; Fusion Analytics consumes here (e.g. ts_weld_anomaly_detection)
 
 FUSION_MODE={{FUSION_MODE}}           # AND | OR
 TOLERANCE_NS={{TOLERANCE_NS}}         # e.g. 50e6
@@ -97,6 +110,16 @@ LLM_WEIGHT_FORMAT={{LLM_WEIGHT_FORMAT}}
 HUGGINGFACEHUB_API_TOKEN=
 ```
 
+### Sensor topic wiring — `multimodal`/`vllm`/`agentic`
+
+Keep the raw input and processed output topics distinct. In
+`docker-compose.yml`, map the simulator's service-local `TS_TOPIC` to
+`${TS_RAW_TOPIC}`, configure Telegraf's `mqtt_consumer` to subscribe to
+`${TS_RAW_TOPIC}`, and map Fusion Analytics' service-local `TS_TOPIC` to
+`${TS_PROCESSED_TOPIC}`. The TICKscript publishes every UDF-processed point
+to `{{TS_PROCESSED_TOPIC}}`; Fusion must never subscribe to the raw input
+topic.
+
 ### Env validation rules (`make check_env_variables`/`validate_host_ip`)
 
 | Var | Rule |
@@ -107,8 +130,9 @@ HUGGINGFACEHUB_API_TOKEN=
 | `FUSION_MODE` | exactly `AND` or `OR` — reject anything else |
 | `TOLERANCE_NS` | numeric (accepts scientific notation e.g. `50e6`), `> 0` |
 | `INFLUXDB_USERNAME`/`PASSWORD`, `VISUALIZER_GRAFANA_USER`/`PASSWORD` | non-empty, satisfy the length/charset rules from `.env` comments — reject weak/empty creds before `docker compose up` |
+| `SEAWEEDFS_WEB_AUTH_USER`/`SEAWEEDFS_WEB_AUTH_PASSWORD` | non-empty; protect the SeaweedFS filer UI at `/image-store`; Nginx fails to start if either is unset |
 | `PIPELINE_NAME` | matches the DLSPS `config.json` pipeline name exactly |
-| `{{VISION_TOPIC}}`, `{{TS_TOPIC}}`, `{{SENSOR_ALERT_TOPIC}}`, `{{FUSION_TOPIC}}` | non-empty, distinct from each other (a collision silently merges two data streams) |
+| `{{VISION_TOPIC}}`, `{{TS_RAW_TOPIC}}` (when the simulator/sensor source publishes over MQTT), `{{TS_PROCESSED_TOPIC}}`, `{{SENSOR_ALERT_TOPIC}}`, `{{FUSION_TOPIC}}` | required where applicable and distinct from each other (a collision silently merges data streams); `TS_RAW_TOPIC` feeds Telegraf, while `TS_PROCESSED_TOPIC` feeds Fusion Analytics |
 | `MTX_WEBRTCICESERVERS2_0_USERNAME`/`PASSWORD` | non-empty (Coturn auth) |
 | `INPUT_TYPE` | `simulator` \| `rtsp` \| `device` \| `opcua` |
 | `vllm`/`agentic` only | `LLM_MODEL_NAME` set, `MODEL_PATH` resolvable |
@@ -168,7 +192,7 @@ dependency of the `up`/`up_vllm`/`up_agentic` targets, same convention as
    `apm-llm` startup; confirm `MODEL_PATH` resolves before marking install
    complete.
 
-### `Makefile` targets (optional, mirrors the reference) — `multimodal`/`vllm`/`agentic`
+### Required `Makefile` targets — `multimodal`/`vllm`/`agentic`
 
 - `up`: `check_env_variables` → `validate_host_ip` → `down` → dashboard swap →
   `docker compose up -d` — plain `multimodal` mode, no LLM/VLM overlay.
@@ -190,9 +214,11 @@ dependency of the `up`/`up_vllm`/`up_agentic` targets, same convention as
 ### Final-summary proof points — `multimodal`/`vllm`/`agentic`
 
 Quote in the closing summary: the `docker compose up -d` output showing all
-containers `healthy`/`running`; the three MQTT topic subscriptions
-(`{{VISION_TOPIC}}`, `{{TS_TOPIC}}`, `{{FUSION_TOPIC}}`) each with one
-captured message; the `FUSION_MODE` value and one example fused-decision JSON
+containers `healthy`/`running`; the core MQTT topic subscriptions
+(`{{VISION_TOPIC}}`, `{{TS_RAW_TOPIC}}` when the simulator/sensor source
+publishes over MQTT,
+`{{TS_PROCESSED_TOPIC}}`, `{{FUSION_TOPIC}}`) each with one captured message;
+the `FUSION_MODE` value and one example fused-decision JSON
 that matches its semantics; the InfluxDB `select * from` output for the
 multimodal measurement; the Grafana dashboard URL + confirmation the WebRTC
 iframe/panel is present; and, if `{{DEPLOYMENT}}` is `vllm`/`agentic`, the LLM
@@ -314,12 +340,12 @@ vertical, and is the single most common mistake when using this skill.
 
 | Copy (adapt names/content to `{{OBJECT}}`/`{{SENSOR_UDF_NAME}}`/`{{STACK_DIR}}`) | Leave out unless the mode/question explicitly requests it |
 |---|---|
-| `docker-compose.yml` topology, `.env` keys, `Makefile`/`sample_*.sh` targets | `docker-compose-vllm.yml`/`docker-compose-agentic.yml`/`configs/agentic/` — `vllm`/`agentic` modes only |
+| `docker-compose.yml` topology, `.env` keys, and the required `Makefile` targets | `docker-compose-vllm.yml`/`docker-compose-agentic.yml`/`configs/agentic/` — `vllm`/`agentic` modes only |
 | `configs/{dlstreamer-pipeline-server,time-series-analytics-microservice,telegraf,influxdb,mqtt-broker,grafana,nginx,seaweedfs-s3}/` structure | `insights-workbench/`, `ui-service/` — weld-specific VLM/agentic UI, not part of the base multimodal stack |
 | `fusion-analytics/{Dockerfile,fusion.py,api.py,requirements.txt}` (generalize label lists — see [FUSION.md](FUSION.md)) | `training/` (weld classifier/VLM training scripts) — the new vertical's model is supplied by the user or fetched via `model-download-user`, not trained here |
 | the data simulator's `Dockerfile`/`publisher.py` control flow (paired video+CSV replay) | `docs/user-guide/weld-defect-detection/`, `README-dockerhub.md`, `CHANGELOG.md`, `third-party-programs.txt` — reference-repo metadata |
 | one dashboard JSON as a layout template | the reference's other dashboard variants (`*_agentic.json`, `*_vlm.json`) unless `{{DEPLOYMENT}}` is `vllm`/`agentic` |
-| `tests/` structure/pattern from [TESTS.md](TESTS.md) — only if `{{GENERATE_TESTS}}=yes` | the reference's actual weld-assertion test bodies — write new assertions against `{{VISION_TOPIC}}`/`{{TS_TOPIC}}`/`{{FUSION_TOPIC}}`; the whole `tests/` folder if `{{GENERATE_TESTS}}=no` |
+| `tests/` structure/pattern from [TESTS.md](TESTS.md) — only if `{{GENERATE_TESTS}}=yes` | the reference's actual weld-assertion test bodies — write new assertions against `{{VISION_TOPIC}}`/`{{TS_RAW_TOPIC}}`/`{{TS_PROCESSED_TOPIC}}`/`{{FUSION_TOPIC}}`; the whole `tests/` folder if `{{GENERATE_TESTS}}=no` |
 | `helm/` | always — Helm/Kubernetes deployment is out of scope for this skill; Docker Compose only |
 
 ### What to copy vs. what to leave behind (`ts`)
@@ -373,7 +399,8 @@ of these):
 2. `make check_env_variables` exits 0; an invalid `FUSION_MODE` exits non-zero.
 3. `docker compose up -d` → all containers `running`/`healthy` (incl.
    `mediamtx`, `coturn`, `seaweedfs-*`).
-4. All three MQTT topics (`{{VISION_TOPIC}}`, `{{TS_TOPIC}}`,
+4. The MQTT topics (`{{VISION_TOPIC}}`, `{{TS_RAW_TOPIC}}` when the
+   simulator/sensor source publishes over MQTT, `{{TS_PROCESSED_TOPIC}}`, and
    `{{FUSION_TOPIC}}`) carry data.
 5. A fused message appears only per `{{FUSION_MODE}}` semantics, within
    `{{TOLERANCE_NS}}`.
@@ -394,7 +421,7 @@ of these):
 
 **`agentic`** (criteria 1–12 above, plus):
 13. `model-download` completes and `apm-llm`'s health check passes
-    (`GET /v3/config` returns 200) before `apm-agent` is marked healthy.
+   (`GET /v1/config` returns 200) before `apm-agent` is marked healthy.
 14. Publishing a synthetic `apm/batch-complete` MQTT event produces one
     agent-orchestrated explanation in `apm-agent`'s `OUTPUT_DIR`, quoted
     verbatim.

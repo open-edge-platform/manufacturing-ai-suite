@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Demo/PoC mode (`vision` mode, and `ts` mode's demo sub-path)
 
 Two unrelated lightweight paths share this file — each produces one
