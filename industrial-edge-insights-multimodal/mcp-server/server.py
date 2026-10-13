@@ -55,8 +55,8 @@ mcp = FastMCP("MCP server for Multimodal Weld Defect Detection sample app")
 
 
 class StartRequest(BaseModel):
-    device: Literal["CPU", "GPU", "NPU"] = "CPU"
-    time_series_device: Literal["CPU", "GPU"] = "CPU"
+    vision_inf_device: Literal["CPU", "GPU", "NPU"] = "CPU"
+    time_series_inf_device: Literal["CPU", "GPU"] = "CPU"
 
 
 class StopRequest(BaseModel):
