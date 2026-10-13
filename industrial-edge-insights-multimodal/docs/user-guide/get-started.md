@@ -173,7 +173,8 @@ To trigger the model inference on `GPU` in DL Streamer Pipeline Server, run the 
 
 
 > [!NOTE]
-> When stopping the pipeline, Grafana may display the error message: **"Error: stream not found, retrying in some seconds"**. This is expected behavior. The stream will automatically reconnect and resume in Grafana once the pipeline is started again.
+> If you try to stop a pipeline that is already stopped, its state will show as `ABORTED`. This is expected and does not indicate an error.
+> Grafana may also display **"Error: stream not found, retrying in some seconds"** while the pipeline is stopped. This is expected behavior. The stream will automatically reconnect and resume in Grafana once the pipeline is started again.
 
 ## Verify the Multimodal Weld Defect Detection Results
 
