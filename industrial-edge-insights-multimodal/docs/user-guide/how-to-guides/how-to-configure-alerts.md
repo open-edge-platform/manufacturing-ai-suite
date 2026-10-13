@@ -4,13 +4,13 @@ This section provides instructions for setting up alerts in **Time Series Analyt
 
 ## Publish MQTT Alerts
 
-#### Configure MQTT Alerts
+### Configure MQTT Alerts
 
 By default, the following MQTT alerts are configured in the
 [`configs/time-series-analytics-microservice/config.json`](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-multimodal/configs/time-series-analytics-microservice/config.json)
 file (see the `alerts` section).
 
-#### Configure MQTT Alert in TICK Script
+### Configure MQTT Alert in TICK Script
 
 The MQTT alert is configured by default in the TICK script. Refer to
 [`configs/time-series-analytics-microservice/tick_scripts/weld_anomaly_detector.tick`](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-multimodal/configs/time-series-analytics-microservice/tick_scripts/weld_anomaly_detector.tick)
