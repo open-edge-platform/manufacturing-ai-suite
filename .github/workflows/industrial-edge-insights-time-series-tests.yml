@@ -81,6 +81,11 @@ on:
         required: false
         type: string
         default: ''
+      deps_image_suffix:
+        description: 'Suffix for dependency images (e.g., 2026.3.0-20260610-weekly)'
+        required: false
+        type: string
+        default: ''
       tests:
         description: >
           Which tests to run. Use 'all-tests', 'timeseries-all', 'timeseries-functional', or 'multimodal-all' to run a group,
@@ -132,6 +137,7 @@ jobs:
     env:
       KUBECONFIG: /etc/rancher/k3s/k3s.yaml
       WEEKLY_BUILD_DATE_INPUT: ${{ inputs.weekly_build_date || '' }}
+      DEPS_IMAGE_SUFFIX_INPUT: ${{ inputs.deps_image_suffix || '' }}
     permissions:
       contents: read
       packages: read
@@ -186,6 +192,17 @@ jobs:
               echo "Warning: $env_file not found, skipping"
             fi
           done
+
+      - name: Set dependency image suffix in multimodal .env
+        if: ${{ env.DEPS_IMAGE_SUFFIX_INPUT != '' }}
+        run: |
+          env_file="${{ github.workspace }}/industrial-edge-insights-multimodal/.env"
+          if [[ -f "$env_file" ]]; then
+            sed -i "s/^DEPS_IMAGE_SUFFIX=.*/DEPS_IMAGE_SUFFIX=${DEPS_IMAGE_SUFFIX_INPUT}/" "$env_file"
+            echo "Updated $env_file -> DEPS_IMAGE_SUFFIX=${DEPS_IMAGE_SUFFIX_INPUT}"
+          else
+            echo "Warning: $env_file not found, skipping"
+          fi
 
       - name: Resolve edge-ai-libraries ref
         if: ${{ (env.BUILD_NORMALIZED || 'yes') == 'yes' }}
