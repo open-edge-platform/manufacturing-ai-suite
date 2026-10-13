@@ -1,3 +1,9 @@
+#
+# Apache v2 license
+# Copyright (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+
 services:
   dlstreamer-pipeline-server:
     volumes:
@@ -20,7 +26,7 @@ services:
       ia-time-series-analytics-microservice:
         condition: service_started
     environment:
-      PIPELINE_API_URL: http://dlstreamer-pipeline-server:8080
+      DLSPS_API_URL: http://dlstreamer-pipeline-server:8080
       TIME_SERIES_API_URL: http://ia-time-series-analytics-microservice:5000
       KAPACITOR_API_URL: http://ia-time-series-analytics-microservice:${KAPACITOR_PORT:-9092}
       EXPLAIN_API_URL: http://multimodal-agentic-ui:5003

@@ -1,4 +1,10 @@
-FROM python:3.12-slim
+#
+# Apache v2 license
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+
+FROM python:3.14-slim
 
 WORKDIR /app
 

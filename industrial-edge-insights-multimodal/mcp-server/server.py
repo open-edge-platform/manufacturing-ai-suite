@@ -1,3 +1,9 @@
+#
+# Apache v2 license
+# Copyright (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+
 """MCP tools for controlling weld detection and explaining fused results."""
 
 import asyncio
@@ -23,7 +29,7 @@ from pydantic import BaseModel, ValidationError
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-PIPELINE_API_URL = os.getenv("PIPELINE_API_URL", "http://dlstreamer-pipeline-server:8080").rstrip("/")
+PIPELINE_API_URL = os.getenv("DLSPS_API_URL", "http://dlstreamer-pipeline-server:8080").rstrip("/")
 EXPLAIN_API_URL = os.getenv("EXPLAIN_API_URL", "http://multimodal-agentic-ui:5003").rstrip("/")
 AGENT_SERVICE_URL = os.getenv("AGENT_SERVICE_URL", "http://apm-agent:5002").rstrip("/")
 TIME_SERIES_API_URL = os.getenv(
@@ -48,7 +54,7 @@ if bool(MCP_USERNAME) != bool(MCP_PASSWORD):
 if MCP_USERNAME and ":" in MCP_USERNAME:
     raise ValueError("MCP_USERNAME cannot contain ':'")
 
-mcp = FastMCP("Weld defect detection")
+mcp = FastMCP("MCP server for Multimodal Weld Defect Detection sample app")
 
 
 class StartRequest(BaseModel):
@@ -218,7 +224,7 @@ async def explain(selected_time: str) -> dict[str, Any]:
 
 @mcp.tool()
 async def list_insights_data(page: int = 1, page_size: int = 10) -> dict[str, Any]:
-    """List paginated weld fusion results from the insights workbench."""
+    """List paginated Fusion results"""
     response = await _request(
         "GET",
         f"{EXPLAIN_API_URL}/insights-ui/api/data",
@@ -266,7 +272,7 @@ async def describe() -> dict[str, Any]:
     """Describe the weld-analysis MCP server, registered tools, and operational scope."""
     tools = await mcp.list_tools()
     return {
-        "name": "Weld defect detection",
+        "name": "Multimodal Weld defect detection",
         "purpose": "Pipeline control, fusion data access, and agent-assisted weld quality analysis.",
         "tools": [
             {"name": tool.name, "description": tool.description or "", "input_schema": tool.parameters}
