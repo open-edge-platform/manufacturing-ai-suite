@@ -47,7 +47,7 @@ jobs:
       contents: read # needed for actions/checkout
     needs: filter
     if: ${{ needs.filter.outputs.hmi-augmented-worker_changed == 'true' }}
-    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    uses: $/.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: hmi-augmented-worker
 
@@ -56,7 +56,7 @@ jobs:
       contents: read # needed for actions/checkout
     needs: filter
     if: ${{ needs.filter.outputs.industrial-edge-insights-multimodal_changed == 'true' }}
-    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    uses: $/.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: industrial-edge-insights-multimodal
 
@@ -65,7 +65,7 @@ jobs:
       contents: read # needed for actions/checkout
     needs: filter
     if: ${{ needs.filter.outputs.edge-insights-time-series_changed == 'true' }}
-    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    uses: $/.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: industrial-edge-insights-time-series
 
@@ -74,6 +74,6 @@ jobs:
       contents: read # needed for actions/checkout
     needs: filter
     if: ${{ needs.filter.outputs.edge-insights-vision_changed == 'true' }}
-    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    uses: $/.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: industrial-edge-insights-vision
