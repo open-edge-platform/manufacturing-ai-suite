@@ -234,13 +234,15 @@ jobs:
             S3_STORAGE_PASSWORD=$(openssl rand -hex 10)
             SEAWEEDFS_WEB_AUTH_USER=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
             SEAWEEDFS_WEB_AUTH_PASSWORD=$(openssl rand -hex 10)
+            MCP_USERNAME=$(tr -dc 'a-zA-Z' < /dev/urandom | head -c 8)
+            MCP_PASSWORD=$(openssl rand -hex 10)
             HOST_IP=$(hostname -I | awk '{print $1}')
 
             echo "INFLUXDB_USERNAME: $INFLUXDB_USERNAME"
             echo "VISUALIZER_GRAFANA_USER: $VISUALIZER_GRAFANA_USER"
             echo "MTX_WEBRTCICESERVERS2_0_USERNAME: $MTX_WEBRTCICESERVERS2_0_USERNAME"
             echo "S3_STORAGE_USERNAME: $S3_STORAGE_USERNAME"
-            
+            echo "MCP_USERNAME: $MCP_USERNAME"
             if [[ "$APPLICATION" == "time-series" || "$APPLICATION" == "both" ]]; then
               echo "Building Time Series Sample app and scanning docker images"
               cd $CWD/industrial-edge-insights-time-series/
@@ -297,6 +299,8 @@ jobs:
               sed -i "s/S3_STORAGE_PASSWORD=.*/S3_STORAGE_PASSWORD=${S3_STORAGE_PASSWORD}/g" .env
               sed -i "s/SEAWEEDFS_WEB_AUTH_USER=.*/SEAWEEDFS_WEB_AUTH_USER=${SEAWEEDFS_WEB_AUTH_USER}/g" .env
               sed -i "s/SEAWEEDFS_WEB_AUTH_PASSWORD=.*/SEAWEEDFS_WEB_AUTH_PASSWORD=${SEAWEEDFS_WEB_AUTH_PASSWORD}/g" .env
+              sed -i "s/MCP_USERNAME=.*/MCP_USERNAME=${MCP_USERNAME}/g" .env
+              sed -i "s/MCP_PASSWORD=.*/MCP_PASSWORD=${MCP_PASSWORD}/g" .env
               sed -i "s/HOST_IP=.*/HOST_IP=${HOST_IP}/g" .env
               make build
               make up
@@ -742,6 +746,8 @@ jobs:
           sed -i "s/S3_STORAGE_PASSWORD=.*/S3_STORAGE_PASSWORD=${S3_STORAGE_PASSWORD}/g" .env
           sed -i "s/SEAWEEDFS_WEB_AUTH_USER=.*/SEAWEEDFS_WEB_AUTH_USER=${SEAWEEDFS_WEB_AUTH_USER}/g" .env
           sed -i "s/SEAWEEDFS_WEB_AUTH_PASSWORD=.*/SEAWEEDFS_WEB_AUTH_PASSWORD=${SEAWEEDFS_WEB_AUTH_PASSWORD}/g" .env
+          sed -i "s/MCP_USERNAME=.*/MCP_USERNAME=${MCP_USERNAME}/g" .env
+          sed -i "s/MCP_PASSWORD=.*/MCP_PASSWORD=${MCP_PASSWORD}/g" .env
           sed -i "s/HOST_IP=.*/HOST_IP=${HOST_IP}/g" .env
 
           make build
