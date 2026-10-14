@@ -8,5 +8,5 @@
 
 
 # --- Fine-tuning & inference (train_qwen.py / infer_qwen.py) ---
-transformers==5.5.0
+transformers==5.10.0
 
