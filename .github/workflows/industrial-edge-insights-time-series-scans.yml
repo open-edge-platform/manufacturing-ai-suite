@@ -501,6 +501,9 @@ jobs:
           - dockerfile-path: industrial-edge-insights-multimodal/ui-service/Dockerfile
             output-report-path: trivy-multimodal-ui-dockerfile.json
             scan-name: Multimodal UI Service Dockerfile
+          - dockerfile-path: industrial-edge-insights-multimodal/mcp-server/Dockerfile
+            output-report-path: trivy-mcp-server-dockerfile.json
+            scan-name: Multimodal MCP Server Dockerfile
     uses: open-edge-platform/edge-ai-libraries/.github/workflows/trivy-config-mode.yaml@e6e04af3dbca805db9118b85a22ad2998f7eec39
     with:
       dockerfile-path: ${{ matrix.dockerfile-path }}
@@ -734,6 +737,8 @@ jobs:
           S3_STORAGE_PASSWORD=$(openssl rand -hex 10)
           SEAWEEDFS_WEB_AUTH_USER=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
           SEAWEEDFS_WEB_AUTH_PASSWORD=$(openssl rand -hex 10)
+          MCP_USERNAME=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
+          MCP_PASSWORD=$(openssl rand -hex 10)
           HOST_IP=$(hostname -I | awk '{print $1}')
 
           sed -i "s/INFLUXDB_USERNAME=.*/INFLUXDB_USERNAME=${INFLUXDB_USERNAME}/g" .env
