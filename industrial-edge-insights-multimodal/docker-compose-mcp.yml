@@ -34,8 +34,6 @@ services:
       MCP_PASSWORD: ${MCP_PASSWORD:-}
       no_proxy: "${no_proxy:-},ia-influxdb,vllm-server,seaweedfs-filer,apm-agent,ia-fusion-analytics,ia-mqtt-broker,multimodal-agentic-ui,localhost"
       NO_PROXY: "${no_proxy:-},ia-influxdb,vllm-server,seaweedfs-filer,apm-agent,ia-fusion-analytics,ia-mqtt-broker,multimodal-agentic-ui,localhost"
-    ports:
-      - "${HOST_IP:-127.0.0.1}:${MCP_PORT:-8001}:8000"
     volumes:
       - ./configs/dlstreamer-pipeline-server:/app/configs/dlstreamer-pipeline-server:ro
       - ./configs/time-series-analytics-microservice:/app/configs/time-series-analytics-microservice:ro

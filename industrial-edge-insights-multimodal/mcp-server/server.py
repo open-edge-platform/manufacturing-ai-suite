@@ -293,6 +293,8 @@ async def get_run_results(run_id: str) -> dict[str, Any]:
     if status.get("status") == "completed":
         result_response = await _request("GET", f"{AGENT_SERVICE_URL}/agents/results/{run_id}")
         return {"run_id": run_id, "phase": "completed", "result": result_response.json()}
+    if status.get("status") == "error":
+        return {"run_id": run_id, "phase": "error", "result": status}
     return {"run_id": run_id, "phase": "reasoning", "result": status}
 
 

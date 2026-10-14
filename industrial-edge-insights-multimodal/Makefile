@@ -372,7 +372,7 @@ up_agentic: check_hardware check_models check_env_variables validate_host_ip dow
 .PHONY: up_agentic_mcp
 up_agentic_mcp: check_hardware check_models check_env_variables validate_host_ip down
 	@export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
-	export NGINX_CONFIG_PATH=./configs/nginx/nginx_agentic.conf; \
+	export NGINX_PROFILE=agentic_mcp; \
 	export AGENTIC_UI_ENABLED=true MQTT_DISABLED=false; \
 	echo "Starting Docker containers..."; \
 	echo "GPU device path set to: $(DRI_MOUNT_PATH) based on its existence"; \
