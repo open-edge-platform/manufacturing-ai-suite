@@ -35,7 +35,7 @@ the answer is "vision", "time series", or "both"; you infer that from what
 signals feed the decision.
 
 1. **Ask business questions** — outcome, what feeds the decision (camera,
-   sensor, or both), deployment target, hardware, scale — never ask which
+   sensor, or both), deployment target, hardware, operations — never ask which
    framework/model/precision/device, or the modality, by name.
 2. **Discover** the relevant skill(s) — the two local manufacturing recipes,
    or the vision-only skills, from
@@ -104,8 +104,8 @@ Adapt the wording to the stated outcome, but cover these axes:
 4. **Deployment target** — a quick local demo/POC, or a single-host Docker
    Compose solution? [Docker Compose]
 5. **Hardware** — Intel GPU (default) for vision, or Intel CPU/NPU?
-6. **Scale / operations** — one stream vs many; needs a dashboard/UI vs just
-   an alert; MQTT or OPC-UA alerting? [reasonable default per domain]
+6. **Operations** — needs a dashboard/UI vs just an alert; MQTT or OPC-UA
+   alerting? [reasonable default per domain]
 7. **Where to build it** — an absolute path to an existing checkout to add
    to (sensor-only recipe adds `apps/<name>/` to an existing
    `industrial-edge-insights-time-series` clone), or where to create a new

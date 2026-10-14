@@ -46,7 +46,10 @@ Both share this shape (fill in from the chosen pattern):
 ```
 
 - Omit `models` entirely for a rule-based (threshold/rate-of-change) UDF.
-- **Max size is 5 KB** — never embed model weights here.
+- **`config.json` itself is capped at 5 KB** (the JSON text only) — never
+  embed model weights here. The model file goes in `models/` inside the
+  uploaded `.tar`, which is capped separately at **100 MB** per file
+  (`UDF_MAX_FILE_SIZE_MB: 100` in `docker-compose.yml`).
 - If the pattern is "pretrained model" and no existing model file or
   training dataset is available, stop before generating this file and ask
   the user for one — see SKILL.md's *Model availability* section. Do not

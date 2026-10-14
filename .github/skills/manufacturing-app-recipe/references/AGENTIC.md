@@ -49,6 +49,14 @@ MQTT_BATCH_TOPIC=apm/batch-complete
 HUGGINGFACEHUB_API_TOKEN=   # required for gated HF models
 ```
 
+`MODEL_PATH` is a **container** path, not a host path: `/model` is the
+`apm-llm` mount of the stack-relative host dir `./configs/agentic/models`
+(`- ./configs/agentic/models:/model:ro`), and `model-download` writes into
+the same host dir via `- ./configs/agentic/models:/opt/models` with
+`download_path=llm_model_agentic`. On the host the model therefore lands in
+`{{STACK_DIR}}/configs/agentic/models/llm_model_agentic/openvino_models/...`
+— never create or check `/model` at the host root.
+
 `LLM_MODE=fallback` still applies — runs `apm-agent` without a live LLM
 (pure rule-based templated explanation).
 
@@ -61,8 +69,12 @@ Same as `VLM.md` — `apm-llm` is the GPU/memory-heavy service either way;
 
 13. `model-download` completes and `apm-llm`'s health check passes
     (`GET /v1/config` returns 200) before `apm-agent` is marked healthy.
-14. Publishing a synthetic `apm/batch-complete` MQTT event produces one
-    agent-orchestrated explanation output in `apm-agent`'s `OUTPUT_DIR`,
-    quoted verbatim in the final summary.
+14. An `apm/batch-complete` MQTT event produces one agent-orchestrated
+    explanation output in `apm-agent`'s `OUTPUT_DIR`, quoted verbatim in the
+    final summary. In the reference this event is published by `ui-service`
+    when the user clicks **Run** (`POST /run`); for headless verification,
+    publish the same payload by hand instead of going through the UI:
+    `mosquitto_pub -h localhost -p 1883 -t apm/batch-complete -m '{"run_id":"1","status":"completed","device":"CPU","video_filename":"<name>","start_id":<ns>,"end_id":<ns>,"pipeline_status":"running"}'`
+    with `start_id`/`end_id` spanning a window that has fused data.
 15. If `{{AGENT_METRICS}}=yes`: `metrics-manager`/Prometheus reports at
     least one LLM-latency metric.

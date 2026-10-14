@@ -190,7 +190,9 @@ dependency of the `up`/`up_vllm`/`up_agentic` targets, same convention as
    `fusion-analytics/Dockerfile` unless a registry tag is pinned).
 9. **`vllm`/`agentic` only — LLM weights**: run `model-download` ahead of
    `apm-llm` startup; confirm `MODEL_PATH` resolves before marking install
-   complete.
+   complete — it is a container path under `/model`, so check the
+   stack-relative host mount (e.g. `./configs/agentic/models/...`), not `/model`
+   on the host.
 
 ### Required `Makefile` targets — `multimodal`/`vllm`/`agentic`
 
@@ -422,8 +424,9 @@ of these):
 **`agentic`** (criteria 1–12 above, plus):
 13. `model-download` completes and `apm-llm`'s health check passes
    (`GET /v1/config` returns 200) before `apm-agent` is marked healthy.
-14. Publishing a synthetic `apm/batch-complete` MQTT event produces one
-    agent-orchestrated explanation in `apm-agent`'s `OUTPUT_DIR`, quoted
-    verbatim.
+14. An `apm/batch-complete` MQTT event (normally published by `ui-service`
+    on **Run**; for headless verification, published by hand with the same
+    payload — see [`AGENTIC.md`](AGENTIC.md)) produces one agent-orchestrated
+    explanation in `apm-agent`'s `OUTPUT_DIR`, quoted verbatim.
 15. If `{{AGENT_METRICS}}=yes`: `metrics-manager`/Prometheus reports at
     least one LLM-latency metric.

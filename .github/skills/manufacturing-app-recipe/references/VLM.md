@@ -56,6 +56,11 @@ MQTT_BATCH_TOPIC=vllm/batch-complete
 HUGGINGFACEHUB_API_TOKEN=   # required for gated HF models
 ```
 
+`MODEL_PATH` is a **container** path: mount a stack-relative host dir (e.g.
+`- ./configs/vllm/models:/model:ro` on `apm-llm`, and the same host dir into
+`model-download`) so the model lives under `{{STACK_DIR}}/configs/vllm/models/llm_model/...`
+on the host — never create or check `/model` at the host root.
+
 `LLM_MODE=fallback` runs `vllm-explainer` without a live LLM (pure rule-based
 templated explanation) — offer this as a lightweight alternative to standing
 up OVMS when the user just wants structured "why" text without a model.
