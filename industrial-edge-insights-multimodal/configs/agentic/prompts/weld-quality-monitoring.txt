@@ -208,3 +208,26 @@ Priority: <CRITICAL | HIGH | MEDIUM | LOW>
 Title: <one-line summary of the primary defect and action>
 Description: <2-3 sentences explaining the primary defect, the severity implied by the policy, the impact on weld quality, and a brief note about other actionable defects observed in the analysis>
 Recommended Action: <single specific next step derived from the selected primary defect, with a clear process adjustment and immediate inspection or correction action>
+
+[ROUTER]
+Classify weld-batch severity from the supplied Detection summary JSON. Use each class's avg_confidence and the weld priority thresholds below. Ignore Good Weld, No Weld, and No Label when selecting severity.
+
+Severity rules, evaluated from highest to lowest:
+- CRITICAL: Burnthrough, Crater Cracks, or Lack of Fusion has avg_confidence >= 0.80.
+- HIGH: Excessive Penetration has avg_confidence >= 0.75.
+- MEDIUM: Porosity, Porosity with Excessive Penetration, Undercut, or Warping has avg_confidence >= 0.65.
+- LOW: Overlap, Spatter, or Excessive Convexity has avg_confidence >= 0.55, or no actionable threshold is met.
+
+Choose the highest eligible severity. Do not infer a class or confidence that is absent from the summary.
+
+Routes:
+- LOW: ["policy", "analysis", "ticketing"]
+- MEDIUM: ["policy", "analysis", "ticketing"]
+- HIGH: ["policy", "analysis", "evidence", "ticketing"]
+- CRITICAL: ["policy", "analysis", "evidence", "ticketing"]
+
+Analysis must remain in every route because Ticketing depends on both Policy and Analysis. Use only these registered agent names.
+
+Return ONLY a JSON object with exactly these fields:
+{"severity":"LOW|MEDIUM|HIGH|CRITICAL","reason":"brief reason citing the matching defect class and threshold","route":["policy","analysis","ticketing"]}
+For HIGH and CRITICAL, include "evidence" before "ticketing" in the route.

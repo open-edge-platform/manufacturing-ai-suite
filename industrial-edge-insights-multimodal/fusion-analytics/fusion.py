@@ -419,6 +419,9 @@ def fuse_firstcome(mode: Literal["AND", "OR"] = "AND") -> Optional[Dict[str, Any
         timeseries_confidence = float(source_entry.get("confidence", 0) or 0)
         data_dict = target_entry
 
+    vision_metadata = data_dict.get("metadata", {})
+    frame_id = vision_metadata.get("frame_id") if isinstance(vision_metadata, dict) else None
+
     if "metadata" in data_dict and "label" in data_dict["metadata"]["objects"][0]["classification/Model6"]:
         vision_classification = str(data_dict["metadata"]["objects"][0]["classification/Model6"]["label"])
 
@@ -464,6 +467,7 @@ def fuse_firstcome(mode: Literal["AND", "OR"] = "AND") -> Optional[Dict[str, Any
         "vision_confidence": vision_confidence,
         "timeseries_confidence": timeseries_confidence,
         "fusion_confidence": fusion_confidence,
+        "frame_id": frame_id,
         "src_time_diff_ms": time_diff['ms'] if time_diff is not None else None
     }
 
@@ -557,6 +561,8 @@ def main():
 
                         }
                     }]
+                    if result.get("frame_id") is not None:
+                        json_body[0]["fields"]["frame_id"] = int(result["frame_id"])
                     influx_client.write_points(json_body)
 
                     json_body[0]["fields"]["time"] = json_body[0]["time"]

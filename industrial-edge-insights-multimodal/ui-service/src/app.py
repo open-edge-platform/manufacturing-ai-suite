@@ -282,8 +282,9 @@ async def _fetch_run_view(client: httpx.AsyncClient, run_id: str) -> dict:
     try:
         results_r = await client.get(f"{_AGENT_URL}/agents/status/{run_id}")
         result = results_r.json() if results_r.status_code == 200 else {}
-        phase = "completed" if result.get("status") == "completed" else "reasoning"
-        if phase == "completed":
+        status = result.get("status")
+        phase = status if status in {"completed", "error"} else "reasoning"
+        if phase in {"completed", "error"}:
             results_r = await client.get(f"{_AGENT_URL}/agents/results/{run_id}")
             result = results_r.json() if results_r.status_code == 200 else {"error": "Result unavailable"}
     except Exception as exc:

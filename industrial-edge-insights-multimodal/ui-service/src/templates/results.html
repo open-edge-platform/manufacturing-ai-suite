@@ -33,6 +33,17 @@
   <main>
     <section class="card">
       <h2>Run <code>{{ run_id[:8] }}…</code></h2>
+      {% if result.get("routing") %}
+      {% set routing = result.routing %}
+      <div class="result-section">
+        <h3>Agent Routing</h3>
+        <p>Severity: <strong>{{ routing.get("severity", "unknown") }}</strong></p>
+        <p>{{ routing.get("reason", "") }}</p>
+        {% if routing.get("route") %}
+        <p>Agents: {{ routing.route|join(" -> ") }}</p>
+        {% endif %}
+      </div>
+      {% endif %}
       {% if result.get("status") == "running" %}
         {% if phase == "detecting" %}
         <p class="info">&#9203; Running DL Streamer inference over the video… page auto-refreshes every 3 seconds.</p>
@@ -60,6 +71,17 @@
             {% endfor %}
           </tbody>
         </table>
+        {% if result.get("evidence") %}
+        <div class="result-section">
+          <h3>&#128196; Evidence Audit Trail</h3>
+          {% set e = result.evidence %}
+          {% if e.get("mode") == "fallback" %}
+          <p>Records: {{ e.record_count }} | Labels: {{ e.unique_labels|join(", ") }}</p>
+          {% else %}
+          <pre class="llm-output">{{ e.evidence }}</pre>
+          {% endif %}
+        </div>
+        {% endif %}
       {% else %}
 
         {% if result.get("policy") %}
@@ -95,7 +117,7 @@
         </div>
         {% endif %}
 
-        {# {% if result.get("evidence") %}
+        {% if result.get("evidence") %}
         <div class="result-section">
           <h3>&#128196; Evidence Audit Trail</h3>
           {% set e = result.evidence %}
@@ -105,7 +127,7 @@
           <pre class="llm-output">{{ e.evidence }}</pre>
           {% endif %}
         </div>
-        {% endif %} #}
+        {% endif %}
 
         {% if result.get("ticket") %}
         <div class="result-section">
