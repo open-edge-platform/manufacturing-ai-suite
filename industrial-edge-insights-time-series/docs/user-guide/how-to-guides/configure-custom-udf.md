@@ -47,7 +47,7 @@ This guide provides instructions for setting up a custom UDF deployment package 
        - Key sections:
          - **Input**: Fetch data from Telegraf (stream).
          - **Processing**: Apply UDFs for analytics.
-         - **Alerts**: Configuration for publishing alerts (e.g., MQTT). Refer to the [document](./configure-alerts.md#helm---publish-mqtt-alerts)
+         - **Alerts**: Configuration for publishing alerts (e.g., MQTT). Refer to the [document](./configure-alerts.md#docker---publish-mqtt-alerts)
          - **Logging**: Set log levels (`INFO`, `DEBUG`, `WARN`, `ERROR`).
          - **Output**: Publish processed data.
 
@@ -93,43 +93,5 @@ To apply changes to the UDF deployment package or `config.json`, update the file
      -k
    ```
 
-### Helm Deployment
-
-1. Update the UDF deployment package by following the instructions in [Configure Time Series Analytics Microservice with Custom UDF Deployment Package](./configure-custom-udf.md#configuration).
-
-2. Install the Helm chart by following [Step 3: Install Helm Charts](../get-started/deploy-with-helm.md#step-3-install-helm-charts).
-
-3. Create the UDF deployment package tar file:
-
-   ```sh
-   export SAMPLE_APP="<wind-turbine-anomaly-detection>"
-   # Navigate to the directory containing your UDF deployment package files
-   cd industrial-edge-insights-time-series/apps/${SAMPLE_APP}/time-series-analytics-config/
-   rm -f ${SAMPLE_APP}.tar
-   tar cf ${SAMPLE_APP}.tar models/ tick_scripts/ udfs/
-   ```
-
-4. Upload the UDF deployment package to the Time Series Analytics Microservice:
-
-   ```sh
-   curl -X POST https://localhost:30001/ts-api/udfs/package -F "file=@${SAMPLE_APP}.tar" -k
-   ```
-
-5. Upload the `config.json` to activate the custom UDF:
-
-   ```sh
-   curl -s -X POST https://localhost:30001/ts-api/config \
-     -H 'accept: application/json' \
-     -H 'Content-Type: application/json' \
-     -d @config.json \
-     -k
-   ```
-
-6. Verify the logs of the Time Series Analytics Microservice:
-
-   ```sh
-   POD_NAME=$(kubectl get pods -n ts-sample-app -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\n' | grep deployment-time-series-analytics-microservice | head -n 1)
-   kubectl logs -f -n ts-sample-app $POD_NAME
-   ```
 
 For more details, refer to the Time Series Analytics Microservice API documentation on [updating the config](./update-config.md).

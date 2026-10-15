@@ -173,16 +173,12 @@ To trigger the model inference on `GPU` in DL Streamer Pipeline Server, run the 
 
 
 > [!NOTE]
-> When stopping the pipeline, Grafana may display the error message: **"Error: stream not found, retrying in some seconds"**. This is expected behavior. The stream will automatically reconnect and resume in Grafana once the pipeline is started again.
+> If you try to stop a pipeline that is already stopped, its state will show as `ABORTED`. This is expected and does not indicate an error.
+> Grafana may also display **"Error: stream not found, retrying in some seconds"** while the pipeline is stopped. This is expected behavior. The stream will automatically reconnect and resume in Grafana once the pipeline is started again.
 
 ## Verify the Multimodal Weld Defect Detection Results
 
 1. Get into the InfluxDB* container.
-
-   > [!NOTE]
-   > Use `kubectl exec -it <influxdb-pod-name> -n <namespace> -- /bin/bash` for the helm deployment
-   > where for \<namespace> replace with namespace name where the application was deployed and
-   > for \<influxdb-pod-name> replace with InfluxDB pod name.
 
     ```bash
      docker exec -it ia-influxdb bash
@@ -213,8 +209,7 @@ To trigger the model inference on `GPU` in DL Streamer Pipeline Server, run the 
    - Use link `https://127.0.0.1:3000` to launch Grafana from browser (preferably, chrome browser)
 
    > [!NOTE]
-   > - Use link `https://127.0.0.1:30001` to launch Grafana from browser (preferably Chrome browser) for the Helm deployment
-   > -  For remote access or WebRTC/TURN support, set `HOST_IP` in `.env` to a host-reachable, non-loopback IP address and access `https://<HOST_IP>:3000` (or `https://<HOST_IP>:30001` for Helm).
+   > For remote access or WebRTC/TURN support, set `HOST_IP` in `.env` to a host-reachable, non-loopback IP address and access `https://<HOST_IP>:3000`.
 
    - Login to the Grafana with values set for `VISUALIZER_GRAFANA_USER` and `VISUALIZER_GRAFANA_PASSWORD`
      in `.env` file and select **Multimodal Weld Defect Detection Dashboard**.
@@ -251,7 +246,6 @@ docker logs -f <container_name> | grep -i error
 ## Advanced setup
 
 - [How to build from source and deploy](./get-started/build-from-source.md): Guide to build from source and docker compose deployment
-- [How to deploy with Helm](./get-started/deploy-with-helm.md): Guide for deploying with Helm.
 - [How to configure MQTT alerts](./how-to-guides/how-to-configure-alerts.md): Guide for configuring the MQTT alerts in the Time Series Analytics microservice
 - [How to update config](./how-to-guides/how-to-update-config.md): Guide updating configuration of Time Series Analytics Microservice.
 - [How to deploy vLLM service](./how-to-guides/how-to-deploy-vllm-service.md): Guide for deploying the sample app with vLLM enabled.
@@ -262,7 +256,6 @@ docker logs -f <container_name> | grep -i error
 
 ./get-started/system-requirements
 ./get-started/build-from-source
-./get-started/deploy-with-helm
 
 :::
 hide_directive-->

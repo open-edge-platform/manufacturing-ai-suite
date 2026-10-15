@@ -18,11 +18,6 @@ The DL Streamer Pipeline Server generates vision metadata for each processed fra
     docker exec -it ia-influxdb bash
     ```
 
-    > [!NOTE]
-    > Use `kubectl exec -it <influxdb-pod-name> -n <namespace> -- /bin/bash` for the helm deployment
-    > where for `<namespace>` replace with namespace name where the application was deployed and
-    > for `<influxdb-pod-name>` replace with InfluxDB pod name.
-
 2. Query the vision metadata:
 
     ```bash
@@ -47,11 +42,8 @@ https://127.0.0.1:3000/image-store/buckets/dlstreamer-pipeline-results/weld-defe
 ```
 
 > [!NOTE]
-> Use link `https://127.0.0.1:30001/image-store/buckets/dlstreamer-pipeline-results/weld-defect-classification/` to access the SeaweedFS Filer interface for the Helm deployment.
-
-> [!NOTE]
 > The Filer interface is protected with HTTP Basic Auth. When prompted, enter the `SEAWEEDFS_WEB_AUTH_USER` and
-> `SEAWEEDFS_WEB_AUTH_PASSWORD` values configured in the `.env` file (Docker Compose) or `values.yaml` (Helm).
+> `SEAWEEDFS_WEB_AUTH_PASSWORD` values configured in the `.env` file.
 
 Images are organized by their `img_handle` identifier. Browse the directory to locate specific images, then click to view the image.
 
