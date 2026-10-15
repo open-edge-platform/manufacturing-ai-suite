@@ -321,7 +321,9 @@ async def api_status():
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
         summary, runs = await _fetch_summary_and_runs(client)
 
-    by_class = list(summary.values()) if summary else []
+    by_class = summary.get("by_class") if isinstance(summary, dict) else None
+    if not isinstance(by_class, list):
+        by_class = list(summary.values()) if isinstance(summary, dict) and summary else []
     total_detections = sum(c.get("count", 0) for c in by_class)
     completed = sum(1 for r in runs if r.get("status") == "completed")
     running = sum(1 for r in runs if r.get("status") == "running")

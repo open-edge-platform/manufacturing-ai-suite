@@ -158,7 +158,7 @@ def get_summary(
         summary[label]["min_confidence"] = float(p.get("min_confidence") or 0.0)
         summary[label]["label"] = label
         summary[label]["fusion_mode"] = str(os.getenv("FUSION_MODE", "OR"))
-    return summary
+    return {"by_class": list(summary.values())}
 
 
 @api_app.get("/detections/max_id")
