@@ -1,3 +1,8 @@
+```{eval-rst}
+.. meta::
+   :description: Deploy agents to analyze fusion results, make policy decisions, and create maintenance tickets.
+```
+
 # Deploy the Agentic Workflow for the Multimodal Weld Defect Detection Sample Application
 
 This section shows how to deploy the multimodal sample application with the agentic workflow enabled. The multimodal application produces fusion results, and when new fusion results arrive, the meta-agent in the agentic stack is triggered. The meta-agent, powered by an LLM served through OpenVINO™ model server, produces structured policy decisions, root-cause analysis, and maintenance tickets.
