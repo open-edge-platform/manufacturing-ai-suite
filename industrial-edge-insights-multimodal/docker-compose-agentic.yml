@@ -23,7 +23,8 @@ services:
       # LLM service (OVMS — OpenVINO Model Server)
       LLM_BASE_URL: http://apm-llm:8000/v3
       LLM_MODEL_NAME: ${LLM_MODEL_NAME}
-      LLM_MODE: ${LLM_MODE:-server}
+      LLM_MODE: ${LLM_MODE:-llm}
+      AGENT_MODE: ${AGENT_MODE:-sequential}
       LLM_API_KEY: ${LLM_API_KEY:-UNUSED}
       # MQTT — subscribes only to the detection layer's "batch-complete"
       # event; never subscribes to raw detections directly.
