@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 Agent skills for the **Industrial Edge Insights - Time Series** sample
 application (e.g. wind-turbine-anomaly-detection). Each skill teaches the
 agent how to drive the app through its real interfaces — the `Makefile`,
-Docker Compose, Helm, and the `tests/functional/` pytest suite — so common
+Docker Compose, and the `tests/functional/` pytest suite — so common
 tasks run the same way every time.
 
 These skills live under `.github/skills` as the canonical cross-harness
@@ -34,21 +34,21 @@ optional `references/` (deep docs loaded only when needed), `scripts/`
 
 | Skill | Use it when the user wants to… | Backed by |
 |---|---|---|
-| [`time-series-deploy`](./time-series-deploy/SKILL.md) | build / deploy / smoke-test / functionally test the app via Docker Compose (MQTT or OPC-UA ingestion) or Helm | `Makefile` + `scripts/smoke-check.sh` + `scripts/run-functional-tests.sh` |
+| [`time-series-deploy`](./time-series-deploy/SKILL.md) | build / deploy / smoke-test / functionally test the app via Docker Compose (MQTT or OPC-UA ingestion) | `Makefile` + `scripts/smoke-check.sh` + `scripts/run-functional-tests.sh` |
 
 ## Conventions
 
 - **Run commands yourself** and relay actual output; don't ask the user to
-  run them unless a host blocker is detected (e.g., Docker/K8s unreachable).
-- **Preflight before acting.** Check `docker info` / `kubectl cluster-info`
-  before any deploy workflow; report blockers plainly instead of stalling.
+  run them unless a host blocker is detected (e.g., Docker unreachable).
+- **Preflight before acting.** Check `docker info` before any deploy
+  workflow; report blockers plainly instead of stalling.
 - Never invent Make targets, flags, ports, or env vars — ground answers in
-  the live `Makefile`, compose files, and `helm/values.yaml`.
+  the live `Makefile`, compose files, and `.env`.
 
 ## Keeping Skills in Sync
 
 **Update `time-series-deploy` (SKILL.md + `references/` + `scripts/`)
-whenever the Makefile, compose files, Helm chart, `.env` schema, `apps/`
+whenever the Makefile, compose files, `.env` schema, `apps/`
 sample-app list, or functional test suite change.** Keep this README's
 catalog table and `skill-catalog.json` description/triggers in sync with each
 `SKILL.md`. See

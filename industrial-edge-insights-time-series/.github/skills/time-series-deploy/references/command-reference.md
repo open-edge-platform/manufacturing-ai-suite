@@ -4,7 +4,8 @@
 # Command Reference — industrial-edge-insights-time-series
 
 Source of truth: `Makefile` in the component root. Re-derive this table from
-the live file if it ever disagrees.
+the live file if it ever disagrees. Helm/Kubernetes deployment is not
+supported; there are no Helm targets.
 
 ## App selection
 
@@ -22,16 +23,22 @@ the live file if it ever disagrees.
 
 | Target | Effect |
 |---|---|
-| `check_env_variables` | Validates `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD` in `.env` against length/charset rules |
+| `check_env_variables` | Validates `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD` in `.env`. Usernames: letters only, at least 5 characters (`INFLUXDB_USERNAME` must not be `admin`). Passwords: alphanumeric, at least 10 characters, with at least one letter and one digit |
 
 ## Deploy (Docker Compose)
 
 | Target | Depends on | Effect |
 |---|---|---|
-| `make up_mqtt_ingestion` | `check_env_variables down` | Brings up the stack with `TELEGRAF_INPUT_PLUGIN=mqtt_consumer`; scales `ia-mqtt-publisher` to `num_of_streams` instances; uploads UDF tar + posts config afterward |
+| `make up_mqtt_ingestion` | `check_env_variables down` | Brings up the stack with `TELEGRAF_INPUT_PLUGIN=mqtt_consumer`; starts `num_of_streams` `ia-mqtt-publisher-<i>` instances; then uploads the UDF tar and posts config |
 | `make up_opcua_ingestion` | `check_env_variables down` | Same but `TELEGRAF_INPUT_PLUGIN=opcua`, scales `ia-opcua-server` to `num_of_streams` |
 | `make down` | — | `docker compose down -v --remove-orphans` (removes volumes) |
-| `make status` | — | Lists containers filtered by `ia-`/`mr_`/`model_`/`wind-turbine` name prefixes, scans last 5 log lines per container for "error" |
+| `make status` | — | Lists containers filtered by `ia-`/`mr_`/`model_`/`wind-turbine` name prefixes, waits 20s, then scans last 5 log lines per container for "error" |
+
+After the containers start, both `up_*` targets wait until
+`https://${HOST_IP}:${GRAFANA_PORT}/` answers with an nginx `Server` header
+and `/ts-api/health` returns `200` or `503`. They then upload
+`apps/<app>/time-series-analytics-config/<app>.tar` to `/ts-api/udfs/package`
+and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
 
 ### Parameters accepted by `up_mqtt_ingestion` / `up_opcua_ingestion`
 
@@ -46,6 +53,10 @@ the live file if it ever disagrees.
   `make up_mqtt_ingestion batch app=wind-turbine-anomaly-detection`) to use
   `config-batch.json` instead of `config.json` for the TSAM config, and swap
   in the `_batch` model variant
+- `INCLUDE=validation` — adds `docker-compose-validation.override.yml`
+  (system-metrics Grafana dashboard + host-metric Telegraf inputs such as
+  `cpu`, `mem`, `disk`, `docker`); `num_of_streams` instance scaling is not
+  applied in this mode
 
 ## Push / registry
 
@@ -53,28 +64,8 @@ the live file if it ever disagrees.
 |---|---|
 | `make push_images` | `make build` then `docker compose push` (requires `DOCKER_REGISTRY` in `.env` + prior `docker login`) |
 
-## Helm
-
-| Target | Effect |
-|---|---|
-| `make gen_helm_charts` | Copies Grafana/InfluxDB/MQTT/Telegraf/nginx config + `apps/<app>/simulation-data` into `helm/`, sets chart name/description/version from `app`/`IMAGE_SUFFIX`/`WEEKLY_BUILD_DATE` |
-| `make gen_helm_charts_targz` | `gen_helm_charts` then `helm package` into `helm-packages/*.tgz` |
-| `make push_helm_charts` | `gen_helm_charts_targz` then `helm push` to `oci://registry-1.docker.io/intel` |
-| `helm install ts-wind-turbine-anomaly . -n ts-sample-app --create-namespace` | Manual install after `gen_helm_charts` + editing `helm/values.yaml` |
-| `helm install ... --set privileged_access_required=true --set env.TELEGRAF_INPUT_PLUGIN=<plugin> ...` | GPU inferencing variant |
-
 ## Key env vars (`.env`)
 
+- `HOST_IP` (default `127.0.0.1`) — host used for all Makefile API calls
 - `GRAFANA_PORT` (default `3000`)
-- `DOCKER_REGISTRY`, `IMAGE_SUFFIX`, `WEEKLY_BUILD_DATE` (push/versioning)
-
-## Helm test defaults (from `tests/functional/pytest.ini`)
-
-- `release_name=ts-wind-turbine-anomaly`
-- `namespace=ts-sample-app`
-- `chart_path=../../helm-packages/`
-- `grafana_url=https://localhost:30001`
-- `wait_time_for_pods_to_come_up=90` seconds
-
-If using k3s, remind the user to
-`export KUBECONFIG=/etc/rancher/k3s/k3s.yaml` before Helm/kubectl commands.
+- `DOCKER_REGISTRY`, `IMAGE_SUFFIX` (push/versioning)

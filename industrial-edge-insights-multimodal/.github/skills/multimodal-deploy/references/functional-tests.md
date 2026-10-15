@@ -13,12 +13,17 @@ pip3 install -r ../requirements.txt
 
 | File | Deployment method | Hardware | Notes |
 |---|---|---|---|
-| `test_docker_deployment_multimodal.py` | Docker Compose | CPU | Primary functional smoke/deploy test |
+| `test_docker_deployment_multimodal.py` | Docker Compose | CPU | Primary functional deploy test (env validation, `make up`/`down`, data flow) |
 | `test_GPU_docker_multimodal.py` | Docker Compose | GPU | Marked `gpu`; requires `/dev/dri` |
 | `test_NPU_docker_multimodal.py` | Docker Compose | NPU | Requires `/dev/accel` |
-| `test_helm_deployment_multimodal.py` | Helm | CPU | Primary Helm deploy test |
-| `test_GPU_helm_multimodal.py` | Helm | GPU | Marked `gpu`; needs `privileged_access_required=true` install |
-| `test_NPU_helm_multimodal.py` | Helm | NPU | Needs `privileged_access_required=true` install |
+
+`pytest.ini` adds the time-series test utilities
+(`../../../industrial-edge-insights-time-series/tests/...`) to `pythonpath`, so
+the sibling `industrial-edge-insights-time-series` directory must be present.
+
+The tests overwrite `.env`: credentials are replaced with generated values
+and `HOST_IP` is set to the system IP address. Back up `.env` first if the
+user's values must be preserved.
 
 Markers available (see `pytest.ini`): `kpi`, `docker_security`, `longrun`,
 `gpu`. Example selective run: `pytest -v -s -m gpu test_GPU_docker_multimodal.py`.

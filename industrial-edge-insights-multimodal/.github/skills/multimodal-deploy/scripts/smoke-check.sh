@@ -2,27 +2,29 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
-# Smoke-check the Multimodal Weld Defect Detection sample app.
+# Smoke-check the Multimodal Weld Defect Detection sample app (Docker Compose).
 #
-# Usage: smoke-check.sh <docker|helm> [namespace]
+# Usage: smoke-check.sh
 #
 set -euo pipefail
 
-MODE="${1:-}"
-NAMESPACE="${2:-multimodal-sample-app}"
-if [ -z "${GRAFANA_PORT:-}" ] && [ -f .env ]; then
-  GRAFANA_PORT="$(sed -n 's/^GRAFANA_PORT=//p' .env | tail -n 1)"
-fi
+[ "$#" -eq 0 ] || { echo "Usage: $0" >&2; exit 2; }
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+cd "$APP_ROOT"
+
+read_env() {
+  [ -f .env ] || return 0
+  sed -n "s/^$1=//p" .env | tail -n 1 | tr -d "\"'"
+}
+
+HOST_IP="$(read_env HOST_IP)"
+HOST_IP="${HOST_IP:-127.0.0.1}"
+GRAFANA_PORT="$(read_env GRAFANA_PORT)"
 GRAFANA_PORT="${GRAFANA_PORT:-3000}"
 MAX_RETRIES=30
 SLEEP_SECS=5
-
-usage() {
-  echo "Usage: $0 <docker|helm> [namespace]" >&2
-  exit 2
-}
-
-[ -n "$MODE" ] || usage
 
 wait_for_url() {
   local url="$1"
@@ -39,38 +41,14 @@ wait_for_url() {
   echo "OK: $url is reachable"
 }
 
-case "$MODE" in
-  docker)
-    echo "== Docker Compose smoke check =="
-    if ! docker info >/dev/null 2>&1; then
-      echo "FAIL: Docker daemon not reachable" >&2
-      exit 1
-    fi
-    echo "-- Container status --"
-    make status || true
-    echo "-- Endpoint check --"
-    wait_for_url "https://localhost:${GRAFANA_PORT}/"
-    ;;
-  helm)
-    echo "== Helm smoke check (namespace: $NAMESPACE) =="
-    if ! kubectl cluster-info >/dev/null 2>&1; then
-      echo "FAIL: Kubernetes cluster not reachable" >&2
-      exit 1
-    fi
-    echo "-- Pod status --"
-    kubectl get pods -n "$NAMESPACE" -o wide
-    echo "-- Waiting for all pods to be Ready --"
-    if ! kubectl wait --for=condition=Ready pod --all -n "$NAMESPACE" --timeout=180s; then
-      echo "FAIL: not all pods reached Ready in time" >&2
-      kubectl get pods -n "$NAMESPACE"
-      exit 1
-    fi
-    echo "-- Endpoint check --"
-    wait_for_url "https://localhost:30001/"
-    ;;
-  *)
-    usage
-    ;;
-esac
+echo "== Docker Compose smoke check ($APP_ROOT) =="
+if ! docker info >/dev/null 2>&1; then
+  echo "FAIL: Docker daemon not reachable" >&2
+  exit 1
+fi
+echo "-- Container status --"
+make status || true
+echo "-- Endpoint check --"
+wait_for_url "https://${HOST_IP}:${GRAFANA_PORT}/"
 
-echo "Smoke check passed for mode=$MODE"
+echo "Smoke check passed"

@@ -6,22 +6,20 @@ description: >-
   Build, deploy, smoke-check, and functionally test the Industrial Edge
   Insights - Time Series sample applications (industrial-edge-insights-time-series,
   e.g. wind-turbine-anomaly-detection) via its Makefile-driven Docker Compose
-  and Helm paths. Use this skill for quick build/deploy/teardown cycles,
-  MQTT vs OPC-UA ingestion selection, multi-stream and batch modes, and
-  running the existing tests/functional pytest suites. Do not use this skill
-  for application code changes, unrelated components, or production rollout
-  decisions.
+  path. Use this skill for quick build/deploy/teardown cycles, MQTT vs OPC-UA
+  ingestion selection, multi-stream and batch modes, and running the existing
+  tests/functional pytest suites. Do not use this skill for application code
+  changes, unrelated components, or production rollout decisions.
 license: Apache-2.0
 compatibility: >-
-  Requires a bash-compatible shell, Docker + Docker Compose v2, make, and curl
-  for the Docker Compose path. The Helm path additionally requires a reachable
-  Kubernetes cluster, kubectl, and helm. Functional tests additionally require
-  Python 3 and the packages in tests/requirements.txt.
+  Requires a bash-compatible shell, Docker + Docker Compose v2, make, and
+  curl. Functional tests additionally require Python 3 and the packages in
+  tests/requirements.txt. Helm/Kubernetes deployment is not supported.
 metadata:
   author: open-edge-platform
   version: "1.0.0"
-  tags: deployment, docker-compose, helm, manufacturing, time-series, wind-turbine-anomaly-detection
-allowed-tools: bash make docker helm kubectl pytest
+  tags: deployment, docker-compose, manufacturing, time-series, wind-turbine-anomaly-detection
+allowed-tools: bash make docker pytest
 ---
 
 # Industrial Edge Insights - Time Series — Deploy Skill
@@ -35,7 +33,9 @@ yourself and relay actual output**; never fabricate results.
 Scope: this skill only applies to
 `industrial-edge-insights-time-series`. The companion
 component `industrial-edge-insights-multimodal` has its own
-`multimodal-deploy` skill — do not mix the two.
+`multimodal-deploy` skill — do not mix the two. Helm/Kubernetes deployment
+has been removed from this app; if asked for it, say so and offer the Docker
+Compose path instead.
 
 ## Normative references
 
@@ -49,14 +49,15 @@ component `industrial-edge-insights-multimodal` has its own
 1. Resolve the app root: walk up from cwd, or ask git
    (`git rev-parse --show-toplevel`) for the enclosing repo and look for
    `industrial-edge-insights-time-series/Makefile`.
-   `cd` into that directory before running any command below.
+   `cd` into that directory before running any command below — the Makefile
+   and the helper scripts read `.env` from the current directory.
 2. Confirm `.env` exists and required creds (`INFLUXDB_USERNAME/PASSWORD`,
    `VISUALIZER_GRAFANA_USER/PASSWORD`) are set — ask the user rather than
    inventing values.
-3. Run a bounded preflight depending on the chosen path:
-   - Docker Compose: `docker info >/dev/null 2>&1`
-   - Helm: `kubectl cluster-info >/dev/null 2>&1` and `helm version >/dev/null 2>&1`
-     (if using k3s, remind the user to `export KUBECONFIG=/etc/rancher/k3s/k3s.yaml`)
+3. Confirm `HOST_IP` (default `127.0.0.1`) and `GRAFANA_PORT` (default
+   `3000`) in `.env` are correct: `make up_*` uploads the UDF package and
+   posts config to `https://${HOST_IP}:${GRAFANA_PORT}/ts-api/...`.
+4. Docker preflight: `docker info >/dev/null 2>&1`.
 
    If the preflight fails, **stop immediately**, report the host blocker, and
    give the exact command sequence the user would need to run once unblocked.
@@ -74,8 +75,10 @@ component `industrial-edge-insights-multimodal` has its own
 - Optional `batch` goal appended to the ingestion target to use
   `config-batch.json` instead of `config.json` for the Time-Series Analytics
   microservice config.
+- Optional `INCLUDE=validation` to add `docker-compose-validation.override.yml`
+  (system-metrics dashboard + host-metric Telegraf inputs; CI/validation use).
 
-## Step 2: Build and deploy (Docker Compose)
+## Step 2: Build and deploy
 
 ```bash
 make build                                   # or: make build_copyleft_sources
@@ -91,70 +94,49 @@ make status
 - `make status` lists containers filtered by `ia-`, `mr_`, `model_`,
   `wind-turbine` name prefixes and scans recent logs for "error".
 
-## Step 3: Deploy with Helm
+## Step 3: Smoke test
 
-```bash
-make gen_helm_charts app=wind-turbine-anomaly-detection
-cd helm
-# Edit values.yaml: INFLUXDB_USERNAME/PASSWORD, VISUALIZER_GRAFANA_USER/PASSWORD,
-# HTTP(S)_PROXY as required — never invent values, ask the user.
-helm install ts-wind-turbine-anomaly --set env.TELEGRAF_INPUT_PLUGIN=<mqtt_consumer|opcua> . -n ts-sample-app --create-namespace
-# GPU inferencing variant:
-# helm install ts-wind-turbine-anomaly --set privileged_access_required=true \
-#   --set env.TELEGRAF_INPUT_PLUGIN=<input_plugin> . -n ts-sample-app --create-namespace
-kubectl get pods -n ts-sample-app
-```
-
-To push charts: `make push_helm_charts app=<name>` (runs
-`gen_helm_charts_targz` first; requires `DOCKER_REGISTRY` + registry login).
-
-## Step 4: Smoke test
-
-Run `scripts/smoke-check.sh <docker|helm> [namespace]` which:
-- For `docker`: runs `make status` and curls
-  `https://localhost:${GRAFANA_PORT:-3000}/` with retries.
-- For `helm`: waits for all pods in the namespace to be `Ready`, then curls
-  the exposed Grafana NodePort URL (`https://localhost:30001` per
-  `tests/functional/pytest.ini` defaults).
+From the app root, run
+`.github/skills/time-series-deploy/scripts/smoke-check.sh`, which:
+- verifies the Docker daemon is reachable,
+- runs `make status`,
+- curls the nginx/Grafana endpoint `https://${HOST_IP}:${GRAFANA_PORT}/`
+  (values read from `.env`; `-k` for the self-signed cert) with retries.
 
 Report the script's pass/fail output directly to the user.
 
-## Step 5: Functional tests
+## Step 4: Functional tests
 
 See `references/functional-tests.md` for the full file-to-scenario mapping.
 Typical invocation (from `tests/functional/`, after
 `pip install -r ../requirements.txt`):
 
 ```bash
-# Docker Compose path
 pytest -v -s --html=docker_wind_turbine_report.html test_docker_deployment_wind_turbine.py
 pytest -v -s --html=docker_influxdb_retention_wind_turbine_report.html test_docker_influxdb_retention.py
 pytest -v -s --html=docker_stability_wind_turbine_report.html test_docker_deployment_stability.py
 pytest -v -s -m gpu --html=gpu_docker_report.html test_GPU_docker.py
-
-# Helm path
-pytest -v -s --html=helm_wind_turbine_report.html test_helm_deployment_wind_turbine.py
-pytest -v -s --html=helm_influxdb_retention_wind_turbine_report.html test_helm_influxdb_retention.py
-pytest -v -s -m gpu --html=gpu_helm_report.html test_GPU_helm.py
-
-# Security tests (either deployment method already running)
-pytest -v -s --html=security_report.html test_docker_helm_deployment_security.py
+pytest -v -s --html=docker_security_report.html test_docker_deployment_security.py
 ```
 
-Or use `scripts/run-functional-tests.sh <docker|helm> [gpu|security|stability|retention]`
-to select the right subset automatically. Summarize pytest's pass/fail counts
-in your answer; do not just point at the report file.
+Or use
+`.github/skills/time-series-deploy/scripts/run-functional-tests.sh [default|gpu|security|stability|retention]`
+to select the right subset automatically.
 
-## Step 6: Cleanup
+The tests deploy and tear down the stack themselves, and they **overwrite the
+credentials in `.env`** with generated test values. Tell the user before
+running them, and suggest backing up `.env` first (for example,
+`cp .env .env.bak`). Summarize pytest's pass/fail counts in your answer; do
+not just point at the report file.
+
+## Step 5: Cleanup
 
 ```bash
-make down                                       # Docker Compose (removes volumes)
-helm uninstall ts-wind-turbine-anomaly -n ts-sample-app   # Helm
+make down          # removes volumes
 ```
 
 ## Answer contract when blocked
 
-If Docker/Kubernetes is unreachable or required `.env`/`values.yaml` fields
-are missing, **do not stall**: state the blocker plainly, show the exact
-command sequence the user would run once unblocked, and stop. Never invent
-"it worked" output.
+If Docker is unreachable or required `.env` fields are missing, **do not
+stall**: state the blocker plainly, show the exact command sequence the user
+would run once unblocked, and stop. Never invent "it worked" output.
