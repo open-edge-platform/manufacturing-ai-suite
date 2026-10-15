@@ -22,7 +22,7 @@ from common_utils import assert_condition
 pytest_plugins = ["conftest_docker"]
 
 logger = logging.getLogger(__name__)
-
+HOST_IP = common_utils.get_system_ip()
 def test_blank_values():
     """TC_001: Testing blank values in .env file for multimodal deployment"""
     logger.info("TC_001: Testing blank values, checking make check env variables with blank values in .env file")
@@ -72,8 +72,16 @@ def test_valid_values():
     if "S3_STORAGE_PASSWORD" not in case or not case["S3_STORAGE_PASSWORD"]:
         pytest.fail("S3_STORAGE_PASSWORD is missing or empty in generated credentials")
 
+    # Validate that SeaweedFS Filer web UI Basic Auth credentials are present and valid
+    if "SEAWEEDFS_WEB_AUTH_USER" not in case or not case["SEAWEEDFS_WEB_AUTH_USER"]:
+        pytest.fail("SEAWEEDFS_WEB_AUTH_USER is missing or empty in generated credentials")
+    if "SEAWEEDFS_WEB_AUTH_PASSWORD" not in case or not case["SEAWEEDFS_WEB_AUTH_PASSWORD"]:
+        pytest.fail("SEAWEEDFS_WEB_AUTH_PASSWORD is missing or empty in generated credentials")
+
     logger.info(f"Generated S3_STORAGE_USERNAME: [REDACTED]")
     logger.info("Generated S3_STORAGE_PASSWORD: [REDACTED]")
+    logger.info("Generated SEAWEEDFS_WEB_AUTH_USER: [REDACTED]")
+    logger.info("Generated SEAWEEDFS_WEB_AUTH_PASSWORD: [REDACTED]")
 
     env_file_path = os.path.join(constants.MULTIMODAL_APPLICATION_DIRECTORY, ".env")
     update_result = docker_utils.update_env_file(env_file_path, case)
@@ -115,6 +123,12 @@ def test_multimodal_make_up():
         pytest.fail("S3_STORAGE_USERNAME is missing or empty in generated credentials")
     if "S3_STORAGE_PASSWORD" not in case or not case["S3_STORAGE_PASSWORD"]:
         pytest.fail("S3_STORAGE_PASSWORD is missing or empty in generated credentials")
+
+    # Validate that SeaweedFS Filer web UI Basic Auth credentials are present and valid
+    if "SEAWEEDFS_WEB_AUTH_USER" not in case or not case["SEAWEEDFS_WEB_AUTH_USER"]:
+        pytest.fail("SEAWEEDFS_WEB_AUTH_USER is missing or empty in generated credentials")
+    if "SEAWEEDFS_WEB_AUTH_PASSWORD" not in case or not case["SEAWEEDFS_WEB_AUTH_PASSWORD"]:
+        pytest.fail("SEAWEEDFS_WEB_AUTH_PASSWORD is missing or empty in generated credentials")
 
     env_file_path = os.path.join(constants.MULTIMODAL_APPLICATION_DIRECTORY, ".env")
     update_result = docker_utils.update_env_file(env_file_path, case)
@@ -579,7 +593,7 @@ def test_nginx_proxy_integration(setup_multimodal_environment):
     # Test proxy endpoints
     grafana_results = docker_utils.test_nginx_proxy_endpoint(
         constants.NGINX_CONTAINER,
-        f"https://localhost:{constants.NGINX_HTTPS_PORT}/",
+        f"https://{HOST_IP}:{constants.NGINX_HTTPS_PORT}/",
         constants.TEST_CURL_TIMEOUT
     )
     logger.info(f"Grafana proxy results: success={grafana_results['success']}, errors={grafana_results.get('errors')}")
@@ -587,7 +601,7 @@ def test_nginx_proxy_integration(setup_multimodal_environment):
 
     api_results = docker_utils.test_nginx_proxy_endpoint(
         constants.NGINX_CONTAINER,
-        f"https://localhost:{constants.NGINX_HTTPS_PORT}/ts-api/",
+        f"https://{HOST_IP}:{constants.NGINX_HTTPS_PORT}/ts-api/",
         constants.TEST_CURL_TIMEOUT
     )
     logger.info(f"TS API proxy results: success={api_results['success']}, errors={api_results.get('errors')}")

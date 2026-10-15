@@ -1,13 +1,3 @@
-# Helm directory ignore patterns
-helm/*.json
-helm/*.yml
-helm/*.yaml
-helm/*.conf
-helm/*.sh
-helm/*.csv
-helm/*.template
-helm-packages/
-
 .venv/
 
 # Python cache

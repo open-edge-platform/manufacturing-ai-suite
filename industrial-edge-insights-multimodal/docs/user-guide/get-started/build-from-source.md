@@ -28,11 +28,11 @@ before proceeding with the following steps.
 2. **Clone the source and build the sample app**.
 
    ```bash
-   git clone https://github.com/open-edge-platform/edge-ai-suites.git -b main
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+   git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b main
+   cd manufacturing-ai-suite/industrial-edge-insights-multimodal
 
    # build
-   make build # builds only weld data simulator, fusion analytics, insights workbench and multimodal agent ui images
+   make build # builds the simulator, fusion analytics, and the Agentic UI image
    ```
 
    > [!NOTE]

@@ -22,17 +22,17 @@ About this guide:
 The following instructions assume Docker engine is correctly set up in the host system.
 If not, follow the [installation guide for docker engine](https://docs.docker.com/engine/install/ubuntu/).
 
-1. Clone the **edge-ai-suites** repository and change into industrial-edge-insights-vision directory. The directory contains the utility scripts required in the instructions that follow.
+1. Clone the **manufacturing-ai-suite** repository and change into industrial-edge-insights-vision directory. The directory contains the utility scripts required in the instructions that follow.
 
    Go to the target directory of your choice and clone the suite.
    If you want to clone a specific release branch, replace `main` with the desired tag.
    To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
    ```bash
-   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-   cd edge-ai-suites
-   git sparse-checkout set manufacturing-ai-suite
-   cd manufacturing-ai-suite/industrial-edge-insights-vision
+   git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/manufacturing-ai-suite.git
+   cd manufacturing-ai-suite
+   git sparse-checkout set industrial-edge-insights-vision
+   cd industrial-edge-insights-vision
    ```
 
 2. Set the application-specific environment variable file:

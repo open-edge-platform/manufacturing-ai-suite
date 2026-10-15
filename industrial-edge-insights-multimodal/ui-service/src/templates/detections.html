@@ -1,3 +1,7 @@
+ <!--
+ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+ SPDX-License-Identifier: Apache-2.0
+ -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,22 +12,41 @@
 </head>
 <body>
   <header>
-    <div class="header-inner">
-      <span class="logo">&#9632; Intel</span>
-      <h1>Agentic Weld Quality Analysis</h1>
+    <div class="header-wrapper">
+      <div class="header-inner">
+        <span class="logo">&#9632; Intel</span>
+        <h1>Multimodal Weld Defect Detection</h1>
+      </div>
     </div>
   </header>
   <nav>
-    <a href="{{ root }}/">Dashboard</a>
-    <a href="{{ root }}/detections" class="active">Detections</a>
+    <div class="nav-wrapper">
+      <a href="{{ root }}/">Dashboard</a>
+      <a href="{{ root }}/detections" class="active">Detections</a>
+      <a href="/insights-ui/">VLM Reasoning</a>
+    </div>
   </nav>
 
   <main>
     <section class="card">
       <h2>Filter Detections</h2>
       <form method="GET" action="{{ root }}/detections" class="filter-form">
-        <label>Label: <input type="text" name="label" value="{{ filter_label }}"></label>
-        <label>Min Confidence: <input type="number" name="min_confidence" step="0.01" min="0" max="1" value="{{ filter_confidence }}"></label>
+        <label>Label:
+          <select name="label">
+            <option value="">All labels</option>
+            {% for label in labels %}
+            <option value="{{ label }}" {% if filter_label == label %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Min Confidence:
+          <select name="min_confidence">
+            <option value="" {% if not filter_confidence %}selected{% endif %}>Any</option>
+            {% for threshold in [0.5, 0.6, 0.7, 0.8, 0.9, 0.95] %}
+            <option value="{{ threshold }}" {% if filter_confidence == threshold %}selected{% endif %}>{{ "%.2f"|format(threshold) }}</option>
+            {% endfor %}
+          </select>
+        </label>
         <label>Limit:
           <select name="limit">
             {% for n in [50, 100, 250, 500] %}
@@ -65,7 +88,7 @@
     </section>
   </main>
   <footer>
-    <p>&#169; Intel Corporation — Agentic Weld Quality Analysis Blueprint</p>
+    <p>&#169; Intel Corporation — Multimodal Weld Defect Detection</p>
   </footer>
 </body>
 </html>

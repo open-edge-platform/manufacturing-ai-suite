@@ -27,8 +27,8 @@ the data flow of the selected app before proceeding with the following steps.
 2. **Clone the source and build the sample app**:
 
     ```bash
-    git clone https://github.com/open-edge-platform/edge-ai-suites.git -b main
-    cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series
+    git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b main
+    cd manufacturing-ai-suite/industrial-edge-insights-time-series
 
     # build
     make build # builds only data simulator (OPC-UA server and MQTT publisher) docker images
