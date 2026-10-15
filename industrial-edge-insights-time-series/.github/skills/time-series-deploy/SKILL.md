@@ -17,7 +17,6 @@ compatibility: >-
   tests/requirements.txt. Helm/Kubernetes deployment is not supported.
 metadata:
   author: open-edge-platform
-  version: "1.0.0"
   tags: deployment, docker-compose, manufacturing, time-series, wind-turbine-anomaly-detection
 allowed-tools: bash make docker pytest
 ---
