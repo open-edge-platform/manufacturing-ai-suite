@@ -49,6 +49,8 @@ signals feed the decision.
 > Golden rule: the user speaks **business**; you speak **technology** silently.
 > Whether the solution needs a camera, a sensor, or both is a technology
 > inference from the business answers, not a question you ask directly.
+> The one spoken-out-loud exception is the fused-stack explanation layer
+> (`multimodal` vs `vllm` vs `agentic`) — see Step 1's Q8.
 
 ## When to use this skill
 
@@ -112,10 +114,22 @@ Adapt the wording to the stated outcome, but cover these axes:
    standalone stack directory (multimodal recipe). Skip only if the invoking
    context already makes this unambiguous — never let the delegate default
    to the current working directory or invent a path.
+8. **Explanation layer — ask by name** — whenever the decision fuses camera
+    and sensor signals into one verdict, you MUST ask which deployment the
+    user wants and name the three modes explicitly: `multimodal` (fused
+    alert only, no language model), `vllm` (adds a written explanation of
+    each fused alert), or `agentic` (adds an agent-coordinated explanation,
+    and includes the `vllm` layer by default). This is a deliberate
+    exception to the "never name technology" rule: the explanation layers
+    pull in a real LLM/VLM, extra hardware, and extra setup time, so the
+    user has to opt in knowingly. Never skip this question, never assume
+    `multimodal`, and never reword it into a generic "do you want
+    explanations?" that hides the mode names.
 
 Keep it to what changes the routing decision. Never ask which model,
 framework, precision, device, or "vision vs time series vs multimodal" by
-name — you decide that from question 2's answer.
+name — you decide that from question 2's answer. The one exception is Q8's
+`multimodal`/`vllm`/`agentic` choice, which is always named out loud.
 
 ### Step 2 — Discover the relevant skill(s)
 
@@ -126,7 +140,7 @@ objective is ambiguous or a delegate's availability is unclear, load
 
 | What feeds the decision (Step 1, Q2) | Full stack + dashboard needed? | Route to |
 |---|---|---|
-| **Both** camera + sensor, one fused verdict (optionally + narrative explanation) | yes (always — this is the point of multimodal correlation) | **`manufacturing-app-recipe`** (`{{DEPLOYMENT}}=multimodal`, or `vllm`/`agentic` for explainability) |
+| **Both** camera + sensor, one fused verdict | yes (always — this is the point of multimodal correlation) | **`manufacturing-app-recipe`**; choose `{{DEPLOYMENT}}` from Q8: `multimodal` for fused alerts only, `vllm` for written explanations, or `agentic` for agent-coordinated explanations (which includes the `vllm` layer) |
 | **Sensor only** | yes — simulator/real ingest + Kapacitor UDF + Grafana + app registry | **`manufacturing-app-recipe`** (`{{DEPLOYMENT}}=ts`) |
 | **Sensor only** | no — just a UDF/TICKscript against an already-running microservice | **`time-series-analytics-user`** |
 | **Camera only** | yes — annotated video + dashboard + alerts, any vertical | **`metro-ai-app-recipe`** |
@@ -148,6 +162,13 @@ mode flags, etc.) using each recipe's own parameter table
 delegate skill defines exactly which parameters it consumes — prepare them so
 the hand-off in Step 5 needs no further technology questions.
 
+For a fused full-stack objective, always ask Q8 **by name** before selecting
+the deployment, and carry the user's answer through verbatim. Do not silently
+default to `multimodal` or omit the explanation choice. Map Q8 to exactly one
+of `multimodal`, `vllm`, or `agentic` — `agentic` already builds on the
+`vllm` explanation layer, so never pass both as a pair. Explanation output is
+supplemental and must not change the fused-alert decision.
+
 **Exception — the working directory is not a technology inference.** Both
 manufacturing recipes now ask explicitly where to create their scaffold
 (existing repo checkout to extend, or a fresh parent directory) — carry the
@@ -164,6 +185,9 @@ Present a concise plan and **stop for approval**. Include:
   that drove it), since that routing decision is this skill's core value.
 - **Inferred technology** — the concrete model/UDF-pattern/device/mode/topics
   you selected, shown as *decisions you made*, not questions.
+- For a fused stack, state the Q8 after-alert choice and the single
+  deployment mode it maps to; if that mode is `agentic`, note that the
+  written-explanation layer is included by default.
 - **Requirements/assumptions** — Docker, GPU groups, ports, network —
   surfaced from the delegate's `compatibility`.
 - **Any skill that must be installed** with the exact `npx skills@latest add`

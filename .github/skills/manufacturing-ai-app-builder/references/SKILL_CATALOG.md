@@ -22,9 +22,9 @@ the decision") to a **primary** skill and any **supporting** skills, then plan
 
 | If the user wants… | Primary skill | Supporting |
 |---|---|---|
-| A defect/anomaly verdict that must **combine** a camera-side defect signal **and** a sensor-side anomaly signal (AND/OR logic, timestamp-correlated) — e.g. weld quality (vision + pressure/gas/current), machining (surface defect + vibration), PCB (visual + electrical test) | **`manufacturing-app-recipe`** (`{{DEPLOYMENT}}=multimodal`) | `dlsps-user` (vision pipeline ops), `time-series-analytics-user` (sensor UDF pattern), `model-download-user` (custom vision IR) |
-| The same, plus a natural-language explanation of each fused alert | **`manufacturing-app-recipe`** (`{{DEPLOYMENT}}=vllm`) | same as above |
-| The same, plus full agent orchestration (LangGraph meta-agent, metrics) over the explanation layer | **`manufacturing-app-recipe`** (`{{DEPLOYMENT}}=agentic`) | same as above |
+| A defect/anomaly verdict that must **combine** a camera-side defect signal **and** a sensor-side anomaly signal (AND/OR logic, timestamp-correlated) — e.g. weld quality (vision + pressure/gas/current), machining (surface defect + vibration), PCB (visual + electrical test); no explanation requested | **`manufacturing-app-recipe`** (`{{DEPLOYMENT}}=multimodal`) | `dlsps-user` (vision pipeline ops), `time-series-analytics-user` (sensor UDF pattern), `model-download-user` (custom vision IR) |
+| The same, plus a written/narrative explanation of each fused alert | **`manufacturing-app-recipe`** (`{{DEPLOYMENT}}=vllm`) | same as above |
+| The same, plus an agent-coordinated explanation/workflow (includes the `vllm` explanation layer by default) | **`manufacturing-app-recipe`** (`{{DEPLOYMENT}}=agentic`) | same as above |
 
 Deliverable shape: end-to-end Compose stack (DLSPS + Telegraf/InfluxDB + Time
 Series Analytics + Fusion Analytics + Grafana + Nginx). Route here **only**
@@ -64,6 +64,11 @@ Grafana/MQTT/dashboard layer.
   Camera + sensor **both required to agree/combine** → §1. Sensor only → §2.
   Camera only → §3. Get this answer unambiguous before mapping further — it
   picks the entire primary-skill family, not just a parameter.
+- For fused full-stack work, ask Step 1 Q8 after the signal path is clear.
+  It selects exactly one of the `multimodal`, `vllm`, or `agentic`
+  deliveries; do not skip it or infer that an explanation layer is wanted
+  merely because both input types are present. `agentic` subsumes `vllm`, so
+  the two are never selected together.
 - **"Full stack" vs "just the building block"** is the second-strongest
   signal within §2 and §3: a dashboard + alerting + simulator scaffold routes
   to the recipe skill (`manufacturing-app-recipe` /
