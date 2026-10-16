@@ -29,10 +29,10 @@ SLEEP_SECS=5
 wait_for_url() {
   local url="$1"
   local i=0
-  until [ "$(curl -sk -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || echo 000)" != "000" ]; do
+  until curl -fsk --connect-timeout 5 --max-time 10 -o /dev/null "$url"; do
     i=$((i + 1))
     if [ "$i" -ge "$MAX_RETRIES" ]; then
-      echo "FAIL: timed out waiting for $url after $((MAX_RETRIES * SLEEP_SECS))s" >&2
+      echo "FAIL: could not reach $url after $MAX_RETRIES attempts" >&2
       return 1
     fi
     echo "  not reachable yet ($i/$MAX_RETRIES), retrying in ${SLEEP_SECS}s..."

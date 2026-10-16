@@ -3,11 +3,11 @@
   "SPDX-License-Identifier": "Apache-2.0",
   "schemaVersion": "1.0",
   "description": "Harness-neutral discovery catalog for Industrial Edge Insights - Time Series workflow skills. Paths are relative to the repository root.",
-  "skillsRoot": ".github/skills",
+  "skillsRoot": "industrial-edge-insights-time-series/.github/skills",
   "skills": [
     {
       "name": "time-series-deploy",
-      "path": ".github/skills/time-series-deploy/SKILL.md",
+      "path": "industrial-edge-insights-time-series/.github/skills/time-series-deploy/SKILL.md",
       "description": "Build, deploy, smoke-check, and functionally test the Industrial Edge Insights - Time Series sample app (e.g. wind-turbine-anomaly-detection) via its Makefile-driven Docker Compose path (MQTT/OPC-UA ingestion, multi-stream, batch mode).",
       "triggers": [
         "build and deploy wind turbine anomaly detection",
@@ -18,10 +18,10 @@
         "run time series functional tests"
       ],
       "requires": [
-        "Makefile",
-        "docker-compose.yml",
-        ".github/skills/time-series-deploy/scripts/smoke-check.sh",
-        ".github/skills/time-series-deploy/scripts/run-functional-tests.sh",
+        "industrial-edge-insights-time-series/Makefile",
+        "industrial-edge-insights-time-series/docker-compose.yml",
+        "industrial-edge-insights-time-series/.github/skills/time-series-deploy/scripts/smoke-check.sh",
+        "industrial-edge-insights-time-series/.github/skills/time-series-deploy/scripts/run-functional-tests.sh",
         "docker compose"
       ]
     }
