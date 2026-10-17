@@ -178,7 +178,7 @@ async def start_pipeline(
         ) from error
     pipeline_result = response.json()
     if isinstance(pipeline_result, str):
-        pipeline_result = {"id": pipeline_result}
+        pipeline_result = {"dlsps_pipeline_id": pipeline_result}
 
     return {
         **pipeline_result,
