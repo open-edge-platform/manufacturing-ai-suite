@@ -37,17 +37,20 @@ LLM_WEIGHT_FORMAT_LOWER := $(shell printf '%s' "$(LLM_WEIGHT_FORMAT)" | tr '[:up
 MODEL_PATH ?= /model/llm_model_agentic/openvino_models/$(LLM_DEVICE_LOWER)/$(LLM_WEIGHT_FORMAT_LOWER)/$(LLM_MODEL_NAME)
 export MODEL_PATH
 PLATFORM_CHECK ?= true
+MCP ?= false
+MCP_COMPOSE_ARG = $(if $(filter true,$(MCP)),-f $(DOCKER_COMPOSE_FILE_MCP))
+AGENTIC_NGINX_PROFILE = $(if $(filter true,$(MCP)),agentic_mcp,agentic)
 
 # Build Docker containers
 .PHONY: build
 build:
 	@echo "Building Docker containers...";
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_MCP) build --pull;
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) build --pull;
 
 .PHONY: build_copyleft_sources
 build_copyleft_sources:
 	@echo "Building Docker containers including copyleft licensed sources..."
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_MCP) build --build-arg COPYLEFT_SOURCES=true --pull;
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) build --build-arg COPYLEFT_SOURCES=true --pull;
 
 .PHONY: validate_host_ip
 validate_host_ip:
@@ -73,7 +76,8 @@ validate_host_ip:
 .PHONY: check_env_variables
 check_env_variables:
 	@echo "Checking if username/password in .env are matching the rules set..."
-	@variables="INFLUXDB_USERNAME INFLUXDB_PASSWORD VISUALIZER_GRAFANA_USER VISUALIZER_GRAFANA_PASSWORD MTX_WEBRTCICESERVERS2_0_USERNAME MTX_WEBRTCICESERVERS2_0_PASSWORD S3_STORAGE_USERNAME S3_STORAGE_PASSWORD SEAWEEDFS_WEB_AUTH_USER SEAWEEDFS_WEB_AUTH_PASSWORD MCP_USERNAME MCP_PASSWORD"; \
+	@variables="INFLUXDB_USERNAME INFLUXDB_PASSWORD VISUALIZER_GRAFANA_USER VISUALIZER_GRAFANA_PASSWORD MTX_WEBRTCICESERVERS2_0_USERNAME MTX_WEBRTCICESERVERS2_0_PASSWORD S3_STORAGE_USERNAME S3_STORAGE_PASSWORD SEAWEEDFS_WEB_AUTH_USER SEAWEEDFS_WEB_AUTH_PASSWORD"; \
+	if [ "$(MCP)" = "true" ]; then variables="$$variables MCP_USERNAME MCP_PASSWORD"; fi; \
 	for variable_name in $$variables; do \
 		value=$$(grep -E "^$$variable_name=" $(ENV_FILE) | cut -d'=' -f2); \
 		if [ -z "$$value" ]; then \
@@ -356,7 +360,7 @@ download_model:
 .PHONY: up_agentic
 up_agentic: check_hardware check_models check_env_variables validate_host_ip down
 	@export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
-	export NGINX_PROFILE=agentic; \
+	export NGINX_PROFILE=$(AGENTIC_NGINX_PROFILE); \
 	export AGENTIC_UI_ENABLED=true MQTT_DISABLED=false; \
 	echo "Starting Docker containers..."; \
 	echo "GPU device path set to: $(DRI_MOUNT_PATH) based on its existence"; \
@@ -364,23 +368,8 @@ up_agentic: check_hardware check_models check_env_variables validate_host_ip dow
 	cp configs/grafana/dashboards_jsons/weld_defect_detection_vlm.json configs/grafana/provisioning/weld_defect_detection.json || exit 1; \
 	cp configs/grafana/dashboards_jsons/weld_defect_detection_agentic.json configs/grafana/provisioning/weld_defect_detection_agentic.json || exit 1; \
 	$(MAKE) download_model || exit 1; \
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) up -d || exit 1; \
-	$(MAKE) upload_tar_file
-
-
-
-.PHONY: up_agentic_mcp
-up_agentic_mcp: check_hardware check_models check_env_variables validate_host_ip down
-	@export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
-	export NGINX_PROFILE=agentic_mcp; \
-	export AGENTIC_UI_ENABLED=true MQTT_DISABLED=false; \
-	echo "Starting Docker containers..."; \
-	echo "GPU device path set to: $(DRI_MOUNT_PATH) based on its existence"; \
-	rm -f configs/grafana/provisioning/*.json; \
-	cp configs/grafana/dashboards_jsons/weld_defect_detection_vlm.json configs/grafana/provisioning/weld_defect_detection.json || exit 1; \
-	cp configs/grafana/dashboards_jsons/weld_defect_detection_agentic.json configs/grafana/provisioning/weld_defect_detection_agentic.json || exit 1; \
-	$(MAKE) download_model || exit 1; \
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_MCP)  up -d || exit 1;
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) up -d || exit 1; \
+	if [ "$(MCP)" != "true" ]; then $(MAKE) upload_tar_file; fi
 
 # Status of the deployed containers
 .PHONY: status
@@ -424,7 +413,7 @@ status:
 .PHONY: down
 down:
 	@echo "Stopping Docker containers...";
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_MCP) down -v --remove-orphans
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) down -v --remove-orphans
 
 # Push the docker images to docker registry, ensure to configure DOCKER_REGISTRY in .env
 # and have logged into that. Applies mainly when one is dealing with internal docker registry.
@@ -433,7 +422,7 @@ down:
 .PHONY: push_images
 push_images: build
 	@echo "Pushing the images to docker registry"
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_MCP) push
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) push
 
 
 # Generate helm packages
@@ -477,7 +466,8 @@ push_helm_charts: gen_helm_charts
 help:
 	@echo "Makefile commands:"
 	@echo "  make build                        - Build Docker containers"
-	@echo "  make up_agentic                   - Start the application and the agentic stack including vLLM service"
+	@echo "  make up_agentic                   - Start the application and the agentic stack including vLLM"
+	@echo "  make up_agentic MCP=true          - Also start the MCP server"
 	@echo "  make up_vllm                      - Start the application and the vLLM stack"
 	@echo "  make build_copyleft_sources       - Build Docker containers including copyleft licensed sources"
 	@echo "  make up                           - Start Docker containers"

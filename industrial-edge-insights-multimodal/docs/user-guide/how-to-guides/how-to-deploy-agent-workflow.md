@@ -49,7 +49,7 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
 
 ## Deploy the Agentic Workflow
 
-Run the full agentic stack (downloads the LLM model first, then starts all containers):
+Run the agentic stack (downloads the LLM model first, then starts the containers):
 
 > [!NOTE]
 >
@@ -60,6 +60,12 @@ Run the full agentic stack (downloads the LLM model first, then starts all conta
 ```bash
 cd industrial-edge-insights-multimodal
 make up_agentic
+```
+
+To include the MCP server, set `MCP_USERNAME` and `MCP_PASSWORD` in `.env`, then run:
+
+```bash
+make up_agentic MCP=true
 ```
 
 For a fresh build before deployment:
