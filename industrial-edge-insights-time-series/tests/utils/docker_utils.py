@@ -58,6 +58,9 @@ except ImportError:
     SECURITY_UTILS_AVAILABLE = False
     logger.warning("security_utils not available, some functions may be limited")
 
+HOST_IP = common_utils.get_system_ip()
+SEAWEEDFS_HTTP_STATUS_MARKER = "\n__SEAWEEDFS_HTTP_STATUS__:"
+
 def run_command(cmd, capture_output=False):
     """
     Execute shell commands.
@@ -102,7 +105,7 @@ def remove_container(name):
 def get_docker_env_values():
     """Load Docker-specific configuration and extract values."""
     # Docker-specific environment variables
-    wait_time = int(os.getenv("wait_time_for_containers_to_come_up", os.getenv("wait_time_for_pods_to_come_up", "30")))
+    wait_time = int(os.getenv("wait_time_for_containers_to_come_up", "30"))
     target = os.getenv("docker_target", "localhost")  # Default to localhost for Docker
 
     # Get dynamic ports from configuration files - no hardcoded fallbacks
@@ -358,10 +361,9 @@ def wait_for_stability(seconds=30):
 def wait_until_containers_up(expected_containers, timeout=constants.WIND_TURBINE_CONTAINER_READY_TIMEOUT, poll_interval=constants.WIND_TURBINE_POLL_INTERVAL):
     """Poll docker ps until all expected containers are running, instead of sleeping blindly.
 
-    This is the Docker equivalent of helm's verify_pods — it returns ``True`` as soon
-    as every container in ``expected_containers`` is confirmed running, or ``False``
-    if the deadline is exceeded (the function does not raise; callers should assert
-    the return value if a missed deadline must abort the test).
+    Returns ``True`` as soon as every container in ``expected_containers`` is confirmed
+    running, or ``False`` if the deadline is exceeded (the function does not raise;
+    callers should assert the return value if a missed deadline must abort the test).
 
     Args:
         expected_containers (list): List of container name strings to wait for.
@@ -448,9 +450,8 @@ def wait_until_scaled_containers_up(prefix, expected_count,
 def wait_until_service_ready(timeout=constants.WIND_TURBINE_CONTAINER_READY_TIMEOUT, poll_interval=constants.WIND_TURBINE_POLL_INTERVAL, accept_503=True):
     """Poll the ts-api health endpoint until the service responds, instead of sleeping blindly.
 
-    This is the Docker equivalent of helm's verify_pods at the service layer — it returns
-    as soon as the time-series analytics REST API acknowledges the request (HTTP 200 or 503),
-    or gives up after ``timeout`` seconds.
+    Returns as soon as the time-series analytics REST API acknowledges the request
+    (HTTP 200 or 503), or gives up after ``timeout`` seconds.
 
     Args:
         timeout (int): Maximum seconds to wait (default: 120).
@@ -3064,7 +3065,9 @@ def generate_multimodal_test_credentials(case_type="valid", invalid_field=None):
             "HOST_IP": "",
             "RTSP_CAMERA_IP": "",
             "S3_STORAGE_USERNAME": "",
-            "S3_STORAGE_PASSWORD": ""
+            "S3_STORAGE_PASSWORD": "",
+            "SEAWEEDFS_WEB_AUTH_USER": "",
+            "SEAWEEDFS_WEB_AUTH_PASSWORD": ""
         }
     elif case_type == "valid":
         # Generate valid S3 credentials that meet Makefile requirements
@@ -3081,7 +3084,9 @@ def generate_multimodal_test_credentials(case_type="valid", invalid_field=None):
             "HOST_IP": "127.0.0.1",
             "RTSP_CAMERA_IP": "192.168.1.100",
             "S3_STORAGE_USERNAME": s3_username,
-            "S3_STORAGE_PASSWORD": s3_password
+            "S3_STORAGE_PASSWORD": s3_password,
+            "SEAWEEDFS_WEB_AUTH_USER": generate_username(5),
+            "SEAWEEDFS_WEB_AUTH_PASSWORD": generate_password(10)
         }
 
         # Validate that S3 credentials are properly set
@@ -3096,7 +3101,9 @@ def generate_multimodal_test_credentials(case_type="valid", invalid_field=None):
             "HOST_IP": "invalid_ip",
             "RTSP_CAMERA_IP": "invalid_camera_ip",
             "S3_STORAGE_USERNAME": generate_username(2),  # Invalid: too short
-            "S3_STORAGE_PASSWORD": generate_password(2)   # Invalid: too short
+            "S3_STORAGE_PASSWORD": generate_password(2),   # Invalid: too short
+            "SEAWEEDFS_WEB_AUTH_USER": generate_username(4),
+            "SEAWEEDFS_WEB_AUTH_PASSWORD": generate_password(9)
         }
 
     else:
@@ -5227,7 +5234,7 @@ def execute_seaweedfs_bucket_query():
         dict: Result with success status, jpg_files list, and bucket URL used
     """
     nginx_port = CONTAINERS["nginx_proxy"]["https_port"]
-    bucket_url = f"https://localhost:{nginx_port}/image-store/buckets/{MULTIMODAL_DLSTREAMER_S3_BUCKET}/{MULTIMODAL_DLSTREAMER_S3_FOLDER_PREFIX}/?limit=5000"
+    bucket_url = f"https://{HOST_IP}:{nginx_port}/image-store/buckets/{MULTIMODAL_DLSTREAMER_S3_BUCKET}/{MULTIMODAL_DLSTREAMER_S3_FOLDER_PREFIX}/?limit=5000"
 
     # Use existing function to get bucket files
     bucket_result = get_seaweedfs_bucket_files(bucket_url)
@@ -5250,13 +5257,16 @@ def check_s3_image_file_size(img_filename, bucket_path=None):
     if bucket_path is None:
         bucket_path = f"{MULTIMODAL_DLSTREAMER_S3_BUCKET}/{MULTIMODAL_DLSTREAMER_S3_FOLDER_PREFIX}"
     nginx_port = CONTAINERS["nginx_proxy"]["https_port"]
-    file_url = f"https://localhost:{nginx_port}/image-store/buckets/{bucket_path}/{img_filename}"
+    file_url = f"https://{HOST_IP}:{nginx_port}/image-store/buckets/{bucket_path}/{img_filename}"
 
     try:
-        # Execute curl HEAD request to get content-length
-        curl_command = [
-            'curl', '-skI', file_url
-        ]
+        username, password = get_seaweedfs_web_auth_credentials()
+        auth_config = _curl_basic_auth_config(username, password)
+        curl_command = ['curl', '-skI']
+        if auth_config is not None:
+            curl_command.extend(['--config', '-'])
+        curl_command.extend(['-w', f'{SEAWEEDFS_HTTP_STATUS_MARKER}%{{http_code}}'])
+        curl_command.append(file_url)
 
         logger.info(f"Checking file size for: {file_url}")
 
@@ -5265,7 +5275,8 @@ def check_s3_image_file_size(img_filename, bucket_path=None):
             curl_command,
             capture_output=True,
             text=True,
-            timeout=30
+            input=auth_config or "",
+            timeout=30,
         )
 
         if result.returncode != 0:
@@ -5280,8 +5291,25 @@ def check_s3_image_file_size(img_filename, bucket_path=None):
                 "filename": img_filename
             }
 
-        # Parse content-length from headers
-        headers_output = result.stdout
+        headers_output, marker, http_status = result.stdout.rpartition(
+            SEAWEEDFS_HTTP_STATUS_MARKER
+        )
+        http_status = http_status.strip() if marker else "unknown"
+        if http_status != "200":
+            error_msg = (
+                f"Unexpected HTTP status {http_status} from SeaweedFS image endpoint"
+            )
+            logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "file_size": 0,
+                "is_empty": True,
+                "file_url": file_url,
+                "filename": img_filename
+            }
+
+        # Parse content-length from successful response headers
         content_length = 0
 
         for line in headers_output.split('\n'):
@@ -5387,6 +5415,37 @@ def validate_s3_images_content(matched_files, max_files_to_check=3):
     }
 
 
+def get_seaweedfs_web_auth_credentials():
+    """Fetch SEAWEEDFS_WEB_AUTH_USER/PASSWORD from the multimodal .env file.
+
+    Required because nginx's /image-store location enforces HTTP Basic Auth
+    (.htpasswd generated from these values); requests without -u get a 401
+    with an empty body, which breaks JSON parsing downstream.
+    """
+    env_path = os.path.join(constants.MULTIMODAL_APPLICATION_DIRECTORY, ".env")
+    env_vars = read_env_file(env_path)
+    username = env_vars.get("SEAWEEDFS_WEB_AUTH_USER")
+    password = env_vars.get("SEAWEEDFS_WEB_AUTH_PASSWORD")
+    if not username or not password:
+        raise ValueError(
+            f"Missing SEAWEEDFS_WEB_AUTH_USER or SEAWEEDFS_WEB_AUTH_PASSWORD in {env_path}"
+        )
+    return username, password
+
+
+def _curl_basic_auth_config(username, password):
+    """Build a curl config line for Basic Auth, to pass through stdin."""
+    if not username or not password:
+        return None
+
+    credentials = f"{username}:{password}"
+    if "\n" in credentials or "\r" in credentials:
+        raise ValueError("Basic Auth credentials must not contain newlines")
+
+    escaped_credentials = credentials.replace("\\", "\\\\").replace('"', '\\"')
+    return f'user = "{escaped_credentials}"\n'
+
+
 def get_seaweedfs_bucket_files(bucket_url):
     """
     Execute curl command to retrieve SeaweedFS bucket contents and parse .jpg files
@@ -5398,21 +5457,24 @@ def get_seaweedfs_bucket_files(bucket_url):
         dict: Result containing success status, jpg_files list, total_files count, and any errors
     """
     try:
-        # Execute curl command to get bucket contents
-        curl_command = [
-            'curl', '-sk',
-            '-H', 'Accept: application/json',
-            bucket_url
-        ]
+        username, password = get_seaweedfs_web_auth_credentials()
+        auth_config = _curl_basic_auth_config(username, password)
+        curl_command = ['curl', '-sk', '-H', 'Accept: application/json']
+        if auth_config is not None:
+            curl_command.extend(['--config', '-'])
+        curl_command.extend([
+            '-w', f'{SEAWEEDFS_HTTP_STATUS_MARKER}%{{http_code}}', bucket_url
+        ])
 
-        logger.info(f"Executing curl command: {' '.join(curl_command)}")
+        logger.info(f"Executing curl command against: {bucket_url} (credentials redacted)")
 
         # Run curl command
         result = common_utils.exec_command(
             curl_command,
             capture_output=True,
             text=True,
-            timeout=30
+            input=auth_config or "",
+            timeout=30,
         )
 
         if result.returncode != 0:
@@ -5425,11 +5487,31 @@ def get_seaweedfs_bucket_files(bucket_url):
                 "total_files": 0
             }
 
+        # Split off the appended HTTP status marker from the response body
+        stdout = result.stdout
+        body, marker, status_marker = stdout.rpartition(SEAWEEDFS_HTTP_STATUS_MARKER)
+        http_status = status_marker.strip() if marker else "unknown"
+        body = body.rstrip('\n')
+
+        if http_status != "200":
+            error_msg = (
+                f"Unexpected HTTP status {http_status} from SeaweedFS bucket endpoint "
+                f"(check SEAWEEDFS_WEB_AUTH_USER/PASSWORD match the deployed .env). "
+                f"Body: {body[:200]!r}"
+            )
+            logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "jpg_files": [],
+                "total_files": 0
+            }
+
         # Parse JSON response
         try:
-            response_data = json.loads(result.stdout)
+            response_data = json.loads(body)
         except json.JSONDecodeError as e:
-            error_msg = f"Failed to parse JSON response: {e}"
+            error_msg = f"Failed to parse JSON response: {e}. Body: {body[:200]!r}"
             logger.error(error_msg)
             return {
                 "success": False,

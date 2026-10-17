@@ -1010,7 +1010,6 @@ def setup_multimodal_environment():
 def cross_verify_img_handle_with_s3(selected_img_handle, jpg_files):
     """
     Cross-verify that the selected img_handle has a corresponding image file in S3 storage.
-    This function is deployment-agnostic and used by both Docker and Helm deployments.
     
     Args:
         selected_img_handle (str): The img_handle to search for

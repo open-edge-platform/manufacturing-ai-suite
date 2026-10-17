@@ -26,26 +26,8 @@
       pytest -v -s --html=docker_stability_wind_turbine_report.html test_docker_deployment_stability.py
       ```
 
-3. For Helm-related test cases, run the following commands:
-
-   > [!NOTE]
-   > A Kubernetes cluster and Helm must be installed as prerequisites. If you are using k3s, ensure `KUBECONFIG` is exported before running the tests:
-   >
-   > ```sh
-   > export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-   > ```
-
-   * Wind Turbine Anomaly Detection
-
-      ```sh
-      pytest -v -s --html=helm_wind_turbine_report.html test_helm_deployment_wind_turbine.py
-
-      # InfluxDB retention test
-      pytest -v -s --html=helm_influxdb_retention_wind_turbine_report.html test_helm_influxdb_retention.py
-      ```
-
-4. Security tests:
+3. Security tests:
 
     ```sh
-    pytest -v -s --html=report.html test_docker_helm_deployment_security.py
+    pytest -v -s --html=report.html test_docker_deployment_security.py
     ```

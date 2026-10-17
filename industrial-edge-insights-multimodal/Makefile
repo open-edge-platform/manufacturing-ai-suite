@@ -4,7 +4,6 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-HELM_REGISTRY = oci://registry-1.docker.io/intel
 MAKEFLAGS += --no-print-directory
 
 DOCKER_COMPOSE_FILE = ./docker-compose.yml
@@ -22,11 +21,10 @@ export ACCEL_MOUNT_PATH
 
 # Define the path to the .env file and scripts
 ENV_FILE = ./.env
-HELM_PACKAGE_SCRIPT = ./package_helm.sh
 
 include $(ENV_FILE)
 export $(shell sed 's/=.*//' $(ENV_FILE))
-$(shell chmod 600 .env helm/values.yaml)
+$(shell chmod 600 .env)
 
 # Default values
 KEY_LENGTH=3072
@@ -425,42 +423,6 @@ push_images: build
 	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) push
 
 
-# Generate helm packages
-.PHONY: gen_helm_charts
-gen_helm_charts:
-	@echo "Generating Helm packages"
-	$(eval version := $(shell if [ -n "$(WEEKLY_BUILD_DATE)" ] && [ "$(WEEKLY_BUILD_DATE)" != '""' ]; then echo "$(IMAGE_SUFFIX)-$(WEEKLY_BUILD_DATE)-weekly"; else echo "$(IMAGE_SUFFIX)"; fi))
-	@cp -f configs/grafana/provisioning/* helm/
-	@cp -f configs/grafana/dashboards_jsons/weld_defect_detection.json helm/
-	@cp -f configs/influxdb/config/*.conf helm/
-	@cp -f configs/influxdb/init-influxdb.sh helm/
-	@cp -f configs/mqtt-broker/*.conf helm/
-	@cp -f configs/telegraf/config/*.conf helm/
-	@cp -f configs/telegraf/entrypoint.sh helm/telegraf_entrypoint.sh
-	@cp -f configs/nginx/nginx-cert-gen.sh helm/nginx-cert-gen.sh
-	@cp -f configs/nginx/nginx.conf helm/nginx.conf
-	@cp -f configs/dlstreamer-pipeline-server/config.json helm/dlstreamer-pipeline-server.json
-	@sed -i 's/"auto_start": true,/"auto_start": false,/' helm/dlstreamer-pipeline-server.json
-	@cp -f configs/seaweedfs-s3/seaweedfs_s3_config.json.template helm/seaweedfs_s3_config.json.template
-	@cp -f configs/seaweedfs-s3/s3-init-buckets.sh helm/s3-init-buckets.sh
-	@sed -i "s/version: .*/version: ${version}/" "helm/Chart.yaml"
-	@sed -i "s/appVersion: .*/appVersion: \"${version}\"/" "helm/Chart.yaml"
-	@sed -i "s/weekly_build_date: .*/weekly_build_date: \"$(WEEKLY_BUILD_DATE)\"/" "helm/values.yaml"
-	@echo "Helm packages generated with version: ${version}"
-
-# To push the helm charts to docker registry, ensure to configure DOCKER_REGISTRY in .env
-# and have logged into that. Applies mainly when one is dealing with internal docker registry.
-# If you are using docker hub, ensure to have logged in with `docker login` command
-# before running this command.
-.PHONY: push_helm_charts
-push_helm_charts: gen_helm_charts
-	@mkdir -p helm-packages
-	@rm -f helm-packages/*.tgz
-	@pkg_file=$$(helm package helm/ -d helm-packages/ | awk '{print $$NF}'); \
-	echo "Helm chart packaged successfully: $$pkg_file"; \
-	helm push $$pkg_file $(HELM_REGISTRY) && echo "Helm chart package pushed successfully to $(HELM_REGISTRY)"; \
-	cd ..
-
 # Help
 .PHONY: help
 help:
@@ -474,6 +436,4 @@ help:
 	@echo "  make down                         - Stop Docker containers"
 	@echo "  make clean                        - Remove all stopped containers and unused images"
 	@echo "  make push_images                  - Push the images to docker registry"
-	@echo "  make gen_helm_charts              - Generate Helm packages for the selected sample app"
-	@echo "  make push_helm_charts             - Package and Push Helm charts to docker registry"
 	@echo "  make help                         - Display this help message"
