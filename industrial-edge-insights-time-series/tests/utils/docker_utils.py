@@ -830,7 +830,7 @@ def update_env_file(file_path=None, values=None):
             if grep_result.returncode == 0:
                 # Key exists — update it with sed
                 sed_result = common_utils.exec_command(
-                    ["sed", "-i", f"s|^{parameter_name}=.*|{parameter_name}={value}|g", expanded_path],  # codeql[py/clear-text-storage-sensitive-data] Test deployment values are intentionally written to Compose's .env file.
+                    ["sed", "-i", f"s|^{parameter_name}=.*|{parameter_name}={value}|g", expanded_path],  # lgtm [py/clear-text-storage-sensitive-data]
                     capture_output=True, text=True
                 )
                 if sed_result.returncode != 0:
@@ -838,7 +838,7 @@ def update_env_file(file_path=None, values=None):
                     return False
             else:
                 with open(expanded_path, "a", encoding="utf-8") as env_file:
-                    env_file.write(f"{parameter_name}={value}\n")  # codeql[py/clear-text-storage-sensitive-data] Test deployment values are intentionally written to Compose's .env file.
+                    env_file.write(f"{parameter_name}={value}\n")  # lgtm [py/clear-text-storage-sensitive-data]
 
         logger.debug(f"Successfully updated .env file with {len(values)} environment variables")
         return True
