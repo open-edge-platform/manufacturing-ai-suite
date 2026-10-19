@@ -342,4 +342,3 @@ help:
 	@echo "      Example: make up_opcua_ingestion batch app=wind-turbine-anomaly-detection"
 	@echo "  make help                         - Display this help message"
 	@echo "      No parameters required."
-

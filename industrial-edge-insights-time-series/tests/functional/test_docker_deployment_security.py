@@ -11,7 +11,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../util
 import docker_utils
 import security_utils
 import constants
-import subprocess
 import time
 import logging
 import asyncio
