@@ -172,7 +172,7 @@ async def start_pipeline(
         )
     except httpx.HTTPError as error:
         raise PipelineControlError(
-            "Time-series configured but DLStreamer failed to start",
+            "Time-series configured but DL Streamer failed to start",
             {"configured_time_series_task": TIME_SERIES_TASK_NAME},
             {"dlstreamer": _upstream_error(error)},
         ) from error
@@ -189,7 +189,7 @@ async def start_pipeline(
 
 @mcp.tool()
 async def stop_pipeline() -> dict[str, Any]:
-    """Stop all active DLStreamer instances and disable the weld time-series task."""
+    """Stop all active DL Streamer instances and disable the weld time-series task."""
     completed: dict[str, Any] = {"stopped_pipeline_ids": []}
     failed: dict[str, str] = {}
     try:
