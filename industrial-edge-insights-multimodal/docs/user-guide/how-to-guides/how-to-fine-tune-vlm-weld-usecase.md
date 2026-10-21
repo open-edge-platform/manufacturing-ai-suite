@@ -2,7 +2,7 @@
 
 This section is a concrete, **weld-defect-analysis** instance of the
 generic VLM fine-tuning flow using the Unsloth library described in
-[`VLM Fine-Tuning with Unsloth Library`](./how-to-fine-tune-vlm.md).
+[`VLM Fine-Tuning with Unsloth Library`](https://docs.openedgeplatform.intel.com/2026.2/OEP-articles/how-to-fine-tune-vlm.html).
 
 | Generic Stage | Weld-Specific Instance (This Section) |
 | --- | --- |
