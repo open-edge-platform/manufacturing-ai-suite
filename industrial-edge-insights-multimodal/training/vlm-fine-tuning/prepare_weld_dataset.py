@@ -667,7 +667,7 @@ def stratified_split(
         split_records["test"].extend(label_records[n_train + n_val :])
 
     for split_name in split_records:
-        rng.shuffle(split_records[split_name])
+        rng.shuffle(split_records[split_name])  # nosec B311 - seeded RNG keeps dataset splits reproducible
 
     return split_records
 
