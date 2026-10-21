@@ -559,7 +559,7 @@ def build_records(
     """
     records: List[Dict[str, Any]] = []
     missing_frames: List[str] = []
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # nosec B311 - seeded RNG keeps dataset generation reproducible
 
     rows_iter = df.iterrows()
     processed = 0
@@ -630,7 +630,7 @@ def stratified_split(
     for record in records:
         by_label[record.get("canonical_category") or "UNKNOWN"].append(record)
 
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # nosec B311 - seeded RNG keeps dataset splits reproducible
     split_records: Dict[str, List[Dict[str, Any]]] = {
         "train": [],
         "validation": [],
