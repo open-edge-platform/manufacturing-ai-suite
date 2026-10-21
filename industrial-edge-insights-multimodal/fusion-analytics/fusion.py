@@ -34,6 +34,8 @@ import uvicorn
 
 from api import api_app, set_influx_client, API_PORT, FUSION_MEASUREMENT
 
+API_HOST = os.getenv("API_HOST", "0.0.0.0")  # nosec B104 - container networking requires this default
+
 # Configure logging
 
 log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
@@ -497,7 +499,7 @@ def main():
 
     # Start REST API in a background daemon thread
     api_thread = threading.Thread(
-        target=lambda: uvicorn.run(api_app, host="0.0.0.0", port=API_PORT, log_level="warning"),
+        target=lambda: uvicorn.run(api_app, host=API_HOST, port=API_PORT, log_level="warning"),
         daemon=True,
     )
     api_thread.start()

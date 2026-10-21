@@ -587,7 +587,7 @@ def build_records(
 
         details = parse_prediction_details(row.get("output_prediction_details"))
         sensor_block = build_sensor_block(row)
-        prompt_idx = rng.randint(0, len(USER_PROMPT_TEMPLATES) - 1)
+        prompt_idx = rng.randint(0, len(USER_PROMPT_TEMPLATES) - 1)  # nosec B311 - seeded RNG keeps dataset generation reproducible
         user_prompt = build_user_prompt(sensor_block, prompt_idx)
         assistant_response = build_assistant_response(row, details)
         messages = build_conversation(image_path, user_prompt, assistant_response)
@@ -638,7 +638,7 @@ def stratified_split(
     }
 
     for label_records in by_label.values():
-        rng.shuffle(label_records)
+        rng.shuffle(label_records)  # nosec B311 - seeded RNG keeps dataset splits reproducible
         n = len(label_records)
         n_train = int(n * train_ratio)
         n_val = int(n * val_ratio)
