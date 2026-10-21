@@ -59,6 +59,8 @@ except ImportError:
     logger.warning("security_utils not available, some functions may be limited")
 
 HOST_IP = common_utils.get_system_ip()
+SEAWEEDFS_HTTP_STATUS_MARKER = "\n__SEAWEEDFS_HTTP_STATUS__:"
+
 def run_command(cmd, capture_output=False):
     """
     Execute shell commands.
@@ -5258,10 +5260,13 @@ def check_s3_image_file_size(img_filename, bucket_path=None):
     file_url = f"https://{HOST_IP}:{nginx_port}/image-store/buckets/{bucket_path}/{img_filename}"
 
     try:
-        # Execute curl HEAD request to get content-length
-        curl_command = [
-            'curl', '-skI', file_url
-        ]
+        username, password = get_seaweedfs_web_auth_credentials()
+        auth_config = _curl_basic_auth_config(username, password)
+        curl_command = ['curl', '-skI']
+        if auth_config is not None:
+            curl_command.extend(['--config', '-'])
+        curl_command.extend(['-w', f'{SEAWEEDFS_HTTP_STATUS_MARKER}%{{http_code}}'])
+        curl_command.append(file_url)
 
         logger.info(f"Checking file size for: {file_url}")
 
@@ -5270,7 +5275,8 @@ def check_s3_image_file_size(img_filename, bucket_path=None):
             curl_command,
             capture_output=True,
             text=True,
-            timeout=30
+            input=auth_config or "",
+            timeout=30,
         )
 
         if result.returncode != 0:
@@ -5285,8 +5291,25 @@ def check_s3_image_file_size(img_filename, bucket_path=None):
                 "filename": img_filename
             }
 
-        # Parse content-length from headers
-        headers_output = result.stdout
+        headers_output, marker, http_status = result.stdout.rpartition(
+            SEAWEEDFS_HTTP_STATUS_MARKER
+        )
+        http_status = http_status.strip() if marker else "unknown"
+        if http_status != "200":
+            error_msg = (
+                f"Unexpected HTTP status {http_status} from SeaweedFS image endpoint"
+            )
+            logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "file_size": 0,
+                "is_empty": True,
+                "file_url": file_url,
+                "filename": img_filename
+            }
+
+        # Parse content-length from successful response headers
         content_length = 0
 
         for line in headers_output.split('\n'):
@@ -5392,6 +5415,37 @@ def validate_s3_images_content(matched_files, max_files_to_check=3):
     }
 
 
+def get_seaweedfs_web_auth_credentials():
+    """Fetch SEAWEEDFS_WEB_AUTH_USER/PASSWORD from the multimodal .env file.
+
+    Required because nginx's /image-store location enforces HTTP Basic Auth
+    (.htpasswd generated from these values); requests without -u get a 401
+    with an empty body, which breaks JSON parsing downstream.
+    """
+    env_path = os.path.join(constants.MULTIMODAL_APPLICATION_DIRECTORY, ".env")
+    env_vars = read_env_file(env_path)
+    username = env_vars.get("SEAWEEDFS_WEB_AUTH_USER")
+    password = env_vars.get("SEAWEEDFS_WEB_AUTH_PASSWORD")
+    if not username or not password:
+        raise ValueError(
+            f"Missing SEAWEEDFS_WEB_AUTH_USER or SEAWEEDFS_WEB_AUTH_PASSWORD in {env_path}"
+        )
+    return username, password
+
+
+def _curl_basic_auth_config(username, password):
+    """Build a curl config line for Basic Auth, to pass through stdin."""
+    if not username or not password:
+        return None
+
+    credentials = f"{username}:{password}"
+    if "\n" in credentials or "\r" in credentials:
+        raise ValueError("Basic Auth credentials must not contain newlines")
+
+    escaped_credentials = credentials.replace("\\", "\\\\").replace('"', '\\"')
+    return f'user = "{escaped_credentials}"\n'
+
+
 def get_seaweedfs_bucket_files(bucket_url):
     """
     Execute curl command to retrieve SeaweedFS bucket contents and parse .jpg files
@@ -5403,21 +5457,24 @@ def get_seaweedfs_bucket_files(bucket_url):
         dict: Result containing success status, jpg_files list, total_files count, and any errors
     """
     try:
-        # Execute curl command to get bucket contents
-        curl_command = [
-            'curl', '-sk',
-            '-H', 'Accept: application/json',
-            bucket_url
-        ]
+        username, password = get_seaweedfs_web_auth_credentials()
+        auth_config = _curl_basic_auth_config(username, password)
+        curl_command = ['curl', '-sk', '-H', 'Accept: application/json']
+        if auth_config is not None:
+            curl_command.extend(['--config', '-'])
+        curl_command.extend([
+            '-w', f'{SEAWEEDFS_HTTP_STATUS_MARKER}%{{http_code}}', bucket_url
+        ])
 
-        logger.info(f"Executing curl command: {' '.join(curl_command)}")
+        logger.info(f"Executing curl command against: {bucket_url} (credentials redacted)")
 
         # Run curl command
         result = common_utils.exec_command(
             curl_command,
             capture_output=True,
             text=True,
-            timeout=30
+            input=auth_config or "",
+            timeout=30,
         )
 
         if result.returncode != 0:
@@ -5430,11 +5487,31 @@ def get_seaweedfs_bucket_files(bucket_url):
                 "total_files": 0
             }
 
+        # Split off the appended HTTP status marker from the response body
+        stdout = result.stdout
+        body, marker, status_marker = stdout.rpartition(SEAWEEDFS_HTTP_STATUS_MARKER)
+        http_status = status_marker.strip() if marker else "unknown"
+        body = body.rstrip('\n')
+
+        if http_status != "200":
+            error_msg = (
+                f"Unexpected HTTP status {http_status} from SeaweedFS bucket endpoint "
+                f"(check SEAWEEDFS_WEB_AUTH_USER/PASSWORD match the deployed .env). "
+                f"Body: {body[:200]!r}"
+            )
+            logger.error(error_msg)
+            return {
+                "success": False,
+                "error": error_msg,
+                "jpg_files": [],
+                "total_files": 0
+            }
+
         # Parse JSON response
         try:
-            response_data = json.loads(result.stdout)
+            response_data = json.loads(body)
         except json.JSONDecodeError as e:
-            error_msg = f"Failed to parse JSON response: {e}"
+            error_msg = f"Failed to parse JSON response: {e}. Body: {body[:200]!r}"
             logger.error(error_msg)
             return {
                 "success": False,
