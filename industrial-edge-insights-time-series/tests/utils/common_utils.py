@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import subprocess
+import subprocess  # nosec B404 - exec_command explicitly disables shell execution
 import json
 import time
 import os
@@ -23,6 +23,14 @@ from typing import Sequence
 # Set up logger
 logger = logging.getLogger(__name__)
 PROXY_URL = os.getenv("PROXY_URL", None)
+_INFLUX_MEASUREMENT_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+
+
+def validate_influx_measurement(measurement: str) -> str:
+    """Reject characters that could escape an InfluxQL measurement identifier."""
+    if not isinstance(measurement, str) or not _INFLUX_MEASUREMENT_RE.fullmatch(measurement):
+        raise ValueError("Invalid InfluxDB measurement name")
+    return measurement
 
 
 def assert_condition(condition, message=""):
@@ -854,7 +862,7 @@ def check_influxdb_data(measurement, database="datain", container_name="ia-influ
         query_cmd = [
             "docker", "exec", container_name,
             "influx", "-database", database,
-            "-execute", f"SELECT COUNT(*) FROM \"{measurement}\" LIMIT 1"
+            "-execute", f"SELECT COUNT(*) FROM \"{validate_influx_measurement(measurement)}\" LIMIT 1"  # nosec B608 - measurement is validated
         ]
         
         result = exec_command(
