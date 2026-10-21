@@ -39,15 +39,15 @@ jobs:
       DOCS_DIR: ${{ inputs.docs_directory }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # Fetch all history, otherwise sporadic issue with missing tags
           fetch-depth: 0
           # Fetch tags
           fetch-tags: true
-          # Checkout the branch that triggered the workflow
-          # to avoid detached HEAD
-          ref: ${{ github.event.pull_request.head.sha || github.head_ref }}
+          # Checkout only the trusted triggering revision
+          # to avoid detached HEAD	          
+          ref: ${{ github.sha }}
           persist-credentials: false
 
       - name: Download template

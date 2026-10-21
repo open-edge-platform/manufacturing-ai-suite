@@ -1,3 +1,8 @@
+```{eval-rst}
+.. meta::
+   :description: Deploy agents to analyze fusion results, make policy decisions, and create maintenance tickets.
+```
+
 # Deploy the Agentic Workflow for the Multimodal Weld Defect Detection Sample Application
 
 This section shows how to deploy the multimodal sample application with the agentic workflow enabled. The multimodal application produces fusion results, and when new fusion results arrive, the meta-agent in the agentic stack is triggered. The meta-agent, powered by an LLM served through OpenVINO™ model server, produces structured policy decisions, root-cause analysis, and maintenance tickets.
@@ -17,12 +22,22 @@ The agentic workflow is implemented as a **LangGraph framework-based, sequential
 > [!NOTE]
 > The `[SYSTEM]` prompt provides shared domain knowledge, including the canonical defect taxonomy, label normalization rules, and available fusion data. It establishes the common reasoning context for all agents and is **not** a separate execution stage.
 
-## System Requirements
+## Minimum System Requirements
 
-| Component | Minimum Requirement |
-| --------- | ------------------- |
-| Operating System | Ubuntu OS version 24.04 LTS or later |
-| Hardware | Intel® Core™ Ultra Series 3 processor or newer |
+In addition to the [minimum requirements](../get-started/system-requirements.md#minimum-requirements) and [software requirements](../get-started/system-requirements.md#software-requirements) of the sample application, the agentic workflow requires the following:
+
+| Component    | Minimum Requirement                                 |
+|--------------|-----------------------------------------------------|
+| **Hardware** | Intel® Core™ Ultra Series 3 processor or newer only |
+| **RAM**      | Minimum 32 GB                                       |
+| **Storage**  | Minimum 256 GB (512 GB recommended)                 |
+
+### Validated Platforms
+
+| Product / Family                                                            | Validated inference devices |
+|-----------------------------------------------------------------------------|-----------------------------|
+| Intel® Core™ Ultra Processors Series 3 (Intel Core Ultra 7 356H, 16 Cores, 32GB) | CPU, iGPU                   |
+
 
 ## Prerequisites
 
@@ -33,12 +48,13 @@ The agentic workflow is implemented as a **LangGraph framework-based, sequential
    - `VISUALIZER_GRAFANA_USER`, `VISUALIZER_GRAFANA_PASSWORD`
    - `MTX_WEBRTCICESERVERS2_0_USERNAME`, `MTX_WEBRTCICESERVERS2_0_PASSWORD`
    - `S3_STORAGE_USERNAME`, `S3_STORAGE_PASSWORD`
+   - `SEAWEEDFS_WEB_AUTH_USER`, `SEAWEEDFS_WEB_AUTH_PASSWORD`
 
 2. Download the Vision-Language Model (VLM) model by following the [guide](./how-to-deploy-vllm-service.md#download-models).
 
 ## Deploy the Agentic Workflow
 
-Run the full agentic stack (downloads the LLM model first, then starts all containers):
+Run the agentic stack (downloads the LLM model first, then starts the containers):
 
 > [!NOTE]
 >
@@ -47,14 +63,20 @@ Run the full agentic stack (downloads the LLM model first, then starts all conta
 > - Supported devices for Agentic Workflow are : `CPU`, `GPU`
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+cd industrial-edge-insights-multimodal
 make up_agentic
+```
+
+To include the MCP server, set `MCP_USERNAME` and `MCP_PASSWORD` in `.env`, then run:
+
+```bash
+make up_agentic MCP=true
 ```
 
 For a fresh build before deployment:
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+cd industrial-edge-insights-multimodal
 make build
 make up_agentic
 ```
@@ -132,13 +154,13 @@ Agent reasoning prompts are in `configs/agentic/prompts/weld-quality-monitoring.
 1. Check overall stack health:
 
    ```bash
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+   cd industrial-edge-insights-multimodal
    make status
    ```
 
 2. Check the output in Grafana dashboard:
 
-   - Use the link `https://localhost:3000` to open Grafana dashboard in a browser, preferably the Chrome browser. For Helm deployment, use the link `https://localhost:30001`.
+   - Use the link `https://127.0.0.1:3000` to open Grafana dashboard in a browser, preferably the Chrome browser.
 
    - Log in to Grafana dashboard using the `VISUALIZER_GRAFANA_USER` and `VISUALIZER_GRAFANA_PASSWORD` values
      from the `.env` file:
@@ -160,6 +182,6 @@ Agent reasoning prompts are in `configs/agentic/prompts/weld-quality-monitoring.
 ## Stop the Stack
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+cd industrial-edge-insights-multimodal
 make down
 ```

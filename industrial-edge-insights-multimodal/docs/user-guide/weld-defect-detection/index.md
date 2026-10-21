@@ -2,10 +2,10 @@
 
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/industrial-edge-insights-multimodal">
+  <a class="icon_github" href="https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-multimodal">
      GitHub
   </a>
-  <a class="icon_document" href="https://github.com/open-edge-platform/edge-ai-suites/blob/main/manufacturing-ai-suite/industrial-edge-insights-multimodal/README.md">
+  <a class="icon_document" href="https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-multimodal/README.md">
      Readme
   </a>
 </div>
@@ -32,7 +32,7 @@ detection use case.
 
 #### 1. Weld Data Simulator
 
-The Weld Data Simulator uses sets of time synchronized .avi and .csv files from the `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/weld-data-simulator/simulation-data/` subset of test dataset coming from [Intel_Robotic_Welding_Multimodal_Dataset](https://huggingface.co/datasets/IntelLabs/Intel_Robotic_Welding_Multimodal_Dataset).
+The Weld Data Simulator uses sets of time synchronized .avi and .csv files from the `manufacturing-ai-suite/industrial-edge-insights-multimodal/weld-data-simulator/simulation-data/` subset of test dataset coming from [Intel_Robotic_Welding_Multimodal_Dataset](https://huggingface.co/datasets/IntelLabs/Intel_Robotic_Welding_Multimodal_Dataset).
 It ingests the .avi files as RTSP streams via the **mediamtx** server. This enables real-time video ingestion, simulating camera feeds for weld defect detection.
 Similarly, it ingests the .csv files as data points into **Telegraf** using the **MQTT** protocol.
 
@@ -106,7 +106,7 @@ An array defining one or more video output destinations. Each entry requires a `
 
 The UDF deployment package used for
 weld data is available
-in the [Time Series Analytics Microservice Configuration directory for Multimodal Insights](https://github.com/open-edge-platform/edge-ai-suites/tree/main/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/time-series-analytics-microservice).
+in the [Time Series Analytics Microservice Configuration directory for Multimodal Insights](https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/industrial-edge-insights-multimodal/configs/time-series-analytics-microservice).
 
 Details of the directory:
 

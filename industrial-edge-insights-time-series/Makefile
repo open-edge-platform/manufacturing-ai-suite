@@ -6,7 +6,6 @@
 
 DEFAULT_SAMPLE_APP := wind-turbine-anomaly-detection
 SAMPLE_APP_LIST := wind-turbine-anomaly-detection
-HELM_REGISTRY := oci://registry-1.docker.io/intel
 MAKEFLAGS += --no-print-directory
 
 ifdef app
@@ -65,7 +64,7 @@ include $(ENV_FILE)
 export $(shell sed 's/=.*//' $(ENV_FILE))
 DRI_MOUNT_PATH := $(shell [ -d /dev/dri ] && [ -n "$$(ls -A /dev/dri 2>/dev/null)" ] && echo "/dev/dri" || echo "/dev/null")
 export DRI_MOUNT_PATH
-$(shell chmod 600 .env helm/values.yaml)
+$(shell chmod 600 .env)
 
 # Build Docker containers
 .PHONY: build
@@ -313,52 +312,6 @@ push_images: build
 	@echo "Pushing the images to docker registry"
 	docker compose -f $(DOCKER_COMPOSE_FILE) push
 
-# Generate helm packages
-.PHONY: gen_helm_charts
-gen_helm_charts:
-	@echo "Generating Helm packages"
-	@echo "Packaging Helm chart for ${SAMPLE_APP}"
-	$(eval version := $(shell if [ -n "$(WEEKLY_BUILD_DATE)" ] && [ "$(WEEKLY_BUILD_DATE)" != '""' ]; then echo "$(IMAGE_SUFFIX)-$(WEEKLY_BUILD_DATE)-weekly"; else echo "$(IMAGE_SUFFIX)"; fi))
-	@cp -f configs/grafana/dashboards/*.yml helm/
-	@cp -f apps/${SAMPLE_APP}/grafana-dashboard.json helm/
-	@cp -f configs/influxdb/config/*.conf helm/
-	@cp -f configs/influxdb/init-influxdb.sh helm/
-	@cp -f configs/mqtt-broker/*.conf helm/
-	@rm -rf helm/simulation-data
-	@cp -rf apps/${SAMPLE_APP}/simulation-data helm/
-	@cp -f apps/${SAMPLE_APP}/telegraf-config/*.conf helm
-	@cp -f configs/telegraf/entrypoint.sh helm/telegraf_entrypoint.sh
-	@cp -f configs/nginx/nginx-cert-gen.sh helm/nginx-cert-gen.sh
-	@cp -f configs/nginx/nginx.conf helm/nginx.conf
-	@sed -i "s/name: .*/name: ${SAMPLE_APP}-sample-app/" "helm/Chart.yaml"
-	@sed -i "s/description: .*/description: Helm charts for ${SAMPLE_APP} sample app/" "helm/Chart.yaml"
-	@sed -i "s/version: .*/version: ${version}/" "helm/Chart.yaml"
-	@sed -i "s/appVersion: .*/appVersion: \"${version}\"/" "helm/Chart.yaml"
-	@sed -i "s/SAMPLE_APP: .*/SAMPLE_APP: ${SAMPLE_APP}/" "helm/values.yaml"
-	@sed -i "s/weekly_build_date: .*/weekly_build_date: \"$(WEEKLY_BUILD_DATE)\"/" "helm/values.yaml"
-	@echo "Helm packages generated with version: ${version}"
-
-# To generate the helm charts in tar.gz file format
-.PHONY: gen_helm_charts_targz
-gen_helm_charts_targz: gen_helm_charts
-	@echo "Packaging Helm chart for ${SAMPLE_APP}"
-	@mkdir -p helm-packages
-	@rm -f helm-packages/*.tgz
-	@pkg_file=$$(helm package helm/ -d helm-packages/ | awk '{print $$NF}'); \
-	echo "Helm chart packaged successfully: $$pkg_file"; \
-
-# To push the helm charts to docker registry, ensure to configure DOCKER_REGISTRY in .env
-# and have logged into that. Applies mainly when one is dealing with internal docker registry.
-# If you are using docker hub, ensure to have logged in with `docker login` command
-# before running this command.
-.PHONY: push_helm_charts
-push_helm_charts: gen_helm_charts_targz
-	@echo "Pushing helm charts for ${SAMPLE_APP}"
-	@set -eu; \
-	set -- helm-packages/*.tgz; \
-	[ "$$#" -eq 1 ] && [ -e "$$1" ] || { echo "Expected exactly one Helm chart package in helm-packages/ (run 'make gen_helm_charts_targz')" >&2; exit 1; }; \
-	helm push "$$1" "$(HELM_REGISTRY)" && echo "Helm chart package pushed successfully to $(HELM_REGISTRY)"
-
 # Help
 .PHONY: help
 help:
@@ -382,12 +335,6 @@ help:
 	@echo "  make push_images                  - Push the images to docker registry"
 	@echo "      Optional: DOCKER_REGISTRY (set in .env or as param)"
 	@echo "      Example: make push_images DOCKER_REGISTRY=myregistry"
-	@echo "  make gen_helm_charts              - Generate Helm packages for the selected sample app"
-	@echo "      Optional: app (default: wind-turbine-anomaly-detection)"
-	@echo "      Example: make gen_helm_charts app=wind-turbine-anomaly-detection"
-	@echo "  make push_helm_charts              - Package and push Helm charts to docker registry"
-	@echo "      Optional: app (default: wind-turbine-anomaly-detection)"
-	@echo "      Example: make push_helm_charts app=wind-turbine-anomaly-detection"
 	@echo "  make <ingestion_target> batch      - Run batch processing with an ingestion target"
 	@echo "      Required: ingestion_target must be up_mqtt_ingestion or up_opcua_ingestion"
 	@echo "      Optional: app (default: wind-turbine-anomaly-detection)"

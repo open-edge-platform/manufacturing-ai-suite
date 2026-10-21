@@ -1,3 +1,9 @@
+```{eval-rst}
+.. meta::
+   :description: Detects weld defects at the edge by combining image inspection
+      and time-series sensor analysis.
+```
+
 # Industrial Edge Insights - Multimodal
 
 Multimodal Weld Defect Detection sample application demonstrates how to use AI
@@ -29,6 +35,8 @@ improving both accuracy and efficiency.
   timely intervention.
 - Extensible pipeline: Supports integration with additional data sources
   and models.
+- Agentic workflow: Analyzes fusion results, makes policy decisions, and creates
+  maintenance tickets.
 
 [The application](./weld-defect-detection/index.md) utilizes camera-based
 visual inspection and sensor data analysis to identify anomalies in welding data.

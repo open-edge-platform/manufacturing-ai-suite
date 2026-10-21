@@ -25,12 +25,12 @@ jobs:
       edge-insights-vision_changed: ${{ steps.filter.outputs.edge-insights-vision }}
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Set paths filter
         id: filter
-        uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
         with:
           filters: |
             hmi-augmented-worker:
@@ -47,7 +47,7 @@ jobs:
       contents: read # needed for actions/checkout
     needs: filter
     if: ${{ needs.filter.outputs.hmi-augmented-worker_changed == 'true' }}
-    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    uses: $/.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: hmi-augmented-worker
 
@@ -56,7 +56,7 @@ jobs:
       contents: read # needed for actions/checkout
     needs: filter
     if: ${{ needs.filter.outputs.industrial-edge-insights-multimodal_changed == 'true' }}
-    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    uses: $/.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: industrial-edge-insights-multimodal
 
@@ -65,7 +65,7 @@ jobs:
       contents: read # needed for actions/checkout
     needs: filter
     if: ${{ needs.filter.outputs.edge-insights-time-series_changed == 'true' }}
-    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    uses: $/.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: industrial-edge-insights-time-series
 
@@ -74,6 +74,6 @@ jobs:
       contents: read # needed for actions/checkout
     needs: filter
     if: ${{ needs.filter.outputs.edge-insights-vision_changed == 'true' }}
-    uses: ./.github/workflows/docs-reusable-workflow.yaml
+    uses: $/.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: industrial-edge-insights-vision

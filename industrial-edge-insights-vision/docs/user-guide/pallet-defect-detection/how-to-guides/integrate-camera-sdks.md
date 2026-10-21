@@ -199,8 +199,8 @@ This section provides detailed, step-by-step instructions for setting up and dep
 ### Step 1: Set Up the Environment
 
 ```bash
-git clone https://github.com/open-edge-platform/edge-ai-suites.git -b main
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision
+git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b main
+cd industrial-edge-insights-vision
 cp .env_pallet-defect-detection .env
 ```
 
@@ -298,7 +298,7 @@ docker compose up -d
 
 ### Step 7: Modify the Payload File
 
-Edit `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision/apps/pallet-defect-detection/payload.json` and remove the `source` section so that it looks like this.
+Edit `manufacturing-ai-suite/industrial-edge-insights-vision/apps/pallet-defect-detection/payload.json` and remove the `source` section so that it looks like this.
 
 ```json
 [

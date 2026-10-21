@@ -282,13 +282,13 @@ def on_message(client, userdata, msg):
             vision_confidence = 0
             vision_classification = "No Label"
 
-            if "metadata" in payload and "objects" in payload["metadata"] and "classification/Model6" in payload["metadata"]["objects"][0]:
-                if "label" in payload["metadata"]["objects"][0]["classification/Model6"]:
-                    vision_classification = str(payload["metadata"]["objects"][0]["classification/Model6"]["label"])
+            if "metadata" in payload and "objects" in payload["metadata"] and "classification/Model0" in payload["metadata"]["objects"][0]:
+                if "label" in payload["metadata"]["objects"][0]["classification/Model0"]:
+                    vision_classification = str(payload["metadata"]["objects"][0]["classification/Model0"]["label"])
                 else:
                     vision_classification = "No Label"
-                if "confidence" in payload["metadata"]["objects"][0]["classification/Model6"]:
-                    vision_confidence = float(payload["metadata"]["objects"][0]["classification/Model6"]["confidence"])
+                if "confidence" in payload["metadata"]["objects"][0]["classification/Model0"]:
+                    vision_confidence = float(payload["metadata"]["objects"][0]["classification/Model0"]["confidence"])
                 else:
                     vision_confidence = 0.0
 
@@ -402,7 +402,7 @@ def fuse_firstcome(mode: Literal["AND", "OR"] = "AND") -> Optional[Dict[str, Any
     # Extract anomaly decisions from both messages
     if source_queue == "vision":
         # Vision message processed first
-        vision_confidence = float(source_entry["metadata"]["objects"][0]["classification/Model6"].get("confidence", 0.0) or 0.0)
+        vision_confidence = float(source_entry["metadata"]["objects"][0]["classification/Model0"].get("confidence", 0.0) or 0.0)
         vision_rtp_time = source_entry["metadata"].get("rtp", {}).get("sender_ntp_unix_timestamp_ns")
         ts_time = target_entry["time"]
         timeseries_anomaly = target_entry["anomaly_status"]
@@ -411,7 +411,7 @@ def fuse_firstcome(mode: Literal["AND", "OR"] = "AND") -> Optional[Dict[str, Any
         data_dict = source_entry
     else:
         # Time-series message processed first
-        vision_confidence = float(target_entry["metadata"]["objects"][0]["classification/Model6"].get("confidence", 0.0) or 0.0)
+        vision_confidence = float(target_entry["metadata"]["objects"][0]["classification/Model0"].get("confidence", 0.0) or 0.0)
         vision_rtp_time = target_entry["metadata"].get("rtp", {}).get("sender_ntp_unix_timestamp_ns")
         ts_time = source_entry["time"]
         timeseries_anomaly = source_entry["anomaly_status"]
@@ -419,8 +419,8 @@ def fuse_firstcome(mode: Literal["AND", "OR"] = "AND") -> Optional[Dict[str, Any
         timeseries_confidence = float(source_entry.get("confidence", 0) or 0)
         data_dict = target_entry
 
-    if "metadata" in data_dict and "label" in data_dict["metadata"]["objects"][0]["classification/Model6"]:
-        vision_classification = str(data_dict["metadata"]["objects"][0]["classification/Model6"]["label"])
+    if "metadata" in data_dict and "label" in data_dict["metadata"]["objects"][0]["classification/Model0"]:
+        vision_classification = str(data_dict["metadata"]["objects"][0]["classification/Model0"]["label"])
 
     fusion_confidence = (vision_confidence + timeseries_confidence) / 2.0
     fusion_classification = combine_classifications(

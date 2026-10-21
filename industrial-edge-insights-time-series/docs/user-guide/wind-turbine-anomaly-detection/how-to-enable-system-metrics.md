@@ -9,7 +9,7 @@ Follow the [prerequisites](../get-started.md#configure-docker) and ensure you un
 To enable the system metrics dashboard showcasing the CPU, memory, network, disk IO usage for the host and docker containers, run the following command:
 
 ```bash
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-time-series/ # path relative to git clone folder
+cd industrial-edge-insights-time-series/ # path relative to git clone folder
 # Try one of the below options:
 make up_opcua_ingestion INCLUDE=validation
 # OR

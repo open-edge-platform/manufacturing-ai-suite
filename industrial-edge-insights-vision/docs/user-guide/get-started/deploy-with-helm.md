@@ -74,11 +74,11 @@ configured Kubernetes cluster.
 > [!NOTE]
 > The following instructions assume Kubernetes is already running in the host system with Helm package manager installed.
 
-1. Clone the **edge-ai-suites** repository and change into industrial-edge-insights-vision directory. The directory contains the utility scripts required in the instructions that follow.
+1. Clone the **manufacturing-ai-suite** repository and change into industrial-edge-insights-vision directory. The directory contains the utility scripts required in the instructions that follow.
 
    ```sh
-   git clone https://github.com/open-edge-platform/edge-ai-suites.git -b main
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision/
+   git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b main
+   cd industrial-edge-insights-vision/
    ```
 
 2. Set application-specific values in the `values.yaml` file.
@@ -108,7 +108,7 @@ configured Kubernetes cluster.
 
    > [!NOTE]
    > Download the Helm chart if you are not using the Helm chart provided in
-   > `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-vision/helm`
+   > `manufacturing-ai-suite/industrial-edge-insights-vision/helm`
 
      - Download the Helm chart with the following command:
 

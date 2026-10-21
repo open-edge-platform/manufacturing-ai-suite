@@ -21,7 +21,7 @@ jobs:
       fail-fast: false
     steps:
     - name: Check out edge-ai-suites repository
-      uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.1
       with:
         persist-credentials: false
         path: manufacturing-ai-suite-repo
@@ -49,7 +49,7 @@ jobs:
         } >> "$GITHUB_STEP_SUMMARY"
     - name: Upload Scan Reports
       if: always()
-      uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f #v6.0.0
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v6.0.0
       with:
         name: virus-report
         path: reports/
@@ -59,7 +59,7 @@ jobs:
 
     steps:
       - name: Check out manufacturing-ai-suite repository
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.1
         with:
           persist-credentials: false
           path: manufacturing-ai-suite-repo
@@ -101,7 +101,7 @@ jobs:
 
       - name: Upload ShellCheck report
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f #v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v6.0.0
         with:
           name: shellcheck-report
           path: shellcheck_report.txt
@@ -113,7 +113,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.1
         with:
           persist-credentials: false
 
@@ -180,7 +180,7 @@ jobs:
 
       - name: Upload Bandit report
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f #v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v6.0.0
         with:
           name: bandit-report
           path: bandit_report.json
@@ -194,7 +194,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Code
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.1
         with:
           persist-credentials: false  
       - name: Install Trivy from Aqua Security APT repo
@@ -301,7 +301,7 @@ jobs:
           
       - name: Upload Scan artifact to Github
         if: always()
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f #v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v6.0.0
         with:
           name: Trivy Report - Config scan for Helm
           path: |

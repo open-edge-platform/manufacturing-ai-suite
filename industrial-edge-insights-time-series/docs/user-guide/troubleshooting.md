@@ -1,8 +1,8 @@
 # Troubleshooting
 
 This article contains troubleshooting steps for known issues. If you encounter any problems
-with the application not addressed here, check the [GitHub Issues](https://github.com/open-edge-platform/edge-ai-suites/issues)
-board. Feel free to file new tickets there (after learning about the guidelines for [Contributing](https://github.com/open-edge-platform/edge-ai-suites/blob/main/CONTRIBUTING.md)).
+with the application not addressed here, check the [GitHub Issues](https://github.com/open-edge-platform/manufacturing-ai-suite/issues)
+board. Feel free to file new tickets there (after learning about the guidelines for [Contributing](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/CONTRIBUTING.md)).
 
 ## 1. Seeing "No Data" in Grafana
 
@@ -79,7 +79,7 @@ So the effective expiration time is **1 hour RP + 1 hour shard duration
 
 ---
 
-## 3. Time Series Analytics Microservice (Docker/Helm) -- Takes Time to Start or Shows Python Packages Installing
+## 3. Time Series Analytics Microservice (Docker) -- Takes Time to Start or Shows Python Packages Installing
 
 **Issue**
 
@@ -101,26 +101,7 @@ initialize Kapacitor to start inference.
 
 ---
 
-## 4. Helm Deployment -- Grafana Doesn't Load or Shows `502 Bad Gateway`
-
-**Issue**
-
-Grafana UI fails to load after a Helm deployment, showing a **502 Bad
-Gateway** error or taking more than 2 minutes to load.
-
-**Reason**
-
-Helm deployment takes time to initialize Grafana containers. During
-this period, the ingress/service may route requests before the pods are
-fully ready.
-
-**Solution**
-
-No action required --- wait for the deployment to complete and for all pods to become ready.
-
----
-
-## 5. `docker exec` issues on the EMT operating system with Alpine-based images
+## 4. `docker exec` issues on the EMT operating system with Alpine-based images
 
 **Issue**
 

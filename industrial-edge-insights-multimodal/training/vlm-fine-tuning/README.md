@@ -19,7 +19,6 @@ any OpenAI-compatible VLM server that supports LoRA adapters.
 ```
 vlm-fine-tuning/
 ├── README.md                  # this file
-├── requirements.txt           # pinned Python dependencies
 ├── common.py                  # shared chat-format / device-detection helpers
 ├── prepare_weld_dataset.py    # weld-specific dataset prep
 ├── train_qwen.py               # Generic LoRA fine-tuning (Unsloth + TRL)
@@ -41,10 +40,10 @@ inference steps and flags, and troubleshooting, see the published how-to
 guides — this keeps the full instructions in one place instead of
 duplicated here:
 
-- [Fine-Tune a VLM with Unsloth](https://github.com/open-edge-platform/edge-ai-suites/blob/release-2026.2.0/manufacturing-ai-suite/industrial-edge-insights-multimodal/docs/user-guide/how-to-guides/how-to-fine-tune-vlm.md) —
+- [Fine-Tune a VLM with Unsloth](https://docs.openedgeplatform.intel.com/2026.2/OEP-articles/how-to-fine-tune-vlm.html) —
   the generic, domain-agnostic flow implemented by `train_qwen.py` and
   `infer_qwen.py`.
-- [Fine-Tune a VLM with Unsloth — Weld Usecase](https://github.com/open-edge-platform/edge-ai-suites/blob/release-2026.2.0/manufacturing-ai-suite/industrial-edge-insights-multimodal/docs/user-guide/how-to-guides/how-to-fine-tune-vlm-weld-usecase.md) —
+- [Fine-Tune a VLM with Unsloth — Weld Usecase](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-multimodal/docs/user-guide/how-to-guides/how-to-fine-tune-vlm-weld-usecase.md) —
   a concrete instance of that flow applied to a weld-defect visual
   inspection dataset, built on `prepare_weld_dataset.py`.
 
@@ -62,5 +61,5 @@ Third-party components used by the scripts in this directory (see
 
 For the license of any dataset used with this toolkit, see the dataset's
 own license terms — e.g. for the weld worked example, see the
-[Fine-Tune a VLM with Unsloth — Weld Usecase](https://github.com/open-edge-platform/edge-ai-suites/blob/release-2026.2.0/manufacturing-ai-suite/industrial-edge-insights-multimodal/docs/user-guide/how-to-guides/how-to-fine-tune-vlm-weld-usecase.md#license--dataset-attribution)
+[Fine-Tune a VLM with Unsloth — Weld Usecase](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-multimodal/docs/user-guide/how-to-guides/how-to-fine-tune-vlm-weld-usecase.md#license-and-dataset-attribution)
 section of the guide.

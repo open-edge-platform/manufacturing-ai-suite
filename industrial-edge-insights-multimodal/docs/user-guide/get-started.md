@@ -59,10 +59,10 @@ If you want to clone a specific release branch, replace `main` with the desired 
 To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
 ```bash
-git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/edge-ai-suites.git
-cd edge-ai-suites
-git sparse-checkout set manufacturing-ai-suite
-cd manufacturing-ai-suite/industrial-edge-insights-multimodal
+git clone --filter=blob:none --sparse --branch main https://github.com/open-edge-platform/manufacturing-ai-suite.git
+cd manufacturing-ai-suite
+git sparse-checkout set industrial-edge-insights-multimodal
+cd industrial-edge-insights-multimodal
 ```
 
 ## Deploy with Docker Compose
@@ -78,6 +78,8 @@ cd manufacturing-ai-suite/industrial-edge-insights-multimodal
    - `HOST_IP` (set this to a host-reachable, non-loopback node IP address for remote UI access and WebRTC/TURN)
    - `S3_STORAGE_USERNAME`
    - `S3_STORAGE_PASSWORD`
+   - `SEAWEEDFS_WEB_AUTH_USER`
+   - `SEAWEEDFS_WEB_AUTH_PASSWORD`
 
 2. Deploy the sample app, use only one of the following options.
 
@@ -87,7 +89,7 @@ cd manufacturing-ai-suite/industrial-edge-insights-multimodal
    >   as per the rules called out in `.env` file.
    > - The sample app is deployed by pulling the pre-built container images of the sample app
    >   from the docker hub OR from the internal container registry (login to the docker registry from cli and configure `DOCKER_REGISTRY`
-   >   env variable in `.env` file at `edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal`)
+   >   env variable in `.env` file at `manufacturing-ai-suite/industrial-edge-insights-multimodal`)
    > - The `CONTINUOUS_SIMULATOR_INGESTION` variable in the `.env` file (for Docker Compose) is set to `true` by default,
    >   enabling continuous looping of simulator data. To ingest the simulator data only once (without looping),
    >   set this variable to `false`.
@@ -100,7 +102,7 @@ cd manufacturing-ai-suite/industrial-edge-insights-multimodal
    >   This may result in a delay before Fusion Analytics becomes fully operational.
 
    ```bash
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+   cd industrial-edge-insights-multimodal
    make up
    ```
 
@@ -112,7 +114,7 @@ cd manufacturing-ai-suite/industrial-edge-insights-multimodal
    > ignore `user token not found` errors along with other minor errors which may show up in Grafana logs.
 
    ```sh
-   cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+   cd industrial-edge-insights-multimodal
    make status
    ```
 
@@ -123,9 +125,9 @@ By default, UDF for Time Series Analytics Microservice is configured to run on `
 To trigger the UDF inference on `GPU` in Time Series Analytics Microservice, run the following command:
 
 ```sh
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/time-series-analytics-microservice
+cd industrial-edge-insights-multimodal/configs/time-series-analytics-microservice
 curl -k -X 'POST' \
- 'https://localhost:3000/ts-api/config' \
+ 'https://127.0.0.1:3000/ts-api/config' \
  -H 'accept: application/json' \
  -H 'Content-Type: application/json' \
  -d "$(sed 's/"device": "CPU"/"device": "GPU"/' config.json)"
@@ -139,14 +141,14 @@ To trigger the model inference on `GPU` in DL Streamer Pipeline Server, run the 
 - To run inference on with GPU,
 
   ```sh
-  cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
+  cd industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
 
-  for id in $(curl -k --location https://localhost:3000/dsps-api/pipelines/status \
+  for id in $(curl -k --location https://127.0.0.1:3000/dsps-api/pipelines/status \
   | grep -oP '"id":\s*"\K[^"]+'); do
-      curl -k --location -X DELETE "https://localhost:3000/dsps-api/pipelines/$id"
+      curl -k --location -X DELETE "https://127.0.0.1:3000/dsps-api/pipelines/$id"
   done;
 
-  curl -k https://localhost:3000/dsps-api/pipelines/user_defined_pipelines/weld_defect_classification \
+  curl -k https://127.0.0.1:3000/dsps-api/pipelines/user_defined_pipelines/weld_defect_classification \
     -X POST -H 'Content-Type: application/json' \
     -d "$(sed 's/"device": "CPU"/"device": "GPU"/' pipeline-request-cpu.json)"
   ```
@@ -157,30 +159,26 @@ To trigger the model inference on `GPU` in DL Streamer Pipeline Server, run the 
   > Ensure NPU support is available on your platform before running NPU inference.
 
   ```sh
-  cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
+  cd industrial-edge-insights-multimodal/configs/dlstreamer-pipeline-server
 
-  for id in $(curl -k --location https://localhost:3000/dsps-api/pipelines/status \
+  for id in $(curl -k --location https://127.0.0.1:3000/dsps-api/pipelines/status \
   | grep -oP '"id":\s*"\K[^"]+'); do
-    curl -k --location -X DELETE "https://localhost:3000/dsps-api/pipelines/$id"
+    curl -k --location -X DELETE "https://127.0.0.1:3000/dsps-api/pipelines/$id"
   done;
 
-  curl -k https://localhost:3000/dsps-api/pipelines/user_defined_pipelines/weld_defect_classification \
+  curl -k https://127.0.0.1:3000/dsps-api/pipelines/user_defined_pipelines/weld_defect_classification \
     -X POST -H 'Content-Type: application/json' \
     -d "$(sed 's/"device": "CPU"/"device": "NPU"/' pipeline-request-cpu.json)"
   ```
 
 
 > [!NOTE]
-> When stopping the pipeline, Grafana may display the error message: **"Error: stream not found, retrying in some seconds"**. This is expected behavior. The stream will automatically reconnect and resume in Grafana once the pipeline is started again.
+> If you try to stop a pipeline that is already stopped, its state will show as `ABORTED`. This is expected and does not indicate an error.
+> Grafana may also display **"Error: stream not found, retrying in some seconds"** while the pipeline is stopped. This is expected behavior. The stream will automatically reconnect and resume in Grafana once the pipeline is started again.
 
 ## Verify the Multimodal Weld Defect Detection Results
 
 1. Get into the InfluxDB* container.
-
-   > [!NOTE]
-   > Use `kubectl exec -it <influxdb-pod-name> -n <namespace> -- /bin/bash` for the helm deployment
-   > where for \<namespace> replace with namespace name where the application was deployed and
-   > for \<influxdb-pod-name> replace with InfluxDB pod name.
 
     ```bash
      docker exec -it ia-influxdb bash
@@ -208,11 +206,10 @@ To trigger the model inference on `GPU` in DL Streamer Pipeline Server, run the 
 
 3. Check the output in Grafana.
 
-   - Use link `https://localhost:3000` to launch Grafana from browser (preferably, chrome browser)
+   - Use link `https://127.0.0.1:3000` to launch Grafana from browser (preferably, chrome browser)
 
    > [!NOTE]
-   > - Use link `https://localhost:30001` to launch Grafana from browser (preferably Chrome browser) for the Helm deployment
-   > -  For remote access or WebRTC/TURN support, set `HOST_IP` in `.env` to a host-reachable, non-loopback IP address and access `https://<HOST_IP>:3000` (or `https://<HOST_IP>:30001` for Helm).
+   > For remote access or WebRTC/TURN support, set `HOST_IP` in `.env` to a host-reachable, non-loopback IP address and access `https://<HOST_IP>:3000`.
 
    - Login to the Grafana with values set for `VISUALIZER_GRAFANA_USER` and `VISUALIZER_GRAFANA_PASSWORD`
      in `.env` file and select **Multimodal Weld Defect Detection Dashboard**.
@@ -232,7 +229,7 @@ To trigger the model inference on `GPU` in DL Streamer Pipeline Server, run the 
 ## Bring down the sample app
 
 ```sh
-cd edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights-multimodal
+cd industrial-edge-insights-multimodal
 make down
 ```
 
@@ -249,7 +246,6 @@ docker logs -f <container_name> | grep -i error
 ## Advanced setup
 
 - [How to build from source and deploy](./get-started/build-from-source.md): Guide to build from source and docker compose deployment
-- [How to deploy with Helm](./get-started/deploy-with-helm.md): Guide for deploying with Helm.
 - [How to configure MQTT alerts](./how-to-guides/how-to-configure-alerts.md): Guide for configuring the MQTT alerts in the Time Series Analytics microservice
 - [How to update config](./how-to-guides/how-to-update-config.md): Guide updating configuration of Time Series Analytics Microservice.
 - [How to deploy vLLM service](./how-to-guides/how-to-deploy-vllm-service.md): Guide for deploying the sample app with vLLM enabled.
@@ -260,7 +256,6 @@ docker logs -f <container_name> | grep -i error
 
 ./get-started/system-requirements
 ./get-started/build-from-source
-./get-started/deploy-with-helm
 
 :::
 hide_directive-->

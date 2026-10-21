@@ -3,16 +3,6 @@ apps/**/telegraf-config/Telegraf_multi_stream.conf
 apps/**/time-series-analytics-config/*.tar
 configs/grafana/dashboards/grafana-dashboard.json
 
-# Helm directory ignore patterns
-helm/*.json
-helm/*.yml
-helm/*.yaml
-helm/*.conf
-helm/*.sh
-helm/*.csv
-helm/simulation-data/
-helm-packages/
-
 venv/
 # Python cache
 tests/**/__pycache__/
