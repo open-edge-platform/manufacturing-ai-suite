@@ -5726,9 +5726,9 @@ def execute_influxdb_commands_multimodal(container_name="ia-influxdb", database=
 
         influx_execute = (
             f'SHOW MEASUREMENTS; '
-            f'SELECT * FROM "{analytics_measurement}" LIMIT {limit}; '
-            f'SELECT * FROM "{vision_measurement}" LIMIT {limit}'
-        )  # nosec B608 - both measurements and the limit are validated
+            f'SELECT * FROM "{analytics_measurement}" LIMIT {limit}; '  # nosec B608 - measurement and limit are validated
+            f'SELECT * FROM "{vision_measurement}" LIMIT {limit}'  # nosec B608 - measurement and limit are validated
+        )
 
         exec_command = [
             "docker", "exec", container_name,

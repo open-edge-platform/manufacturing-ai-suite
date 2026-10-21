@@ -9,6 +9,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.request import urlopen
@@ -93,7 +94,10 @@ def get_query_prompt() -> dict[str, Any]:
 
 
 def get_fusion_measurement_name() -> str:
-    return os.getenv("FUSION_MEASUREMENT", "fusion_result")
+    measurement = os.getenv("FUSION_MEASUREMENT", "fusion_result")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", measurement):
+        raise ValueError("Invalid FUSION_MEASUREMENT")
+    return measurement
 
 
 def get_vllm_health_url() -> str:
@@ -122,7 +126,7 @@ def fetch_rows(
     # page and page_size have been converted to integers and bounded by the caller.
     query = (
         "SELECT time, timeseries_classification, vision_classification, fused_decision "
-        f"FROM {get_fusion_measurement_name()} "
+        f'FROM "{get_fusion_measurement_name()}" '  # nosec B608 - measurement name is validated by its getter
         f"WHERE vision_classification !~ {no_result_re} "
         f"AND timeseries_classification !~ {no_result_re} "
         f"ORDER BY time DESC LIMIT {page_size + 1} OFFSET {offset}"
