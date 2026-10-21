@@ -8,18 +8,23 @@
     {
       "name": "multimodal-deploy",
       "path": ".github/skills/multimodal-deploy/SKILL.md",
-      "description": "Build, deploy, smoke-check, and functionally test the Multimodal Weld Defect Detection sample app via its Makefile-driven Docker Compose path (default/vLLM/agentic variants).",
+      "description": "Build, deploy, smoke-check, and functionally test the Multimodal Weld Defect Detection sample app via its Makefile-driven Docker Compose path (default/vLLM/agentic variants, plus the MCP server via make up_agentic MCP=true).",
       "triggers": [
         "build and deploy multimodal",
         "deploy weld defect detection",
         "run multimodal with docker compose",
         "deploy multimodal vllm or agentic variant",
+        "deploy multimodal with mcp server",
+        "make up_agentic MCP=true",
         "smoke test multimodal",
+        "check multimodal mcp endpoint",
         "run multimodal functional tests"
       ],
       "requires": [
         "Makefile",
         "docker-compose.yml",
+        "docker-compose-mcp.yml",
+        "mcp-server/example/example_client.py",
         ".github/skills/multimodal-deploy/scripts/smoke-check.sh",
         ".github/skills/multimodal-deploy/scripts/run-functional-tests.sh",
         "docker compose"

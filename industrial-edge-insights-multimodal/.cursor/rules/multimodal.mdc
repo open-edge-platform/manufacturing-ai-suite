@@ -24,7 +24,8 @@ skill directly rather than re-deriving commands.
 ## Cursor workflow
 
 - Prefer the repo's real interfaces: `Makefile`, `docker-compose.yml` (+
-  `docker-compose-vllm.yml` / `docker-compose-agentic.yml` overlays), and
+  `docker-compose-vllm.yml` / `docker-compose-agentic.yml` /
+  `docker-compose-mcp.yml` overlays), and
   the `.github/skills/multimodal-deploy/scripts/` drivers
   (`smoke-check.sh`, `run-functional-tests.sh`).
 - Run commands in the real environment when possible and investigate

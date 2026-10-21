@@ -129,7 +129,8 @@ problems before CI does.
    is tracked with blank credentials, and the functional tests write
    generated credentials into it. If you did not intend to change `.env`,
    run `git restore --staged --worktree .env`.
-5. Add the SPDX header to each new source file (see the repository-root
+5. Add the SPDX header to each new program source file, but not to
+   documentation such as Markdown (see the repository-root
    `.github/copilot-instructions.md`).
 
 Do not use `git commit --no-verify` to skip hooks. If a

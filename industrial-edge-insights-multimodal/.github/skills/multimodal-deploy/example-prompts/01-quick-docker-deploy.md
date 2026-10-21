@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
-
 # Example prompt: quick Docker Compose deploy + smoke test
 
 > Quickly build and deploy the weld defect detection app with Docker Compose

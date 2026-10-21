@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
-
 # Example prompt: functional tests
 
 > Run the wind turbine anomaly detection functional tests and tell me if

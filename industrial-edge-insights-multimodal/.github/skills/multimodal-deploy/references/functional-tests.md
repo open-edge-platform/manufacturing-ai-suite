@@ -28,6 +28,10 @@ user's values must be preserved.
 Markers available (see `pytest.ini`): `kpi`, `docker_security`, `longrun`,
 `gpu`. Example selective run: `pytest -v -s -m gpu test_GPU_docker_multimodal.py`.
 
+No functional test covers `make up_agentic MCP=true` or the MCP server.
+Use `scripts/smoke-check.sh` (MCP `tools/list` probe) and the
+`mcp-server/example/` client to verify MCP mode.
+
 Reports: pass `--html=<name>.html` to get an HTML report; always summarize
 PASS/FAIL counts from the pytest console output in your answer, don't just
 point at the report file.

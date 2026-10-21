@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
-
 # Example prompt: functional tests
 
 > Run the multimodal weld defect detection functional tests on CPU and tell

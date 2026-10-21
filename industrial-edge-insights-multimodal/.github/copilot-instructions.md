@@ -19,7 +19,7 @@ Microservice) analytics to detect welding anomalies in real time. Fusion
 analytics combines both signals with configurable `AND`/`OR` logic. It ships
 as a Docker Compose stack (Helm/Kubernetes deployment is no longer supported)
 and supports three variants: default (vision + time-series), vLLM-based VLM
-inference, and an agentic VLM pipeline. Deeper user docs live under
+inference, and an agentic VLM pipeline (optionally with an MCP server). Deeper user docs live under
 [`docs/user-guide/`](../docs/user-guide/); this file is the agent-facing map.
 
 ## Deployment Modes
@@ -29,6 +29,7 @@ inference, and an agentic VLM pipeline. Deeper user docs live under
 | Default  | `make up`        | `docker-compose.yml`                      | Vision + time-series fusion, no extra hardware gate |
 | vLLM     | `make up_vllm`   | `+ docker-compose-vllm.yml`               | Requires `make check_hardware` + `make check_models` (models pre-staged in `configs/vllm/models`, `configs/vllm/huggingface`) |
 | Agentic  | `make up_agentic`| `+ docker-compose-agentic.yml` + vllm     | Requires `make check_hardware` + `make check_models`; runs `make download_model` first (downloads/converts the LLM, can take minutes) |
+| Agentic + MCP | `make up_agentic MCP=true` | `+ docker-compose-mcp.yml` + agentic + vllm | As Agentic, plus `MCP_USERNAME`/`MCP_PASSWORD` validation and the `/mcp` nginx route. Pipelines do not auto-start; an MCP client starts them with `start_pipeline` |
 
 All `up*` targets run `check_env_variables`, `validate_host_ip`, and `down`
 first. `check_hardware` requires an Intel Panther Lake / Core Ultra 3xx CPU
@@ -47,6 +48,8 @@ raw commands ad hoc.
 | `docker-compose.yml` | Default stack: DL Streamer Pipeline Server, Time-Series Analytics Microservice, fusion analytics, weld data simulator, InfluxDB, Grafana, MQTT broker, Telegraf, MediaMTX, coturn, SeaweedFS (master/volume/filer/S3), nginx |
 | `docker-compose-vllm.yml` | vLLM overlay: `vllm-server` (VLM inference) + `multimodal-agentic-ui` |
 | `docker-compose-agentic.yml` | Agentic overlay: `apm-agent`, `apm-llm`, `model-download`, `apm-metrics`, `prometheus` |
+| `docker-compose-mcp.yml` | MCP overlay (`MCP=true`): `multimodal-mcp-server`; switches DL Streamer to `config_auto_start_off.json` |
+| `mcp-server/` | FastMCP server (`server.py`) for pipeline control, fusion data, and agentic analysis; `example/` has a client |
 | `.env` | Runtime configuration (credentials, `HOST_IP`, `GRAFANA_PORT`, LLM settings) — never commit real secrets |
 | `configs/` | Per-service config: `agentic/`, `dlstreamer-pipeline-server/`, `grafana/`, `influxdb/`, `mqtt-broker/`, `nginx/`, `seaweedfs-s3/`, `telegraf/`, `time-series-analytics-microservice/` |
 | `fusion-analytics/` | Fusion service combining vision + time-series anomaly signals (`fusion.py`, `api.py`) |
@@ -66,6 +69,8 @@ raw commands ad hoc.
   `make check_env_variables` (length/charset rules)
 - `PLATFORM_CHECK` — set `false` to skip the Panther Lake hardware gate (CI only)
 - `LLM_DEVICE`, `LLM_WEIGHT_FORMAT`, `LLM_MODEL_NAME` — vLLM/agentic model selection
+- `MCP_USERNAME/PASSWORD` — MCP server Basic auth for `start_pipeline` and
+  `stop_pipeline`; empty by default, validated only with `MCP=true`
 - `DOCKER_REGISTRY`, `IMAGE_SUFFIX`, `WEEKLY_BUILD_DATE` — push/versioning
 
 ## Useful Commands
@@ -75,8 +80,9 @@ make build                # Build Docker images (add build_copyleft_sources for 
 make up                   # Default variant
 make up_vllm              # vLLM/VLM variant (hardware + model checks first)
 make up_agentic           # Agentic variant (hardware check + model download first)
+make up_agentic MCP=true  # Agentic variant + MCP server at https://HOST_IP:GRAFANA_PORT/mcp
 make status               # Container status + recent error-log scan
-make down                 # Stop and remove containers + volumes
+make down                 # Stop and remove containers + volumes (add MCP=true after an MCP deploy)
 make push_images          # Build then push to DOCKER_REGISTRY
 make help                 # Command list from the Makefile
 ```
@@ -131,7 +137,8 @@ problems before CI does.
    is tracked with blank credentials, and the functional tests write
    generated credentials into it. If you did not intend to change `.env`,
    run `git restore --staged --worktree .env`.
-5. Add the SPDX header to each new source file (see the repository-root
+5. Add the SPDX header to each new program source file, but not to
+   documentation such as Markdown (see the repository-root
    `.github/copilot-instructions.md`).
 
 Do not use `git commit --no-verify` to skip hooks. If a

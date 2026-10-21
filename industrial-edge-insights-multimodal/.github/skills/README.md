@@ -34,7 +34,7 @@ optional `references/` (deep docs loaded only when needed), `scripts/`
 
 | Skill | Use it when the user wants to… | Backed by |
 |---|---|---|
-| [`multimodal-deploy`](./multimodal-deploy/SKILL.md) | build / deploy / smoke-test / functionally test the app via Docker Compose (default, vLLM, agentic) | `Makefile` + `scripts/smoke-check.sh` + `scripts/run-functional-tests.sh` |
+| [`multimodal-deploy`](./multimodal-deploy/SKILL.md) | build / deploy / smoke-test / functionally test the app via Docker Compose (default, vLLM, agentic, agentic + MCP server) | `Makefile` + `scripts/smoke-check.sh` + `scripts/run-functional-tests.sh` + `mcp-server/example/` |
 
 ## Conventions
 

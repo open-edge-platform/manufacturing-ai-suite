@@ -1,6 +1,3 @@
-# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
-# SPDX-License-Identifier: Apache-2.0
-
 # Example prompt: quick MQTT Docker Compose deploy + smoke test
 
 > Quickly build and deploy the wind turbine anomaly detection app with MQTT
