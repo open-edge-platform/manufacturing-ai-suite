@@ -21,7 +21,7 @@ guide at <https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-ma
 
 | Target | Effect |
 |---|---|
-| `make build` | `docker compose build --pull`. Builds the data simulator images only (OPC-UA server, MQTT publisher). Builds app images only. It does not build the Time Series Analytics microservice; for that, run `scripts/build-time-series-analytics.sh` first (SKILL.md Step 2a) |
+| `make build` | `docker compose build --pull`. Builds the data simulator images only (OPC-UA server, MQTT publisher). Builds app images only. It does not build the Time Series Analytics microservice; run `scripts/build-time-series-analytics.sh` first only when the request explicitly asks to build that microservice (SKILL.md Step 2a) |
 | `make build_copyleft_sources` | Same, plus `--build-arg COPYLEFT_SOURCES=true` |
 
 ## Prerequisite / validation targets (auto-invoked by `up_*`)

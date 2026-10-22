@@ -29,7 +29,7 @@ deployment procedures, use the app's published user guide at
 
 | Target | Effect |
 |---|---|
-| `make build` | `docker compose -f docker-compose.yml -f docker-compose-vllm.yml -f docker-compose-agentic.yml [-f docker-compose-mcp.yml] build --pull` (MCP overlay only with `MCP=true`). Builds app images only. It does not build the Time Series Analytics microservice; for that, run `scripts/build-time-series-analytics.sh` first (SKILL.md Step 2a) |
+| `make build` | `docker compose -f docker-compose.yml -f docker-compose-vllm.yml -f docker-compose-agentic.yml [-f docker-compose-mcp.yml] build --pull` (MCP overlay only with `MCP=true`). Builds app images only. It does not build the Time Series Analytics microservice; run `scripts/build-time-series-analytics.sh` first only when the request explicitly asks to build that microservice (SKILL.md Step 2a) |
 | `make build_copyleft_sources` | Same compose file set as `build`, with `--build-arg COPYLEFT_SOURCES=true --pull` |
 
 ## Prerequisite / validation targets (auto-invoked by `up*`)

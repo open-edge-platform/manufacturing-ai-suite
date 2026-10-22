@@ -8,7 +8,8 @@ description: >-
   e.g. wind-turbine-anomaly-detection) via its Makefile-driven Docker Compose
   path. Use this skill for quick build/deploy/teardown cycles, building the
   Time Series Analytics microservice from the latest source as in the user
-  guide's Build from source page, MQTT vs OPC-UA
+  guide's Build from source page (only when the request explicitly asks for
+  it), MQTT vs OPC-UA
   ingestion selection, multi-stream, batch, and benchmarking modes, meeting
   prerequisites by following the app's published user guide, and running the
   existing tests/functional pytest suites. Do not use this skill for
@@ -88,7 +89,7 @@ sequence (see "Path resolution" for when to read the checkout copy instead):
 |---|---|
 | [System requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/system-requirements.html) | Hardware/OS/Docker/Python requirements |
 | [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html) | Docker configuration (non-root, proxy, log rotation), clone commands, `.env` fields, `make up_opcua_ingestion` / `make up_mqtt_ingestion`, UDF inference on GPU, verification (InfluxDB + Grafana), logs |
-| [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/build-from-source.html) | Building the Time Series Analytics microservice from the latest `edge-ai-libraries` source (Step 2a), then `make build` / `make build_copyleft_sources` |
+| [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/build-from-source.html) | `make build` / `make build_copyleft_sources`, and, only when explicitly requested, building the Time Series Analytics microservice from the latest `edge-ai-libraries` source first (Step 2a) |
 | [Multi-stream ingestion](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html) | `num_of_streams`, including the `OPCUA_SERVER_PORT_MAPPING` export required for OPC-UA multi-stream |
 | [Benchmarking](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html) | `number_of_data_points_per_stream`, stream vs `batch` benchmarking |
 | [Enable system metrics](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/how-to-enable-system-metrics.html) | `INCLUDE=validation` system-metrics dashboard (Telegraf runs as root) |
@@ -181,7 +182,7 @@ Never edit `.env` without the user's permission.
 ## Step 2: Build and deploy
 
 ```bash
-<skill-dir>/scripts/build-time-series-analytics.sh   # when building: Time Series Analytics from source (Step 2a)
+<skill-dir>/scripts/build-time-series-analytics.sh   # ONLY if explicitly asked to build Time Series Analytics (Step 2a)
 make build                                   # or: make build_copyleft_sources
 make up_mqtt_ingestion app=wind-turbine-anomaly-detection
 # or
@@ -203,21 +204,26 @@ make status
   [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html) (InfluxDB `datain` measurement +
   Grafana `Wind Turbine Dashboard`).
 
-## Step 2a: Build from source (Time Series Analytics microservice + app images)
+## Step 2a: Build the Time Series Analytics microservice from source (explicit request only)
 
-When the user asks you to build (`make build`, `make build_copyleft_sources`,
-"build from source", or "build with the latest Time Series Analytics
-microservice"), follow [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/build-from-source.html):
-step 1 builds the Time Series Analytics microservice image from
-`edge-ai-libraries`, and step 2 runs `make build`. The app's `make build`
-does **not** build that microservice (its compose service has no `build:`
-section), so running `make build` alone keeps the published image. Skip
-step 1 only if the user explicitly asks to build just the app images.
+This step is **conditional**. Run it only when the user's request explicitly
+asks to build the Time Series Analytics microservice, for example "build the
+Time Series Analytics microservice", "build Time Series Analytics from
+source", or "build with the latest Time Series Analytics microservice".
 
-From the app root (or with `TIME_SERIES_APP_ROOT` set):
+Do **not** run it for any other build or deploy request: "build", "build
+and deploy", "build from source", `make build`, or
+`make build_copyleft_sources`. For those, run only `make build` (Step 2),
+which builds the app images and keeps the published Time Series Analytics
+image, because that compose service has no `build:` section. Do not infer the
+request from symptoms; report the symptom and let the user ask for the build.
+
+When the request does ask for it, follow steps 1 and 2 of
+[Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/build-from-source.html),
+from the app root (or with `TIME_SERIES_APP_ROOT` set):
 
 ```bash
-<skill-dir>/scripts/build-time-series-analytics.sh             # step 1; add --copyleft to pair with make build_copyleft_sources
+<skill-dir>/scripts/build-time-series-analytics.sh             # step 1; add --copyleft when the request also asks for make build_copyleft_sources
 make build                                                     # step 2 (see Step 2 for variants and flags)
 ```
 
@@ -300,7 +306,7 @@ the documented procedure (Step 1b), then continue.
 
 Real blockers are conditions you cannot or must not fix yourself: Docker is
 unreachable, no app checkout exists, required `.env` fields are missing, or
-the Time Series Analytics source build fails.
+the Time Series Analytics source build (when requested) fails.
 In those cases, **do not stall**: state the blocker plainly, cite the
 user-guide section that covers it, show the exact command sequence the user
 would run once unblocked, and stop. Never invent "it worked" output.

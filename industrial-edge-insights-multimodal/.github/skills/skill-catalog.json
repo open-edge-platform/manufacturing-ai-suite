@@ -8,7 +8,7 @@
     {
       "name": "multimodal-deploy",
       "path": "industrial-edge-insights-multimodal/.github/skills/multimodal-deploy/SKILL.md",
-      "description": "Build, deploy, smoke-check, and functionally test the Multimodal Weld Defect Detection sample app via its Makefile-driven Docker Compose path (default/vLLM/agentic variants, plus the MCP server via make up_agentic MCP=true); optionally builds the Time Series Analytics microservice from the latest edge-ai-libraries source.",
+      "description": "Build, deploy, smoke-check, and functionally test the Multimodal Weld Defect Detection sample app via its Makefile-driven Docker Compose path (default/vLLM/agentic variants, plus the MCP server via make up_agentic MCP=true); builds the Time Series Analytics microservice from the latest edge-ai-libraries source only when explicitly asked.",
       "triggers": [
         "build and deploy multimodal",
         "build multimodal with the latest time series analytics microservice",

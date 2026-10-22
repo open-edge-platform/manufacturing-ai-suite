@@ -8,7 +8,7 @@ description: >-
   via its Makefile-driven Docker Compose path. Use this skill for quick
   build/deploy/teardown cycles, building the Time Series Analytics
   microservice from the latest source as in the user guide's Build from
-  source page, variant selection (default, vLLM, agentic,
+  source page (only when the request explicitly asks for it), variant selection (default, vLLM, agentic,
   agentic with the MCP server via `make up_agentic MCP=true`), meeting
   hardware/model prerequisites by following the app's published user guide
   (including the vLLM model download), MCP endpoint checks, and running the
@@ -93,7 +93,7 @@ checkout copy instead):
 |---|---|
 | [System requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/system-requirements.html) | Base hardware/OS/Docker/Python requirements for every variant |
 | [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) | Clone commands, Docker configuration (non-root, proxy, log rotation), `.env` fields, default `make up` deploy, GPU/NPU inference switches, verification, `make status` caveats |
-| [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html) | Building the Time Series Analytics microservice from the latest `edge-ai-libraries` source (Step 2a), then `make build` / `make build_copyleft_sources` |
+| [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html) | `make build` / `make build_copyleft_sources`, and, only when explicitly requested, building the Time Series Analytics microservice from the latest `edge-ai-libraries` source first (Step 2a) |
 | [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | vLLM variant: extra hardware/RAM/storage requirements, the **Download Models** procedure that populates `configs/vllm/huggingface` and `configs/vllm/models`, `VLLM_GPU_MEMORY_UTILIZATION`, `make up_vllm`, verification, troubleshooting |
 | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Agentic variant (with or without `MCP=true`): extra requirements, prerequisites (including the vLLM model download), `LLM_DEVICE`, `make up_agentic [MCP=true]`, agent configuration, verification |
 | [Update config](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-update-config.html), [Configure alerts](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-configure-alerts.html), [Configure an RTSP camera](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-configure-rtsp-camera.html), [Access S3-stored images](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-access-s3-stored-images.html) | Post-deploy configuration questions |
@@ -206,7 +206,7 @@ For `make up_vllm`, `make up_agentic`, and `make up_agentic MCP=true`:
 ## Step 2: Build and deploy
 
 ```bash
-<skill-dir>/scripts/build-time-series-analytics.sh   # when building: Time Series Analytics from source (Step 2a)
+<skill-dir>/scripts/build-time-series-analytics.sh   # ONLY if explicitly asked to build Time Series Analytics (Step 2a)
 make build                 # or: make build_copyleft_sources; add MCP=true to also build mcp-server
 make up                    # or: make up_vllm / make up_agentic / make up_agentic MCP=true
 make status                # containers + recent error-log scan
@@ -266,21 +266,27 @@ make status                # containers + recent error-log scan
   and `/explain` on port 8000, but nginx proxies only `/mcp`; those routes
   are reachable only from the Docker network.
 
-## Step 2a: Build from source (Time Series Analytics microservice + app images)
+## Step 2a: Build the Time Series Analytics microservice from source (explicit request only)
 
-When the user asks you to build (`make build`, `make build_copyleft_sources`,
-"build from source", or "build with the latest Time Series Analytics
-microservice"), follow [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html):
-step 1 builds the Time Series Analytics microservice image from
-`edge-ai-libraries`, and step 2 runs `make build`. The app's `make build`
-does **not** build that microservice (its compose service has no `build:`
-section), so running `make build` alone keeps the published image. Skip
-step 1 only if the user explicitly asks to build just the app images.
+This step is **conditional**. Run it only when the user's request explicitly
+asks to build the Time Series Analytics microservice, for example "build the
+Time Series Analytics microservice", "build Time Series Analytics from
+source", or "build with the latest Time Series Analytics microservice".
 
-From the app root (or with `MULTIMODAL_APP_ROOT` set):
+Do **not** run it for any other build or deploy request: "build", "build
+and deploy", "build from source", `make build`, `make build_copyleft_sources`,
+or `make up_agentic MCP=true`. For those, run only `make build` (Step 2),
+which builds the app images and keeps the published Time Series Analytics
+image, because that compose service has no `build:` section. Do not infer the
+request from symptoms (for example, a missing `/pipeline_status` route);
+report the symptom and let the user ask for the build.
+
+When the request does ask for it, follow steps 1 and 2 of
+[Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html),
+from the app root (or with `MULTIMODAL_APP_ROOT` set):
 
 ```bash
-<skill-dir>/scripts/build-time-series-analytics.sh             # step 1; add --copyleft to pair with make build_copyleft_sources
+<skill-dir>/scripts/build-time-series-analytics.sh             # step 1; add --copyleft when the request also asks for make build_copyleft_sources
 make build                                                     # step 2 (see Step 2 for variants and flags)
 ```
 
@@ -314,12 +320,14 @@ A `curl` exit code 60 inside the build means a TLS-inspecting proxy whose CA
 the build does not trust. Do not disable certificate checks; tell the user
 the proxy CA must be trusted for the build, and stop.
 
-MCP mode depends on this build: `start_pipeline` and `stop_pipeline` call the
-microservice's `/pipeline_status` and `/stop_pipeline` routes, which some
-published images do not have (the tools then fail with HTTP 404). To check a
-running stack, look for `"/pipeline_status"` in
+MCP mode needs a Time Series Analytics image with the `/pipeline_status` and
+`/stop_pipeline` routes, which `start_pipeline` and `stop_pipeline` call. Some
+published images do not have them (the tools then fail with HTTP 404). To
+check a running stack, look for `"/pipeline_status"` in
 `curl -sk https://${HOST_IP}:${GRAFANA_PORT}/ts-api/openapi.json`. If it is
-missing, build from source as above and redeploy.
+missing, report it and tell the user that building the Time Series Analytics
+microservice from source (this step) and redeploying fixes it. Run the build
+only if the user then explicitly asks for it.
 
 ## Step 3: Smoke test
 
