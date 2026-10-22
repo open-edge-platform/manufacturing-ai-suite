@@ -8,10 +8,10 @@ Expected agent flow:
    non-empty `MCP_USERNAME`/`MCP_PASSWORD`), run Docker preflight. Ask the
    user for MCP credentials if they are unset; do not invent them.
 2. Meet the prerequisites in
-   `docs/user-guide/how-to-guides/how-to-deploy-agent-workflow.md`:
+   [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html):
    `make check_hardware`, then `make check_models`. If `check_models` fails,
    run **Download Models** from
-   `docs/user-guide/how-to-guides/how-to-deploy-vllm-service.md` (after the
+   [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) (after the
    user has accepted the model license) and re-run `make check_models`.
 3. `make build MCP=true` (only if images must be built locally).
 4. `make up_agentic MCP=true` (hardware/model gates, then the agentic LLM

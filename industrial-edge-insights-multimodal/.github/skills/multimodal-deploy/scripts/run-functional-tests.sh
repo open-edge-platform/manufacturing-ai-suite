@@ -36,6 +36,7 @@ done
 if [ -z "$APP_ROOT" ]; then
   echo "FAIL: industrial-edge-insights-multimodal app root not found." >&2
   echo "      Run from the app root or set MULTIMODAL_APP_ROOT=/path/to/industrial-edge-insights-multimodal" >&2
+  echo "      To get a checkout, see 'Clone source code' in https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html" >&2
   exit 1
 fi
 TESTS_DIR="$APP_ROOT/tests/functional"

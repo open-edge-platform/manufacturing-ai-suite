@@ -6,9 +6,11 @@ description: >-
   Build, deploy, smoke-check, and functionally test the Multimodal Weld
   Defect Detection sample application (industrial-edge-insights-multimodal)
   via its Makefile-driven Docker Compose path. Use this skill for quick
-  build/deploy/teardown cycles, variant selection (default, vLLM, agentic,
+  build/deploy/teardown cycles, building the Time Series Analytics
+  microservice from the latest source as in the user guide's Build from
+  source page, variant selection (default, vLLM, agentic,
   agentic with the MCP server via `make up_agentic MCP=true`), meeting
-  hardware/model prerequisites by following the app's docs/user-guide
+  hardware/model prerequisites by following the app's published user guide
   (including the vLLM model download), MCP endpoint checks, and running the
   existing tests/functional pytest suites. Do not use this skill for
   application code changes, unrelated components, or production rollout
@@ -16,9 +18,14 @@ description: >-
 license: Apache-2.0
 compatibility: >-
   Requires a local checkout of industrial-edge-insights-multimodal (its
-  Makefile, .env, and docs/user-guide are read at runtime; the skill can be
-  installed anywhere, for example with `npx skills add`), a bash-compatible
-  shell, Docker + Docker Compose v2, make, and curl. Functional tests additionally require Python 3 and the packages in
+  Makefile, .env, configs, and tests are read at runtime; the skill can be
+  installed anywhere, for example with `npx skills add`), web access to the
+  published user guide at
+  https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/index.html
+  (or the checkout's docs/user-guide copy for release checkouts or offline
+  hosts), a bash-compatible
+  shell, Docker + Docker Compose v2, make, curl, and git (to build the Time
+  Series Analytics microservice from source). Functional tests additionally require Python 3 and the packages in
   tests/requirements.txt; the MCP example client requires Python 3 and
   mcp-server/example/requirements.txt. Helm/Kubernetes deployment is not
   supported.
@@ -49,21 +56,28 @@ This skill may live inside the repo
 (`industrial-edge-insights-multimodal/.github/skills/multimodal-deploy/`) or
 be installed standalone into an agent's skills directory (for example with
 `npx skills add`, which copies only this skill folder). Paths in this skill
-therefore use two bases:
+therefore use three bases:
 
 | Base | Paths | How to resolve |
 |---|---|---|
 | **Skill directory** (`<skill-dir>`, the folder containing this `SKILL.md`) | `references/…`, `scripts/…`, `example-prompts/…` | Always bundled with the skill |
-| **App root** (Step 0) | `Makefile`, `.env`, `configs/…`, `docs/user-guide/…`, `tests/…`, `mcp-server/…` | Read from the user's checkout at runtime; never expected inside `<skill-dir>` |
+| **App root** (Step 0) | `Makefile`, `.env`, `configs/…`, `tests/…`, `mcp-server/…` | Read from the user's checkout at runtime; never expected inside `<skill-dir>` |
+| **User guide** | Pages linked under "Normative references" | Published at <https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/index.html>; page `<page>.html` there is also in the checkout as `docs/user-guide/<page>.md` |
 
-The user guide is intentionally **not** copied into the skill: it ships in
-the same checkout as the `Makefile` the skill drives, so it always matches
-the version being deployed. Only if `<app-root>/docs/user-guide/` is
-missing (for example, an incomplete sparse checkout), fetch the page from
-GitHub at the checkout's ref (the commit from `git -C <app-root> rev-parse
-HEAD`, or `main` if the app root is not a git checkout):
-`https://raw.githubusercontent.com/open-edge-platform/manufacturing-ai-suite/<ref>/industrial-edge-insights-multimodal/<path>`.
-Say in your report that you used the remote copy.
+The user guide is intentionally **not** copied into the skill. Open each page
+by its published URL, so the skill works without the repository's `docs/`
+folder: from a standalone install, a sparse checkout, or an agent whose
+terminal runs on another host (for example, over SSH). Two exceptions:
+
+- The published guide (`/dev/`) tracks the development branch. If the app
+  root is on a release tag or branch (`git -C <app-root> describe --tags
+  --exact-match` or `git -C <app-root> branch --show-current`) and
+  `<app-root>/docs/user-guide/<page>.md` exists, read that copy instead,
+  because it matches the `Makefile` you are driving.
+- If the published site is unreachable (offline host, proxy), read the
+  checkout copy.
+
+Name the source you used (URL or checkout path) in your report.
 
 ## Normative references
 
@@ -72,18 +86,18 @@ Say in your report that you used the remote copy.
 The application's own user guide is the authoritative procedure for system
 requirements, prerequisites, model downloads, and per-variant deployment.
 **Read the relevant page and follow its commands as written** instead of
-composing your own sequence. Paths are relative to the **app root**, not
-the skill directory (see "Path resolution" for the remote fallback):
+composing your own sequence (see "Path resolution" for when to read the
+checkout copy instead):
 
 | Page | Use it for |
 |---|---|
-| `docs/user-guide/get-started/system-requirements.md` | Base hardware/OS/Docker/Python requirements for every variant |
-| `docs/user-guide/get-started.md` | Docker configuration (non-root, proxy, log rotation), `.env` fields, default `make up` deploy, GPU/NPU inference switches, verification, `make status` caveats |
-| `docs/user-guide/get-started/build-from-source.md` | `make build` / `make build_copyleft_sources` |
-| `docs/user-guide/how-to-guides/how-to-deploy-vllm-service.md` | vLLM variant: extra hardware/RAM/storage requirements, the **Download Models** procedure that populates `configs/vllm/huggingface` and `configs/vllm/models`, `VLLM_GPU_MEMORY_UTILIZATION`, `make up_vllm`, verification, troubleshooting |
-| `docs/user-guide/how-to-guides/how-to-deploy-agent-workflow.md` | Agentic variant (with or without `MCP=true`): extra requirements, prerequisites (including the vLLM model download), `LLM_DEVICE`, `make up_agentic [MCP=true]`, agent configuration, verification |
-| `docs/user-guide/how-to-guides/how-to-update-config.md`, `how-to-configure-alerts.md`, `how-to-configure-rtsp-camera.md`, `how-to-access-s3-stored-images.md` | Post-deploy configuration questions |
-| `docs/user-guide/troubleshooting.md` | Known runtime issues ("No Data" in Grafana, slow Time-Series Analytics start, coturn/mediamtx log noise, EMT `docker exec`) |
+| [System requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/system-requirements.html) | Base hardware/OS/Docker/Python requirements for every variant |
+| [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) | Clone commands, Docker configuration (non-root, proxy, log rotation), `.env` fields, default `make up` deploy, GPU/NPU inference switches, verification, `make status` caveats |
+| [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html) | Building the Time Series Analytics microservice from the latest `edge-ai-libraries` source (Step 2a), then `make build` / `make build_copyleft_sources` |
+| [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | vLLM variant: extra hardware/RAM/storage requirements, the **Download Models** procedure that populates `configs/vllm/huggingface` and `configs/vllm/models`, `VLLM_GPU_MEMORY_UTILIZATION`, `make up_vllm`, verification, troubleshooting |
+| [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Agentic variant (with or without `MCP=true`): extra requirements, prerequisites (including the vLLM model download), `LLM_DEVICE`, `make up_agentic [MCP=true]`, agent configuration, verification |
+| [Update config](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-update-config.html), [Configure alerts](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-configure-alerts.html), [Configure an RTSP camera](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-configure-rtsp-camera.html), [Access S3-stored images](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-access-s3-stored-images.html) | Post-deploy configuration questions |
+| [Troubleshooting](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/troubleshooting.html) | Known runtime issues ("No Data" in Grafana, slow Time-Series Analytics start, coturn/mediamtx log noise, EMT `docker exec`) |
 
 ### Skill-local references (Makefile/test facts not covered by the user guide)
 
@@ -105,8 +119,7 @@ Relative to `<skill-dir>`:
    `cd` into that directory before running any command below — the Makefile
    and the helper scripts read `.env` from the current directory.
    If no checkout exists, stop and offer the **Clone source code** commands
-   from `docs/user-guide/get-started.md` (fetch that page remotely, per
-   "Path resolution"); its sparse checkout includes `docs/`.
+   from [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html).
 2. Confirm `.env` exists and the credentials checked by
    `make check_env_variables` are set: `INFLUXDB_USERNAME/PASSWORD`,
    `VISUALIZER_GRAFANA_USER/PASSWORD`,
@@ -123,10 +136,10 @@ Relative to `<skill-dir>`:
 
    If the preflight fails, **stop immediately**, report the host blocker, and
    point the user to the **Configure Docker** section of
-   `docs/user-guide/get-started.md` (non-root Docker, proxy) instead of
+   [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) (non-root Docker, proxy) instead of
    waiting or retrying indefinitely.
 5. Compare the host against
-   `docs/user-guide/get-started/system-requirements.md` (OS, Docker version,
+   [System requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/system-requirements.html) (OS, Docker version,
    Python, RAM, storage). Report shortfalls; they are warnings for the
    default variant, but see Step 1b for the stricter vLLM/agentic limits.
 
@@ -136,10 +149,10 @@ Ask (or infer from the user's request) which variant to deploy:
 
 | Variant | Make target | Procedure doc | Notes |
 |---|---|---|---|
-| Default (vision + time-series fusion) | `make up` | `docs/user-guide/get-started.md` | No extra hardware checks |
-| vLLM-based VLM | `make up_vllm` | `docs/user-guide/how-to-guides/how-to-deploy-vllm-service.md` | Requires `check_hardware` + `check_models` — see Step 1b |
-| Agentic | `make up_agentic` | `docs/user-guide/how-to-guides/how-to-deploy-agent-workflow.md` | Requires `check_hardware` + `check_models` (Step 1b), then triggers `make download_model` (can take minutes) |
-| Agentic + MCP server | `make up_agentic MCP=true` | `docs/user-guide/how-to-guides/how-to-deploy-agent-workflow.md` | Same as Agentic, plus `docker-compose-mcp.yml` (`multimodal-mcp-server`), `MCP_USERNAME`/`MCP_PASSWORD` validation, and the `agentic_mcp` nginx profile that exposes `/mcp`. Pipelines do **not** auto-start — see Step 2 |
+| Default (vision + time-series fusion) | `make up` | [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) | No extra hardware checks |
+| vLLM-based VLM | `make up_vllm` | [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | Requires `check_hardware` + `check_models` — see Step 1b |
+| Agentic | `make up_agentic` | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Requires `check_hardware` + `check_models` (Step 1b), then triggers `make download_model` (can take minutes) |
+| Agentic + MCP server | `make up_agentic MCP=true` | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Same as Agentic, plus `docker-compose-mcp.yml` (`multimodal-mcp-server`), `MCP_USERNAME`/`MCP_PASSWORD` validation, and the `agentic_mcp` nginx profile that exposes `/mcp`. Pipelines do **not** auto-start — see Step 2 |
 
 All `up*` targets implicitly run `check_env_variables`, `validate_host_ip`,
 and `down` first (see `references/command-reference.md`). `MCP=true` is
@@ -165,7 +178,7 @@ For `make up_vllm`, `make up_agentic`, and `make up_agentic MCP=true`:
 2. **vLLM base model and LoRA adapter.** Run `make check_models`. If it
    fails (`configs/vllm/models` or `configs/vllm/huggingface` missing or
    empty), follow **Download Models** in
-   `docs/user-guide/how-to-guides/how-to-deploy-vllm-service.md` exactly —
+   [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) exactly —
    run its command block from the app root (it creates a throwaway
    `configs/vllm/.modelenv` venv, installs the pinned `huggingface_hub`, and
    runs `hf download` for the base model and the weld LoRA adapter). Then
@@ -193,6 +206,7 @@ For `make up_vllm`, `make up_agentic`, and `make up_agentic MCP=true`:
 ## Step 2: Build and deploy
 
 ```bash
+<skill-dir>/scripts/build-time-series-analytics.sh   # when building: Time Series Analytics from source (Step 2a)
 make build                 # or: make build_copyleft_sources; add MCP=true to also build mcp-server
 make up                    # or: make up_vllm / make up_agentic / make up_agentic MCP=true
 make status                # containers + recent error-log scan
@@ -222,7 +236,7 @@ make status                # containers + recent error-log scan
 - For verification and stop steps, follow the variant's procedure doc
   (**Verify the Deployment** in the how-to guides, **Verify the Multimodal
   Weld Defect Detection Results** in `get-started.md`). For runtime issues, check
-  `docs/user-guide/troubleshooting.md` and the doc's own **Troubleshooting**
+  [Troubleshooting](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/troubleshooting.html) and the doc's own **Troubleshooting**
   section before improvising a fix.
 
 ### MCP mode (`make up_agentic MCP=true`)
@@ -251,6 +265,61 @@ make status                # containers + recent error-log scan
 - The server also has plain-HTTP routes `/start_pipeline`, `/stop_pipeline`,
   and `/explain` on port 8000, but nginx proxies only `/mcp`; those routes
   are reachable only from the Docker network.
+
+## Step 2a: Build from source (Time Series Analytics microservice + app images)
+
+When the user asks you to build (`make build`, `make build_copyleft_sources`,
+"build from source", or "build with the latest Time Series Analytics
+microservice"), follow [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html):
+step 1 builds the Time Series Analytics microservice image from
+`edge-ai-libraries`, and step 2 runs `make build`. The app's `make build`
+does **not** build that microservice (its compose service has no `build:`
+section), so running `make build` alone keeps the published image. Skip
+step 1 only if the user explicitly asks to build just the app images.
+
+From the app root (or with `MULTIMODAL_APP_ROOT` set):
+
+```bash
+<skill-dir>/scripts/build-time-series-analytics.sh             # step 1; add --copyleft to pair with make build_copyleft_sources
+make build                                                     # step 2 (see Step 2 for variants and flags)
+```
+
+The script runs the guide's step 1 with these additions:
+
+- **Latest source.** It clones `edge-ai-libraries` at `main` (as in the
+  guide; override with `EDGE_AI_LIBRARIES_REF`) into
+  `EDGE_AI_LIBRARIES_DIR`, by default `edge-ai-libraries` next to the app's
+  git checkout, which is the layout the guide's clone commands produce. The
+  clone is blobless and sparse (only `microservices/time-series-analytics`,
+  the build context). An existing checkout is fetched and detached at the
+  latest commit; it must have no local changes, and no local branch is
+  moved.
+- **Matching tag.** It runs `docker compose build` (with
+  `--build-arg COPYLEFT_SOURCES=true` for `--copyleft`) in
+  `microservices/time-series-analytics/docker`, overriding
+  `DOCKER_REGISTRY`, `TIME_SERIES_ANALYTICS_IMAGE`, `IMAGE_SUFFIX`, and
+  `WEEKLY_BUILD_DATE` with the values in the app's `.env`. Without this, the
+  microservice's own `docker/.env` decides the tag, and if it differs the app
+  keeps running the published image.
+- **Verification.** It confirms the image exists and prints the tag and the
+  `edge-ai-libraries` commit. Report both to the user.
+
+`make up*` runs `docker compose up -d` without pulling, so the deployment
+uses the local image. The local build replaces the published tag on this
+host; `docker pull <image>` restores the published one. The build downloads
+base images and packages, so it can take a while; a failed clone, fetch, or
+build (network, proxy, disk) is a real blocker. Report the failing output and
+stop.
+A `curl` exit code 60 inside the build means a TLS-inspecting proxy whose CA
+the build does not trust. Do not disable certificate checks; tell the user
+the proxy CA must be trusted for the build, and stop.
+
+MCP mode depends on this build: `start_pipeline` and `stop_pipeline` call the
+microservice's `/pipeline_status` and `/stop_pipeline` routes, which some
+published images do not have (the tools then fail with HTTP 404). To check a
+running stack, look for `"/pipeline_status"` in
+`curl -sk https://${HOST_IP}:${GRAFANA_PORT}/ts-api/openapi.json`. If it is
+missing, build from source as above and redeploy.
 
 ## Step 3: Smoke test
 
@@ -345,7 +414,7 @@ blocker: apply the documented procedure (Step 1b), then continue.
 Real blockers are conditions you cannot or must not fix yourself: Docker is
 unreachable, `check_hardware` fails on unsupported hardware, a required
 `.env` credential is unset, the model license has not been accepted, or a
-documented download fails. In those cases, **do not stall**: state the
+documented download or source build fails. In those cases, **do not stall**: state the
 blocker plainly, cite the user-guide section that covers it, show the exact
 command sequence the user would run once unblocked, and stop. Never invent
 "it worked" output.

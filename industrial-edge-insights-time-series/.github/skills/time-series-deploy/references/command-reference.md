@@ -8,8 +8,9 @@ the live file if it ever disagrees. Helm/Kubernetes deployment is not
 supported; there are no Helm targets.
 
 This file only catalogues Make targets. For system requirements,
-prerequisites, and step-by-step procedures, use the app's user guide under
-`docs/user-guide/` (see "Normative references" in `SKILL.md`).
+prerequisites, and step-by-step procedures, use the app's published user
+guide at <https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/index.html>
+(see "Normative references" in `SKILL.md`).
 
 ## App selection
 
@@ -20,7 +21,7 @@ prerequisites, and step-by-step procedures, use the app's user guide under
 
 | Target | Effect |
 |---|---|
-| `make build` | `docker compose build --pull` |
+| `make build` | `docker compose build --pull`. Builds the data simulator images only (OPC-UA server, MQTT publisher). Builds app images only. It does not build the Time Series Analytics microservice; for that, run `scripts/build-time-series-analytics.sh` first (SKILL.md Step 2a) |
 | `make build_copyleft_sources` | Same, plus `--build-arg COPYLEFT_SOURCES=true` |
 
 ## Prerequisite / validation targets (auto-invoked by `up_*`)
@@ -51,11 +52,11 @@ and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
   regeneration of a multi-stream Telegraf config via a local Python venv
   (`generate-telegraf-config.py`). For `up_opcua_ingestion` with >1 stream,
   export `OPCUA_SERVER_PORT_MAPPING=30003-30100` first
-  (`docs/user-guide/how-to-guides/multi-stream-ingestion.md`)
+  ([Multi-stream ingestion](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html))
 - `ingestion_interval` — simulator ingestion interval (default `"1s"`)
 - `number_of_data_points_per_stream` — when set, enables
   `ENABLE_BENCHMARKING=true` and sets `BENCHMARK_TOTAL_PTS` (not multiplied
-  by `num_of_streams`; see `docs/user-guide/how-to-guides/benchmarking.md`)
+  by `num_of_streams`; see [Benchmarking](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html))
 - `batch` — append as a second goal (e.g.
   `make up_mqtt_ingestion batch app=wind-turbine-anomaly-detection`) to use
   `config-batch.json` instead of `config.json` for the TSAM config, and swap

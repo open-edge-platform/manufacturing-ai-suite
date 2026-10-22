@@ -42,6 +42,7 @@ done
 if [ -z "$APP_ROOT" ]; then
   echo "FAIL: industrial-edge-insights-time-series app root not found." >&2
   echo "      Run from the app root or set TIME_SERIES_APP_ROOT=/path/to/industrial-edge-insights-time-series" >&2
+  echo "      To get a checkout, see 'Clone source code' in https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html" >&2
   exit 1
 fi
 TESTS_DIR="$APP_ROOT/tests/functional"

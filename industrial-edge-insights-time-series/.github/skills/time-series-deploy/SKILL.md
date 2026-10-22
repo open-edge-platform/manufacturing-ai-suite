@@ -6,18 +6,24 @@ description: >-
   Build, deploy, smoke-check, and functionally test the Industrial Edge
   Insights - Time Series sample applications (industrial-edge-insights-time-series,
   e.g. wind-turbine-anomaly-detection) via its Makefile-driven Docker Compose
-  path. Use this skill for quick build/deploy/teardown cycles, MQTT vs OPC-UA
+  path. Use this skill for quick build/deploy/teardown cycles, building the
+  Time Series Analytics microservice from the latest source as in the user
+  guide's Build from source page, MQTT vs OPC-UA
   ingestion selection, multi-stream, batch, and benchmarking modes, meeting
-  prerequisites by following the app's docs/user-guide, and running the
+  prerequisites by following the app's published user guide, and running the
   existing tests/functional pytest suites. Do not use this skill for
   application code changes, unrelated components, or production rollout
   decisions.
 license: Apache-2.0
 compatibility: >-
   Requires a local checkout of industrial-edge-insights-time-series (its
-  Makefile, .env, and docs/user-guide are read at runtime; the skill can be
-  installed anywhere, for example with `npx skills add`), a bash-compatible
-  shell, Docker + Docker Compose v2, make, and curl. Functional tests additionally require Python 3 and the packages in
+  Makefile, .env, apps, configs, and tests are read at runtime; the skill
+  can be installed anywhere, for example with `npx skills add`), web access
+  to the published user guide at
+  https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/index.html
+  (or the checkout's docs/user-guide copy for release checkouts or offline
+  hosts), a bash-compatible shell, Docker + Docker Compose v2, make, curl, and git (to build the
+  Time Series Analytics microservice from source). Functional tests additionally require Python 3 and the packages in
   tests/requirements.txt. Helm/Kubernetes deployment is not supported.
 metadata:
   author: open-edge-platform
@@ -46,21 +52,28 @@ This skill may live inside the repo
 (`industrial-edge-insights-time-series/.github/skills/time-series-deploy/`) or
 be installed standalone into an agent's skills directory (for example with
 `npx skills add`, which copies only this skill folder). Paths in this skill
-therefore use two bases:
+therefore use three bases:
 
 | Base | Paths | How to resolve |
 |---|---|---|
 | **Skill directory** (`<skill-dir>`, the folder containing this `SKILL.md`) | `references/…`, `scripts/…`, `example-prompts/…` | Always bundled with the skill |
-| **App root** (Step 0) | `Makefile`, `.env`, `apps/…`, `configs/…`, `docs/user-guide/…`, `tests/…` | Read from the user's checkout at runtime; never expected inside `<skill-dir>` |
+| **App root** (Step 0) | `Makefile`, `.env`, `apps/…`, `configs/…`, `tests/…` | Read from the user's checkout at runtime; never expected inside `<skill-dir>` |
+| **User guide** | Pages linked under "Normative references" | Published at <https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/index.html>; page `<page>.html` there is also in the checkout as `docs/user-guide/<page>.md` |
 
-The user guide is intentionally **not** copied into the skill: it ships in
-the same checkout as the `Makefile` the skill drives, so it always matches
-the version being deployed. Only if `<app-root>/docs/user-guide/` is
-missing (for example, an incomplete sparse checkout), fetch the page from
-GitHub at the checkout's ref (the commit from `git -C <app-root> rev-parse
-HEAD`, or `main` if the app root is not a git checkout):
-`https://raw.githubusercontent.com/open-edge-platform/manufacturing-ai-suite/<ref>/industrial-edge-insights-time-series/<path>`.
-Say in your report that you used the remote copy.
+The user guide is intentionally **not** copied into the skill. Open each page
+by its published URL, so the skill works without the repository's `docs/`
+folder: from a standalone install, a sparse checkout, or an agent whose
+terminal runs on another host (for example, over SSH). Two exceptions:
+
+- The published guide (`/dev/`) tracks the development branch. If the app
+  root is on a release tag or branch (`git -C <app-root> describe --tags
+  --exact-match` or `git -C <app-root> branch --show-current`) and
+  `<app-root>/docs/user-guide/<page>.md` exists, read that copy instead,
+  because it matches the `Makefile` you are driving.
+- If the published site is unreachable (offline host, proxy), read the
+  checkout copy.
+
+Name the source you used (URL or checkout path) in your report.
 
 ## Normative references
 
@@ -69,20 +82,19 @@ Say in your report that you used the remote copy.
 The application's own user guide is the authoritative procedure for system
 requirements, prerequisites, and deployment options. **Read the relevant
 page and follow its commands as written** instead of composing your own
-sequence. Paths are relative to the **app root**, not the skill directory
-(see "Path resolution" for the remote fallback):
+sequence (see "Path resolution" for when to read the checkout copy instead):
 
 | Page | Use it for |
 |---|---|
-| `docs/user-guide/get-started/system-requirements.md` | Hardware/OS/Docker/Python requirements |
-| `docs/user-guide/get-started.md` | Docker configuration (non-root, proxy, log rotation), clone commands, `.env` fields, `make up_opcua_ingestion` / `make up_mqtt_ingestion`, UDF inference on GPU, verification (InfluxDB + Grafana), logs |
-| `docs/user-guide/get-started/build-from-source.md` | `make build` / `make build_copyleft_sources` (and the optional Time Series Analytics microservice build) |
-| `docs/user-guide/how-to-guides/multi-stream-ingestion.md` | `num_of_streams`, including the `OPCUA_SERVER_PORT_MAPPING` export required for OPC-UA multi-stream |
-| `docs/user-guide/how-to-guides/benchmarking.md` | `number_of_data_points_per_stream`, stream vs `batch` benchmarking |
-| `docs/user-guide/wind-turbine-anomaly-detection/how-to-enable-system-metrics.md` | `INCLUDE=validation` system-metrics dashboard (Telegraf runs as root) |
-| `docs/user-guide/wind-turbine-anomaly-detection/index.md` | Data flow and the sample app's `config.json`, UDFs, TICKscripts, models |
-| `docs/user-guide/how-to-guides/configure-alerts.md`, `configure-custom-udf.md`, `update-config.md`, `connect-to-secure-mqtt-broker.md`, `connect-to-secure-opcua-server.md`, `write-user-defined-function.md`, `create-a-new-sample-app.md`, `../wind-turbine-anomaly-detection/how-to-select-model.md` | Post-deploy configuration and customization questions |
-| `docs/user-guide/troubleshooting.md` | Known runtime issues ("No Data" in Grafana, InfluxDB retention, slow Time Series Analytics start, EMT `docker exec`) |
+| [System requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/system-requirements.html) | Hardware/OS/Docker/Python requirements |
+| [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html) | Docker configuration (non-root, proxy, log rotation), clone commands, `.env` fields, `make up_opcua_ingestion` / `make up_mqtt_ingestion`, UDF inference on GPU, verification (InfluxDB + Grafana), logs |
+| [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/build-from-source.html) | Building the Time Series Analytics microservice from the latest `edge-ai-libraries` source (Step 2a), then `make build` / `make build_copyleft_sources` |
+| [Multi-stream ingestion](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html) | `num_of_streams`, including the `OPCUA_SERVER_PORT_MAPPING` export required for OPC-UA multi-stream |
+| [Benchmarking](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html) | `number_of_data_points_per_stream`, stream vs `batch` benchmarking |
+| [Enable system metrics](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/how-to-enable-system-metrics.html) | `INCLUDE=validation` system-metrics dashboard (Telegraf runs as root) |
+| [Wind turbine anomaly detection](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/index.html) | Data flow and the sample app's `config.json`, UDFs, TICKscripts, models |
+| [Configure alerts](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/configure-alerts.html), [Configure a custom UDF](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/configure-custom-udf.html), [Update config](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/update-config.html), [Connect to a secure MQTT broker](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/connect-to-secure-mqtt-broker.html), [Connect to a secure OPC-UA server](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/connect-to-secure-opcua-server.html), [Write a user-defined function](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/write-user-defined-function.html), [Create a new sample app](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/create-a-new-sample-app.html), [Select a model](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/how-to-select-model.html) | Post-deploy configuration and customization questions |
+| [Troubleshooting](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/troubleshooting.html) | Known runtime issues ("No Data" in Grafana, InfluxDB retention, slow Time Series Analytics start, EMT `docker exec`) |
 
 ### Skill-local references (Makefile/test facts not covered by the user guide)
 
@@ -104,8 +116,7 @@ Relative to `<skill-dir>`:
    `cd` into that directory before running any command below — the Makefile
    and the helper scripts read `.env` from the current directory.
    If no checkout exists, stop and offer the **Clone source code** commands
-   from `docs/user-guide/get-started.md` (fetch that page remotely, per
-   "Path resolution"); its sparse checkout includes `docs/`.
+   from [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html).
 2. Confirm `.env` exists and required creds (`INFLUXDB_USERNAME/PASSWORD`,
    `VISUALIZER_GRAFANA_USER/PASSWORD`) are set — ask the user rather than
    inventing values.
@@ -116,10 +127,10 @@ Relative to `<skill-dir>`:
 
    If the preflight fails, **stop immediately**, report the host blocker, and
    point the user to the **Configure Docker** section of
-   `docs/user-guide/get-started.md` (non-root Docker, proxy) instead of
+   [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html) (non-root Docker, proxy) instead of
    waiting or retrying indefinitely.
 5. Compare the host against
-   `docs/user-guide/get-started/system-requirements.md` (OS, Docker version,
+   [System requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/system-requirements.html) (OS, Docker version,
    Python, RAM, storage) and report any shortfall as a warning.
 
 ## Step 1: Choose app, ingestion path, and mode
@@ -129,19 +140,19 @@ Relative to `<skill-dir>`:
   exist).
 - Ingestion path: MQTT (`make up_mqtt_ingestion`) or OPC-UA
   (`make up_opcua_ingestion`, supported only for
-  `wind-turbine-anomaly-detection`) — see `docs/user-guide/get-started.md`.
+  `wind-turbine-anomaly-detection`) — see [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html).
 - Optional `num_of_streams=N` (>1 regenerates a multi-stream Telegraf config
   via a Python venv + `generate-telegraf-config.py`) and
   `ingestion_interval` — see
-  `docs/user-guide/how-to-guides/multi-stream-ingestion.md`.
+  [Multi-stream ingestion](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html).
 - Optional `number_of_data_points_per_stream` (enables benchmarking) — see
-  `docs/user-guide/how-to-guides/benchmarking.md`.
+  [Benchmarking](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html).
 - Optional `batch` goal appended to the ingestion target to use
   `config-batch.json` instead of `config.json` for the Time-Series Analytics
   microservice config (benchmarking doc).
 - Optional `INCLUDE=validation` to add `docker-compose-validation.override.yml`
   (system-metrics dashboard + host-metric Telegraf inputs) — see
-  `docs/user-guide/wind-turbine-anomaly-detection/how-to-enable-system-metrics.md`.
+  [Enable system metrics](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/how-to-enable-system-metrics.html).
 
 ## Step 1b: Meet option prerequisites (from the user guide)
 
@@ -161,7 +172,7 @@ stopping at the first failing check. Known doc-only prerequisites:
 - **System metrics** (`INCLUDE=validation`): Telegraf runs as `root`; only
   verified for `wind-turbine-anomaly-detection` (system-metrics doc).
 - **UDF on GPU**: after deployment, follow **Running User Defined
-  Function(UDF) inference on GPU** in `docs/user-guide/get-started.md`
+  Function(UDF) inference on GPU** in [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html)
   (replace `localhost` with `${HOST_IP}` and `3000` with `${GRAFANA_PORT}`
   from `.env` when they differ).
 
@@ -170,6 +181,7 @@ Never edit `.env` without the user's permission.
 ## Step 2: Build and deploy
 
 ```bash
+<skill-dir>/scripts/build-time-series-analytics.sh   # when building: Time Series Analytics from source (Step 2a)
 make build                                   # or: make build_copyleft_sources
 make up_mqtt_ingestion app=wind-turbine-anomaly-detection
 # or
@@ -186,10 +198,58 @@ make status
   the first login are benign.
 - Grafana may show "No Data" at first while the Time Series Analytics
   microservice installs its Python packages — check
-  `docs/user-guide/troubleshooting.md` before re-running `up_*`.
+  [Troubleshooting](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/troubleshooting.html) before re-running `up_*`.
 - For verification, follow **Verify the Output Results** in
-  `docs/user-guide/get-started.md` (InfluxDB `datain` measurement +
+  [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html) (InfluxDB `datain` measurement +
   Grafana `Wind Turbine Dashboard`).
+
+## Step 2a: Build from source (Time Series Analytics microservice + app images)
+
+When the user asks you to build (`make build`, `make build_copyleft_sources`,
+"build from source", or "build with the latest Time Series Analytics
+microservice"), follow [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/build-from-source.html):
+step 1 builds the Time Series Analytics microservice image from
+`edge-ai-libraries`, and step 2 runs `make build`. The app's `make build`
+does **not** build that microservice (its compose service has no `build:`
+section), so running `make build` alone keeps the published image. Skip
+step 1 only if the user explicitly asks to build just the app images.
+
+From the app root (or with `TIME_SERIES_APP_ROOT` set):
+
+```bash
+<skill-dir>/scripts/build-time-series-analytics.sh             # step 1; add --copyleft to pair with make build_copyleft_sources
+make build                                                     # step 2 (see Step 2 for variants and flags)
+```
+
+The script runs the guide's step 1 with these additions:
+
+- **Latest source.** It clones `edge-ai-libraries` at `main` (as in the
+  guide; override with `EDGE_AI_LIBRARIES_REF`) into
+  `EDGE_AI_LIBRARIES_DIR`, by default `edge-ai-libraries` next to the app's
+  git checkout, which is the layout the guide's clone commands produce. The
+  clone is blobless and sparse (only `microservices/time-series-analytics`,
+  the build context). An existing checkout is fetched and detached at the
+  latest commit; it must have no local changes, and no local branch is
+  moved.
+- **Matching tag.** It runs `docker compose build` (with
+  `--build-arg COPYLEFT_SOURCES=true` for `--copyleft`) in
+  `microservices/time-series-analytics/docker`, overriding
+  `DOCKER_REGISTRY`, `TIME_SERIES_ANALYTICS_IMAGE`, `IMAGE_SUFFIX`, and
+  `WEEKLY_BUILD_DATE` with the values in the app's `.env`. Without this, the
+  microservice's own `docker/.env` decides the tag, and if it differs the app
+  keeps running the published image.
+- **Verification.** It confirms the image exists and prints the tag and the
+  `edge-ai-libraries` commit. Report both to the user.
+
+`make up*` runs `docker compose up -d` without pulling, so the deployment
+uses the local image. The local build replaces the published tag on this
+host; `docker pull <image>` restores the published one. The build downloads
+base images and packages, so it can take a while; a failed clone, fetch, or
+build (network, proxy, disk) is a real blocker. Report the failing output and
+stop.
+A `curl` exit code 60 inside the build means a TLS-inspecting proxy whose CA
+the build does not trust. Do not disable certificate checks; tell the user
+the proxy CA must be trusted for the build, and stop.
 
 ## Step 3: Smoke test
 
@@ -239,7 +299,8 @@ example, the OPC-UA multi-stream port mapping) is **not** a blocker: apply
 the documented procedure (Step 1b), then continue.
 
 Real blockers are conditions you cannot or must not fix yourself: Docker is
-unreachable, no app checkout exists, or required `.env` fields are missing.
+unreachable, no app checkout exists, required `.env` fields are missing, or
+the Time Series Analytics source build fails.
 In those cases, **do not stall**: state the blocker plainly, cite the
 user-guide section that covers it, show the exact command sequence the user
 would run once unblocked, and stop. Never invent "it worked" output.
