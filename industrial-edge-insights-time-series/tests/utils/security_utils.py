@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import subprocess
+import subprocess  # nosec B404 - exec_command explicitly disables shell execution
 import json
 import time
 import os
@@ -287,10 +287,10 @@ def fetch_docker_credentials(credential_type):
 
         if credential_type == "influxdb":
             username_key = "INFLUXDB_USERNAME="
-            password_key = "INFLUXDB_PASSWORD="
+            password_key = "INFLUXDB_PASSWORD="  # nosec B105 - this is an environment variable name
         elif credential_type == "grafana":
             username_key = "VISUALIZER_GRAFANA_USER="
-            password_key = "VISUALIZER_GRAFANA_PASSWORD="
+            password_key = "VISUALIZER_GRAFANA_PASSWORD="  # nosec B105 - this is an environment variable name
         else:
             logger.error(f"Unknown credential type: {credential_type}")
             return None, None

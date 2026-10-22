@@ -9,6 +9,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.request import urlopen
@@ -93,7 +94,10 @@ def get_query_prompt() -> dict[str, Any]:
 
 
 def get_fusion_measurement_name() -> str:
-    return os.getenv("FUSION_MEASUREMENT", "fusion_result")
+    measurement = os.getenv("FUSION_MEASUREMENT", "fusion_result")
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", measurement):
+        raise ValueError("Invalid FUSION_MEASUREMENT")
+    return measurement
 
 
 def get_vllm_health_url() -> str:
@@ -122,11 +126,11 @@ def fetch_rows(
     # page and page_size have been converted to integers and bounded by the caller.
     query = (
         "SELECT time, timeseries_classification, vision_classification, fused_decision "
-        f"FROM {get_fusion_measurement_name()} "
+        f'FROM "{get_fusion_measurement_name()}" '  # nosec B608 - measurement name is validated by its getter
         f"WHERE vision_classification !~ {no_result_re} "
         f"AND timeseries_classification !~ {no_result_re} "
         f"ORDER BY time DESC LIMIT {page_size + 1} OFFSET {offset}"
-    )  # nosec B608
+    )  # nosec B608 - measurement is deployment configuration; page values are bounded integers
     points = list(client.query(query).get_points())
     return points[:page_size], len(points) > page_size
 
@@ -200,9 +204,11 @@ def api_explain(payload: ExplainRequest) -> Any:
         client = get_influx_client()
         try:
             for time_str in selected_times:
-                # The timestamp is ISO-8601 validated before interpolation.
-                query = f"SELECT * FROM {get_fusion_measurement_name()} WHERE time = '{time_str}'"  # nosec B608
-                points = list(client.query(query).get_points())
+                # The timestamp is ISO-8601 validated before being bound.
+                query = f"SELECT * FROM {get_fusion_measurement_name()} WHERE time = $selected_time"  # nosec B608 - measurement is deployment configuration
+                points = list(
+                    client.query(query, bind_params={"selected_time": time_str}).get_points()
+                )
                 if not points:
                     log.warning("No fusion result for time=%s", time_str)
                     continue
@@ -215,9 +221,14 @@ def api_explain(payload: ExplainRequest) -> Any:
 
                 vision_query = (
                     'SELECT * FROM "vision-weld-classification-results" '
-                    f"WHERE search_time = '{vision_timestamp}'"
-                )  # nosec B608
-                vision_points = list(client.query(vision_query).get_points())
+                    "WHERE search_time = $vision_timestamp"
+                )
+                vision_points = list(
+                    client.query(
+                        vision_query,
+                        bind_params={"vision_timestamp": vision_timestamp},
+                    ).get_points()
+                )
 
                 image_data_url = None
                 if vision_points:
@@ -242,9 +253,14 @@ def api_explain(payload: ExplainRequest) -> Any:
 
                 sensor_query = (
                     'SELECT * FROM "weld-sensor-anomaly-data" '
-                    f"WHERE time = {row['timeseries_timestamp']}"
-                )  # nosec B608
-                sensor_points = list(client.query(sensor_query).get_points())
+                    "WHERE time = $sensor_timestamp"
+                )
+                sensor_points = list(
+                    client.query(
+                        sensor_query,
+                        bind_params={"sensor_timestamp": row["timeseries_timestamp"]},
+                    ).get_points()
+                )
                 if not sensor_points:
                     log.warning("No sensor data for time=%s", time_str)
                     return JSONResponse({"error": "No sensor data found for selected time"}, status_code=404)

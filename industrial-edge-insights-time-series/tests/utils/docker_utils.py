@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import subprocess
+import subprocess  # nosec B404 - commands use common_utils.exec_command with shell disabled
 import json
 import time
 import os
@@ -538,7 +538,7 @@ def generate_invalid_value(field_name):
         "abcdefghij" if "PASSWORD" in field_name else "user@#$"  # no digits or special chars in username
     ]
 
-    return random.choice(invalid_patterns)
+    return random.choice(invalid_patterns)  # nosec B311 - test-only invalid credential values
 
 def generate_test_credentials(case_type="valid", invalid_field=None):
     """
@@ -830,7 +830,13 @@ def update_env_file(file_path=None, values=None):
             if grep_result.returncode == 0:
                 # Key exists — update it with sed
                 sed_result = common_utils.exec_command(
-                    ["sed", "-i", f"s|^{parameter_name}=.*|{parameter_name}={value}|g", expanded_path],
+                    [
+                        "sed", "-i",
+                        # Docker Compose requires test credentials in plaintext in its env file.
+                        # lgtm [py/clear-text-storage-sensitive-data]
+                        f"s|^{parameter_name}=.*|{parameter_name}={value}|g",
+                        expanded_path,
+                    ],
                     capture_output=True, text=True
                 )
                 if sed_result.returncode != 0:
@@ -838,6 +844,8 @@ def update_env_file(file_path=None, values=None):
                     return False
             else:
                 with open(expanded_path, "a", encoding="utf-8") as env_file:
+                    # Docker Compose requires test credentials in plaintext in its env file.
+                    # lgtm [py/clear-text-storage-sensitive-data]
                     env_file.write(f"{parameter_name}={value}\n")
 
         logger.debug(f"Successfully updated .env file with {len(values)} environment variables")
@@ -2054,11 +2062,12 @@ def execute_influxdb_commands(container_name="ia-influxdb", measurement=None):
 
         # Step 3: Execute InfluxDB commands inside the container
         if measurement:
-            query_part = f"SELECT * FROM \"{measurement.replace('_', '-')}\" LIMIT 5"
-            verify_tables = [measurement.replace('_', '-')]
+            safe_measurement = common_utils.validate_influx_measurement(measurement.replace("_", "-"))
+            query_part = f"SELECT * FROM \"{safe_measurement}\" LIMIT 5"  # nosec B608 - measurement is validated
+            verify_tables = [safe_measurement]
         else:
             # Default wind turbine queries for backward compatibility
-            query_part = f"SELECT * FROM \"{constants.WIND_TURBINE_INGESTED_TOPIC}\" LIMIT 5; SELECT * FROM \"{constants.WIND_TURBINE_ANALYTICS_TOPIC}\" LIMIT 5"
+            query_part = f"SELECT * FROM \"{constants.WIND_TURBINE_INGESTED_TOPIC}\" LIMIT 5; SELECT * FROM \"{constants.WIND_TURBINE_ANALYTICS_TOPIC}\" LIMIT 5"  # nosec B608 - both measurements are constants
             verify_tables = [constants.WIND_TURBINE_INGESTED_TOPIC, constants.WIND_TURBINE_ANALYTICS_TOPIC]
         influx_execute = f"SHOW MEASUREMENTS; {query_part}"
 
@@ -2118,7 +2127,7 @@ def verify_influxdb_retention_docker(response=None, container_name=constants.CON
             return None, False
 
         # Step 3: Execute InfluxDB query to get the earliest time value
-        influx_execute = f"SELECT time, wind_speed FROM \"{constants.WIND_TURBINE_INGESTED_TOPIC}\" ORDER BY time ASC LIMIT 1"
+        influx_execute = f"SELECT time, wind_speed FROM \"{constants.WIND_TURBINE_INGESTED_TOPIC}\" ORDER BY time ASC LIMIT 1"  # nosec B608 - measurement is a constant
         exec_command = [
             "docker", "exec", container_name,
             "influx", "-username", influxdb_username, "-password", influxdb_password,
@@ -2919,7 +2928,7 @@ def setup_mqtt_alerts_docker(sample_app=constants.WIND_SAMPLE_APP):
         try:
             os.chdir(original_dir)
         except Exception:
-            pass
+            logger.debug("Could not restore the original working directory", exc_info=True)
 
 def invoke_make_up(measure_time=False):
     """
@@ -3061,13 +3070,13 @@ def generate_multimodal_test_credentials(case_type="valid", invalid_field=None):
     if case_type == "blank":
         multimodal_vars = {
             "MTX_WEBRTCICESERVERS2_0_USERNAME": "",
-            "MTX_WEBRTCICESERVERS2_0_PASSWORD": "",
+            "MTX_WEBRTCICESERVERS2_0_PASSWORD": "",  # nosec B105 - intentionally blank invalid-input fixture
             "HOST_IP": "",
             "RTSP_CAMERA_IP": "",
             "S3_STORAGE_USERNAME": "",
-            "S3_STORAGE_PASSWORD": "",
+            "S3_STORAGE_PASSWORD": "",  # nosec B105 - intentionally blank invalid-input fixture
             "SEAWEEDFS_WEB_AUTH_USER": "",
-            "SEAWEEDFS_WEB_AUTH_PASSWORD": ""
+            "SEAWEEDFS_WEB_AUTH_PASSWORD": ""  # nosec B105 - intentionally blank invalid-input fixture
         }
     elif case_type == "valid":
         # Generate valid S3 credentials that meet Makefile requirements
@@ -3739,7 +3748,7 @@ def check_multimodal_mqtt_topic_data(topic, broker_host="localhost", broker_port
                     if data.get("anomaly_status") == 1:
                         logger.info(f"Alert detected: {data}")
                         data_received.set()
-                except:
+                except (json.JSONDecodeError, UnicodeDecodeError):
                     # If not JSON, still count as data
                     data_received.set()
             else:
@@ -3790,12 +3799,12 @@ def check_multimodal_mqtt_topic_data(topic, broker_host="localhost", broker_port
         try:
             client.loop_stop()
             client.disconnect()
-        except:
-            pass
+        except Exception:
+            logger.debug("Could not stop MQTT client after a failed check", exc_info=True)
         return False
 
 
-def check_influxdb_data_with_auth(measurement, database="datain", container_name="ia-influxdb", username="", password="", timeout=30):
+def check_influxdb_data_with_auth(measurement, database="datain", container_name="ia-influxdb", username="", password="", timeout=30):  # nosec B107 - empty default requires callers to provide credentials
     """
     Check if data exists in InfluxDB measurement with authentication
 
@@ -3811,6 +3820,7 @@ def check_influxdb_data_with_auth(measurement, database="datain", container_name
         bool: True if data exists, False otherwise
     """
     try:
+        measurement = common_utils.validate_influx_measurement(measurement)
         # Check if container is running first
         if not container_is_running(container_name):
             logger.warning(f"Container {container_name} is not running")
@@ -3821,7 +3831,7 @@ def check_influxdb_data_with_auth(measurement, database="datain", container_name
             "docker", "exec", container_name,
             "influx", "-database", database,
             "-username", username, "-password", password,
-            "-execute", f"SELECT COUNT(*) FROM \"{measurement}\" LIMIT 1"
+            "-execute", f"SELECT COUNT(*) FROM \"{measurement}\" LIMIT 1"  # nosec B608 - measurement is validated
         ]
 
         result = common_utils.exec_command(
@@ -3858,7 +3868,7 @@ def query_influxdb_measurement_with_auth(
     database="datain",
     container_name="ia-influxdb",
     username="",
-    password="",
+    password="",  # nosec B107 - empty default requires callers to provide credentials
     limit=3,
     timeout=30,
     order_by_time_desc=False,
@@ -3872,13 +3882,16 @@ def query_influxdb_measurement_with_auth(
     }
 
     try:
+        measurement = common_utils.validate_influx_measurement(measurement)
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 1000:
+            raise ValueError("limit must be an integer between 1 and 1000")
         if not container_is_running(container_name):
             query_result["error"] = f"Container {container_name} is not running"
             logger.warning(query_result["error"])
             return query_result
 
         order_clause = " ORDER BY time DESC" if order_by_time_desc else ""
-        query = f'SELECT * FROM "{measurement}"{order_clause} LIMIT {limit}'
+        query = f'SELECT * FROM "{measurement}"{order_clause} LIMIT {limit}'  # nosec B608 - measurement and limit are validated
         cmd = [
             "docker", "exec", container_name,
             "influx",
@@ -4219,8 +4232,8 @@ def check_system_gpu_devices():
                 if any("intel" in line.lower() for line in vga_lines):
                     gpu_devices.append("Intel iGPU")
                     logger.info("Intel iGPU detected via lspci")
-        except:
-            pass
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.debug("Could not detect GPU with lspci", exc_info=exc)
 
         # Method 2: Check /dev/dri devices
         try:
@@ -4229,8 +4242,8 @@ def check_system_gpu_devices():
                 if dri_devices:
                     gpu_devices.append(f"DRM devices: {dri_devices}")
                     logger.info(f"DRM GPU devices found: {dri_devices}")
-        except:
-            pass
+        except OSError as exc:
+            logger.debug("Could not inspect /dev/dri", exc_info=exc)
 
         # Method 3: Check for GPU in Docker containers
         try:
@@ -4243,8 +4256,8 @@ def check_system_gpu_devices():
             if result.returncode == 0:
                 gpu_devices.append("Docker GPU access available")
                 logger.info("Docker GPU device access confirmed")
-        except:
-            pass
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.debug("Could not verify Docker GPU access", exc_info=exc)
 
         return gpu_devices
 
@@ -4291,8 +4304,8 @@ def monitor_gpu_utilization(duration=30):
                     "monitoring_duration": duration,
                     "tool": "intel_gpu_top"
                 }
-        except:
-            pass
+        except Exception:
+            logger.debug("intel_gpu_top is unavailable", exc_info=True)
 
         # Fallback: Check container resource usage
         try:
@@ -4303,8 +4316,8 @@ def monitor_gpu_utilization(duration=30):
                     "monitoring_duration": duration,
                     "tool": "container_stats"
                 }
-        except:
-            pass
+        except Exception:
+            logger.debug("Could not read fallback container GPU statistics", exc_info=True)
 
         logger.warning("GPU monitoring tools not available")
         return None
@@ -5105,8 +5118,9 @@ def extract_img_handles_from_influxdb(measurement, database, container_name, use
     Extract img_handle values from InfluxDB vision metadata
     """
     try:
+        measurement = common_utils.validate_influx_measurement(measurement)
         # Query to extract img_handle values from vision metadata
-        query = f'SELECT img_handle FROM "{measurement}" WHERE time > now() - 1h'
+        query = f'SELECT img_handle FROM "{measurement}" WHERE time > now() - 1h'  # nosec B608 - measurement is validated
 
         # Execute InfluxDB query with authentication
         cmd = [
@@ -5216,7 +5230,7 @@ def get_vision_img_handles_from_influxdb(credentials, database="datain", measure
         }
 
     # Select random img_handle for testing
-    selected_handle = random.choice(img_handles)
+    selected_handle = random.choice(img_handles)  # nosec B311 - random sample selection in a test helper
 
     return {
         "success": True,
@@ -5670,6 +5684,8 @@ def execute_influxdb_commands_multimodal(container_name="ia-influxdb", database=
     """
     logger.info(f"Executing multimodal InfluxDB commands in container '{container_name}'...")
     try:
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 1000:
+            raise ValueError("limit must be an integer between 1 and 1000")
         if not container_exists(container_name):
             logger.info(f"{container_name} container does not exist")
             return None
@@ -5712,12 +5728,14 @@ def execute_influxdb_commands_multimodal(container_name="ia-influxdb", database=
                                            constants.SAMPLE_APPS_CONFIG.get("multimodal-weld-detection", {}).get("analytics_topic"))
             vision_measurement = constants.SAMPLE_APPS_CONFIG.get("multimodal-weld-detection", {}).get("vision_measurement")
 
+        analytics_measurement = common_utils.validate_influx_measurement(analytics_measurement)
+        vision_measurement = common_utils.validate_influx_measurement(vision_measurement)
         verify_tables = [analytics_measurement, vision_measurement]
 
         influx_execute = (
             f'SHOW MEASUREMENTS; '
-            f'SELECT * FROM "{analytics_measurement}" LIMIT {limit}; '
-            f'SELECT * FROM "{vision_measurement}" LIMIT {limit}'
+            f'SELECT * FROM "{analytics_measurement}" LIMIT {limit}; '  # nosec B608 - measurement and limit are validated
+            f'SELECT * FROM "{vision_measurement}" LIMIT {limit}'  # nosec B608 - measurement and limit are validated
         )
 
         exec_command = [
