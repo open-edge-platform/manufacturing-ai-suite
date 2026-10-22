@@ -1,0 +1,34 @@
+{
+  "SPDX-FileCopyrightText": "(C) 2026 Intel Corporation",
+  "SPDX-License-Identifier": "Apache-2.0",
+  "schemaVersion": "1.0",
+  "description": "Harness-neutral discovery catalog for Multimodal Weld Defect Detection workflow skills. Paths are relative to the repository root.",
+  "skillsRoot": "industrial-edge-insights-multimodal/.github/skills",
+  "skills": [
+    {
+      "name": "multimodal-deploy",
+      "path": "industrial-edge-insights-multimodal/.github/skills/multimodal-deploy/SKILL.md",
+      "description": "Build, deploy, smoke-check, and functionally test the Multimodal Weld Defect Detection sample app via its Makefile-driven Docker Compose path (default/vLLM/agentic variants, plus the MCP server via make up_agentic MCP=true).",
+      "triggers": [
+        "build and deploy multimodal",
+        "deploy weld defect detection",
+        "run multimodal with docker compose",
+        "deploy multimodal vllm or agentic variant",
+        "deploy multimodal with mcp server",
+        "make up_agentic MCP=true",
+        "smoke test multimodal",
+        "check multimodal mcp endpoint",
+        "run multimodal functional tests"
+      ],
+      "requires": [
+        "industrial-edge-insights-multimodal/Makefile",
+        "industrial-edge-insights-multimodal/docker-compose.yml",
+        "industrial-edge-insights-multimodal/docker-compose-mcp.yml",
+        "industrial-edge-insights-multimodal/mcp-server/example/example_client.py",
+        "industrial-edge-insights-multimodal/.github/skills/multimodal-deploy/scripts/smoke-check.sh",
+        "industrial-edge-insights-multimodal/.github/skills/multimodal-deploy/scripts/run-functional-tests.sh",
+        "docker compose"
+      ]
+    }
+  ]
+}
