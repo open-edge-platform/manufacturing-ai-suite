@@ -7,6 +7,10 @@ Source of truth: `Makefile` in the component root. Re-derive this table from
 the live file if it ever disagrees. Helm/Kubernetes deployment is not
 supported; there are no Helm targets.
 
+This file only catalogues Make targets. For system requirements,
+prerequisites, and step-by-step procedures, use the app's user guide under
+`docs/user-guide/` (see "Normative references" in `SKILL.md`).
+
 ## App selection
 
 - `app=<name>` selects the sample app (default `wind-turbine-anomaly-detection`).
@@ -45,10 +49,13 @@ and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
 - `app` — sample app name (default `wind-turbine-anomaly-detection`)
 - `num_of_streams` — number of simulated streams (default `1`); >1 triggers
   regeneration of a multi-stream Telegraf config via a local Python venv
-  (`generate-telegraf-config.py`)
+  (`generate-telegraf-config.py`). For `up_opcua_ingestion` with >1 stream,
+  export `OPCUA_SERVER_PORT_MAPPING=30003-30100` first
+  (`docs/user-guide/how-to-guides/multi-stream-ingestion.md`)
 - `ingestion_interval` — simulator ingestion interval (default `"1s"`)
 - `number_of_data_points_per_stream` — when set, enables
-  `ENABLE_BENCHMARKING=true` and sets `BENCHMARK_TOTAL_PTS`
+  `ENABLE_BENCHMARKING=true` and sets `BENCHMARK_TOTAL_PTS` (not multiplied
+  by `num_of_streams`; see `docs/user-guide/how-to-guides/benchmarking.md`)
 - `batch` — append as a second goal (e.g.
   `make up_mqtt_ingestion batch app=wind-turbine-anomaly-detection`) to use
   `config-batch.json` instead of `config.json` for the TSAM config, and swap

@@ -7,6 +7,11 @@ Source of truth: `Makefile` in the component root. Re-derive this table from
 the live file if it ever disagrees. Helm/Kubernetes deployment is not
 supported; there are no Helm targets.
 
+This file only catalogues Make targets. For system requirements,
+prerequisites (including how to stage the vLLM models), and step-by-step
+deployment procedures, use the app's user guide under `docs/user-guide/`
+(see "Normative references" in `SKILL.md`).
+
 ## The `MCP` flag
 
 `MCP` is a Make variable (default `false`). With `MCP=true`:
@@ -33,7 +38,7 @@ supported; there are no Helm targets.
 | `check_env_variables` | Validates `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD`, `MTX_WEBRTCICESERVERS2_0_USERNAME/PASSWORD`, `S3_STORAGE_USERNAME/PASSWORD`, `SEAWEEDFS_WEB_AUTH_USER/PASSWORD` in `.env`, plus `MCP_USERNAME/PASSWORD` when `MCP=true`. Usernames: letters only, at least 5 characters (`INFLUXDB_USERNAME` must not be `admin`). Passwords: alphanumeric, at least 10 characters, with at least one letter and one digit |
 | `validate_host_ip` | Ensures `HOST_IP` in `.env` is set and is a valid IPv4 address (`localhost` is rejected; use `127.0.0.1` for local-only access) |
 | `check_hardware` | Requires Intel Panther Lake (Family 6, Model 204) / Core Ultra 3xx CPU unless `PLATFORM_CHECK=false` (in `.env` or on the `make` command line; CI/validation only) |
-| `check_models` | Requires non-empty `configs/vllm/models` and `configs/vllm/huggingface` directories |
+| `check_models` | Requires non-empty `configs/vllm/models` and `configs/vllm/huggingface` directories. Populate them with **Download Models** in `docs/user-guide/how-to-guides/how-to-deploy-vllm-service.md`; `make download_model` does not fill these directories |
 
 ## Deploy (Docker Compose)
 

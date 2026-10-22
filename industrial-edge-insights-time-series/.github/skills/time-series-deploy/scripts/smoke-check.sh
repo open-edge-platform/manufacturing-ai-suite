@@ -4,14 +4,32 @@
 #
 # Smoke-check the Industrial Edge Insights - Time Series sample app (Docker Compose).
 #
-# Usage: smoke-check.sh
+# Usage: smoke-check.sh   (run from the app root, or set TIME_SERIES_APP_ROOT)
 #
 set -euo pipefail
 
 [ "$#" -eq 0 ] || { echo "Usage: $0" >&2; exit 2; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+
+# The skill may be installed outside the repo (for example via `npx skills add`),
+# so resolve the app root from TIME_SERIES_APP_ROOT, then the current directory,
+# then the in-repo location (.github/skills/time-series-deploy/scripts).
+is_app_root() {
+  [ -f "$1/Makefile" ] && [ -f "$1/generate-telegraf-config.py" ] && [ -d "$1/apps" ]
+}
+APP_ROOT=""
+for candidate in "${TIME_SERIES_APP_ROOT:-}" "$PWD" "$SCRIPT_DIR/../../../.."; do
+  if [ -n "$candidate" ] && is_app_root "$candidate"; then
+    APP_ROOT="$(cd "$candidate" && pwd)"
+    break
+  fi
+done
+if [ -z "$APP_ROOT" ]; then
+  echo "FAIL: industrial-edge-insights-time-series app root not found." >&2
+  echo "      Run from the app root or set TIME_SERIES_APP_ROOT=/path/to/industrial-edge-insights-time-series" >&2
+  exit 1
+fi
 cd "$APP_ROOT"
 
 read_env() {

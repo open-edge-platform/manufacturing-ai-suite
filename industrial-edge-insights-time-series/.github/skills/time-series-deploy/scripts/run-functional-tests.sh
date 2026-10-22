@@ -6,6 +6,7 @@
 # Note: the tests overwrite the credentials in the app's .env file.
 #
 # Usage: run-functional-tests.sh [default|gpu|security|stability|retention]
+#        (run from the app root, or set TIME_SERIES_APP_ROOT)
 #
 set -euo pipefail
 
@@ -24,7 +25,25 @@ case "$SUITE" in
 esac
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+
+# The skill may be installed outside the repo (for example via `npx skills add`),
+# so resolve the app root from TIME_SERIES_APP_ROOT, then the current directory,
+# then the in-repo location (.github/skills/time-series-deploy/scripts).
+is_app_root() {
+  [ -f "$1/Makefile" ] && [ -f "$1/generate-telegraf-config.py" ] && [ -d "$1/apps" ]
+}
+APP_ROOT=""
+for candidate in "${TIME_SERIES_APP_ROOT:-}" "$PWD" "$SCRIPT_DIR/../../../.."; do
+  if [ -n "$candidate" ] && is_app_root "$candidate"; then
+    APP_ROOT="$(cd "$candidate" && pwd)"
+    break
+  fi
+done
+if [ -z "$APP_ROOT" ]; then
+  echo "FAIL: industrial-edge-insights-time-series app root not found." >&2
+  echo "      Run from the app root or set TIME_SERIES_APP_ROOT=/path/to/industrial-edge-insights-time-series" >&2
+  exit 1
+fi
 TESTS_DIR="$APP_ROOT/tests/functional"
 
 [ -d "$TESTS_DIR" ] || { echo "FAIL: $TESTS_DIR not found" >&2; exit 1; }

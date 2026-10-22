@@ -7,15 +7,18 @@ description: >-
   Defect Detection sample application (industrial-edge-insights-multimodal)
   via its Makefile-driven Docker Compose path. Use this skill for quick
   build/deploy/teardown cycles, variant selection (default, vLLM, agentic,
-  agentic with the MCP server via `make up_agentic MCP=true`),
-  hardware/model prerequisite checks, MCP endpoint checks, and running the
+  agentic with the MCP server via `make up_agentic MCP=true`), meeting
+  hardware/model prerequisites by following the app's docs/user-guide
+  (including the vLLM model download), MCP endpoint checks, and running the
   existing tests/functional pytest suites. Do not use this skill for
   application code changes, unrelated components, or production rollout
   decisions.
 license: Apache-2.0
 compatibility: >-
-  Requires a bash-compatible shell, Docker + Docker Compose v2, make, and
-  curl. Functional tests additionally require Python 3 and the packages in
+  Requires a local checkout of industrial-edge-insights-multimodal (its
+  Makefile, .env, and docs/user-guide are read at runtime; the skill can be
+  installed anywhere, for example with `npx skills add`), a bash-compatible
+  shell, Docker + Docker Compose v2, make, and curl. Functional tests additionally require Python 3 and the packages in
   tests/requirements.txt; the MCP example client requires Python 3 and
   mcp-server/example/requirements.txt. Helm/Kubernetes deployment is not
   supported.
@@ -40,20 +43,70 @@ component `industrial-edge-insights-time-series` has its own
 has been removed from this app; if asked for it, say so and offer the Docker
 Compose path instead.
 
+## Path resolution (the skill may be installed outside the repo)
+
+This skill may live inside the repo
+(`industrial-edge-insights-multimodal/.github/skills/multimodal-deploy/`) or
+be installed standalone into an agent's skills directory (for example with
+`npx skills add`, which copies only this skill folder). Paths in this skill
+therefore use two bases:
+
+| Base | Paths | How to resolve |
+|---|---|---|
+| **Skill directory** (`<skill-dir>`, the folder containing this `SKILL.md`) | `references/…`, `scripts/…`, `example-prompts/…` | Always bundled with the skill |
+| **App root** (Step 0) | `Makefile`, `.env`, `configs/…`, `docs/user-guide/…`, `tests/…`, `mcp-server/…` | Read from the user's checkout at runtime; never expected inside `<skill-dir>` |
+
+The user guide is intentionally **not** copied into the skill: it ships in
+the same checkout as the `Makefile` the skill drives, so it always matches
+the version being deployed. Only if `<app-root>/docs/user-guide/` is
+missing (for example, an incomplete sparse checkout), fetch the page from
+GitHub at the checkout's ref (the commit from `git -C <app-root> rev-parse
+HEAD`, or `main` if the app root is not a git checkout):
+`https://raw.githubusercontent.com/open-edge-platform/manufacturing-ai-suite/<ref>/industrial-edge-insights-multimodal/<path>`.
+Say in your report that you used the remote copy.
+
 ## Normative references
 
-- `references/command-reference.md` — full Make target catalogue (source of
-  truth for every command/flag used below; re-derive from the live Makefile
-  if it ever disagrees with this doc).
+### User guide (primary source for prerequisites and procedures)
+
+The application's own user guide is the authoritative procedure for system
+requirements, prerequisites, model downloads, and per-variant deployment.
+**Read the relevant page and follow its commands as written** instead of
+composing your own sequence. Paths are relative to the **app root**, not
+the skill directory (see "Path resolution" for the remote fallback):
+
+| Page | Use it for |
+|---|---|
+| `docs/user-guide/get-started/system-requirements.md` | Base hardware/OS/Docker/Python requirements for every variant |
+| `docs/user-guide/get-started.md` | Docker configuration (non-root, proxy, log rotation), `.env` fields, default `make up` deploy, GPU/NPU inference switches, verification, `make status` caveats |
+| `docs/user-guide/get-started/build-from-source.md` | `make build` / `make build_copyleft_sources` |
+| `docs/user-guide/how-to-guides/how-to-deploy-vllm-service.md` | vLLM variant: extra hardware/RAM/storage requirements, the **Download Models** procedure that populates `configs/vllm/huggingface` and `configs/vllm/models`, `VLLM_GPU_MEMORY_UTILIZATION`, `make up_vllm`, verification, troubleshooting |
+| `docs/user-guide/how-to-guides/how-to-deploy-agent-workflow.md` | Agentic variant (with or without `MCP=true`): extra requirements, prerequisites (including the vLLM model download), `LLM_DEVICE`, `make up_agentic [MCP=true]`, agent configuration, verification |
+| `docs/user-guide/how-to-guides/how-to-update-config.md`, `how-to-configure-alerts.md`, `how-to-configure-rtsp-camera.md`, `how-to-access-s3-stored-images.md` | Post-deploy configuration questions |
+| `docs/user-guide/troubleshooting.md` | Known runtime issues ("No Data" in Grafana, slow Time-Series Analytics start, coturn/mediamtx log noise, EMT `docker exec`) |
+
+### Skill-local references (Makefile/test facts not covered by the user guide)
+
+Relative to `<skill-dir>`:
+
+- `references/command-reference.md` — Make target catalogue, including the
+  `MCP` flag and MCP server tools. The live `Makefile` is the source of
+  truth for gate behaviour; if the user guide and the `Makefile` disagree,
+  follow the `Makefile` and mention the discrepancy in your report.
 - `references/functional-tests.md` — mapping of test files to hardware.
 
 ## Step 0: Locate the app root and preflight
 
-1. Resolve the app root: walk up from cwd, or ask git
-   (`git rev-parse --show-toplevel`) for the enclosing repo and look for
-   `industrial-edge-insights-multimodal/Makefile`.
+1. Resolve the app root (a directory containing `Makefile`,
+   `docker-compose-agentic.yml`, and `fusion-analytics/`), in this order:
+   a path the user gave; `$MULTIMODAL_APP_ROOT`; cwd or one of its parents;
+   `<git toplevel>/industrial-edge-insights-multimodal` from
+   `git rev-parse --show-toplevel`. Do not derive it from `<skill-dir>`.
    `cd` into that directory before running any command below — the Makefile
    and the helper scripts read `.env` from the current directory.
+   If no checkout exists, stop and offer the **Clone source code** commands
+   from `docs/user-guide/get-started.md` (fetch that page remotely, per
+   "Path resolution"); its sparse checkout includes `docs/`.
 2. Confirm `.env` exists and the credentials checked by
    `make check_env_variables` are set: `INFLUXDB_USERNAME/PASSWORD`,
    `VISUALIZER_GRAFANA_USER/PASSWORD`,
@@ -69,25 +122,73 @@ Compose path instead.
 4. Docker preflight: `docker info >/dev/null 2>&1`.
 
    If the preflight fails, **stop immediately**, report the host blocker, and
-   give the exact command sequence the user would need to run themselves
-   instead of waiting or retrying indefinitely.
+   point the user to the **Configure Docker** section of
+   `docs/user-guide/get-started.md` (non-root Docker, proxy) instead of
+   waiting or retrying indefinitely.
+5. Compare the host against
+   `docs/user-guide/get-started/system-requirements.md` (OS, Docker version,
+   Python, RAM, storage). Report shortfalls; they are warnings for the
+   default variant, but see Step 1b for the stricter vLLM/agentic limits.
 
 ## Step 1: Choose the variant
 
 Ask (or infer from the user's request) which variant to deploy:
 
-| Variant | Make target | Notes |
-|---|---|---|
-| Default (vision + time-series fusion) | `make up` | No extra hardware checks |
-| vLLM-based VLM | `make up_vllm` | Requires `make check_hardware` + `make check_models` (models must already be in `configs/vllm/models` and `configs/vllm/huggingface`) |
-| Agentic | `make up_agentic` | Requires `make check_hardware` + `make check_models`, then triggers `make download_model` (can take minutes) |
-| Agentic + MCP server | `make up_agentic MCP=true` | Same as Agentic, plus `docker-compose-mcp.yml` (`multimodal-mcp-server`), `MCP_USERNAME`/`MCP_PASSWORD` validation, and the `agentic_mcp` nginx profile that exposes `/mcp`. Pipelines do **not** auto-start — see Step 2 |
+| Variant | Make target | Procedure doc | Notes |
+|---|---|---|---|
+| Default (vision + time-series fusion) | `make up` | `docs/user-guide/get-started.md` | No extra hardware checks |
+| vLLM-based VLM | `make up_vllm` | `docs/user-guide/how-to-guides/how-to-deploy-vllm-service.md` | Requires `check_hardware` + `check_models` — see Step 1b |
+| Agentic | `make up_agentic` | `docs/user-guide/how-to-guides/how-to-deploy-agent-workflow.md` | Requires `check_hardware` + `check_models` (Step 1b), then triggers `make download_model` (can take minutes) |
+| Agentic + MCP server | `make up_agentic MCP=true` | `docs/user-guide/how-to-guides/how-to-deploy-agent-workflow.md` | Same as Agentic, plus `docker-compose-mcp.yml` (`multimodal-mcp-server`), `MCP_USERNAME`/`MCP_PASSWORD` validation, and the `agentic_mcp` nginx profile that exposes `/mcp`. Pipelines do **not** auto-start — see Step 2 |
 
 All `up*` targets implicitly run `check_env_variables`, `validate_host_ip`,
 and `down` first (see `references/command-reference.md`). `MCP=true` is
 only honoured by `up_agentic` (and by `build`, `build_copyleft_sources`,
 `down`, `push_images`); `make up MCP=true` and `make up_vllm MCP=true` do
 not start the MCP server.
+
+## Step 1b: Meet variant prerequisites (from the user guide)
+
+Read the **Minimum System Requirements** and **Prerequisites** sections of
+the variant's procedure doc (table above) and satisfy them before running
+any `up*` target. When the user asks you to "meet prerequisites", this
+step is part of the job — do not stop at the first failing gate if the
+documented procedure resolves it.
+
+For `make up_vllm`, `make up_agentic`, and `make up_agentic MCP=true`:
+
+1. **Hardware/platform.** Run `make check_hardware`. The docs require an
+   Intel Core Ultra Series 3 processor or newer, at least 32 GB RAM, and at
+   least 256 GB storage (512 GB recommended); check with `free -g` and
+   `df -h .` and report any shortfall. `PLATFORM_CHECK=false` bypasses only
+   the CPU gate and is for CI/validation, not for real deployments.
+2. **vLLM base model and LoRA adapter.** Run `make check_models`. If it
+   fails (`configs/vllm/models` or `configs/vllm/huggingface` missing or
+   empty), follow **Download Models** in
+   `docs/user-guide/how-to-guides/how-to-deploy-vllm-service.md` exactly —
+   run its command block from the app root (it creates a throwaway
+   `configs/vllm/.modelenv` venv, installs the pinned `huggingface_hub`, and
+   runs `hf download` for the base model and the weld LoRA adapter). Then
+   re-run `make check_models` and require it to pass.
+   - The doc asks the user to review and accept the base model's license
+     first. Show the license link from the doc; proceed only if the user
+     already explicitly asked you to download models or meet prerequisites,
+     otherwise ask first.
+   - `make download_model` (run inside `up_agentic`) does **not** satisfy
+     this gate: it fetches the agentic LLM (`LLM_MODEL_NAME`) into
+     `configs/agentic/models` via the `model-download` service, and
+     `check_models` runs before it.
+   - `configs/vllm*` is git-ignored; staged models are not tracked and
+     survive `make down`.
+   - Download failures (no network, proxy, disk full) are real blockers —
+     report the failing `hf download` output and stop.
+3. **Device/memory settings.** Mention, but do not change unless asked,
+   `VLLM_GPU_MEMORY_UTILIZATION` (vLLM doc) and `LLM_DEVICE` (`CPU`
+   default, or `GPU`; agentic doc). Never edit `.env` without the user's
+   permission.
+4. **MCP credentials** (`MCP=true` only): `MCP_USERNAME`/`MCP_PASSWORD`
+   must be set in `.env` (Step 0). If unset, name the missing variable and
+   stop.
 
 ## Step 2: Build and deploy
 
@@ -112,7 +213,17 @@ make status                # containers + recent error-log scan
   `PLATFORM_CHECK=false` is set (in `.env` or on the `make` command line) for
   CI/validation use.
 - Report `make status` output verbatim; a container with recent `error` log
-  lines is a real signal — don't suppress it.
+  lines is a real signal — don't suppress it. Per the user guide, Grafana
+  `user token not found` errors before the first login are benign.
+- Expect long first starts (from the user guide): `vllm-server` can take
+  about 10 minutes to load the model, and `make download_model` polls for up
+  to 50 minutes. Check `docker logs vllm-server` rather than re-running
+  `up*`.
+- For verification and stop steps, follow the variant's procedure doc
+  (**Verify the Deployment** in the how-to guides, **Verify the Multimodal
+  Weld Defect Detection Results** in `get-started.md`). For runtime issues, check
+  `docs/user-guide/troubleshooting.md` and the doc's own **Troubleshooting**
+  section before improvising a fix.
 
 ### MCP mode (`make up_agentic MCP=true`)
 
@@ -143,8 +254,8 @@ make status                # containers + recent error-log scan
 
 ## Step 3: Smoke test
 
-From the app root, run
-`.github/skills/multimodal-deploy/scripts/smoke-check.sh`, which:
+From the app root, run `<skill-dir>/scripts/smoke-check.sh` (or set
+`MULTIMODAL_APP_ROOT` when running it from elsewhere), which:
 - verifies the Docker daemon is reachable,
 - runs `make status`,
 - curls the nginx/Grafana endpoint
@@ -202,8 +313,8 @@ pytest -v -s -m gpu --html=gpu_docker_multimodal_report.html test_GPU_docker_mul
 pytest -v -s --html=npu_docker_multimodal_report.html test_NPU_docker_multimodal.py
 ```
 
-Or use `.github/skills/multimodal-deploy/scripts/run-functional-tests.sh [cpu|gpu|npu]`
-to select the right subset automatically.
+Or run `<skill-dir>/scripts/run-functional-tests.sh [cpu|gpu|npu]` from the
+app root to select the right subset automatically.
 
 The tests deploy and tear down the stack themselves, and they **overwrite
 `.env`**: credentials are replaced with generated test values and `HOST_IP` is
@@ -227,7 +338,14 @@ compose file set identical to the deploy.
 
 ## Answer contract when blocked
 
-If Docker is unreachable, hardware checks fail, or required models are
-missing, **do not stall**: state the blocker plainly, show the exact command
-sequence the user would run once unblocked, and stop. Never invent "it
-worked" output.
+A failing prerequisite that the user guide documents how to fix (for example,
+`check_models` failing because the vLLM models are not staged) is **not** a
+blocker: apply the documented procedure (Step 1b), then continue.
+
+Real blockers are conditions you cannot or must not fix yourself: Docker is
+unreachable, `check_hardware` fails on unsupported hardware, a required
+`.env` credential is unset, the model license has not been accepted, or a
+documented download fails. In those cases, **do not stall**: state the
+blocker plainly, cite the user-guide section that covers it, show the exact
+command sequence the user would run once unblocked, and stop. Never invent
+"it worked" output.
