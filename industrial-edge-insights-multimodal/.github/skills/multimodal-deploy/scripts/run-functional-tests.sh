@@ -5,7 +5,7 @@
 # Run the functional pytest suite for industrial-edge-insights-multimodal.
 # Note: the tests overwrite credentials and HOST_IP in the app's .env file.
 #
-# Usage: run-functional-tests.sh [cpu|gpu|npu]
+# Usage: run-functional-tests.sh [cpu|gpu|npu]   (run from the app root, or set MULTIMODAL_APP_ROOT)
 #
 set -euo pipefail
 
@@ -19,10 +19,36 @@ usage() {
 [ "$#" -le 1 ] || usage
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+
+# The skill may be installed outside the repo (for example via `npx skills add`),
+# so resolve the app root from MULTIMODAL_APP_ROOT, then the current directory,
+# then the in-repo location (.github/skills/multimodal-deploy/scripts).
+is_app_root() {
+  [ -f "$1/Makefile" ] && [ -f "$1/docker-compose-agentic.yml" ] && [ -d "$1/fusion-analytics" ]
+}
+APP_ROOT=""
+for candidate in "${MULTIMODAL_APP_ROOT:-}" "$PWD" "$SCRIPT_DIR/../../../.."; do
+  if [ -n "$candidate" ] && is_app_root "$candidate"; then
+    APP_ROOT="$(cd "$candidate" && pwd)"
+    break
+  fi
+done
+if [ -z "$APP_ROOT" ]; then
+  echo "FAIL: industrial-edge-insights-multimodal app root not found." >&2
+  echo "      Run from the app root or set MULTIMODAL_APP_ROOT=/path/to/industrial-edge-insights-multimodal" >&2
+  echo "      To get a checkout, see 'Clone source code' in https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html" >&2
+  exit 1
+fi
 TESTS_DIR="$APP_ROOT/tests/functional"
 
 [ -d "$TESTS_DIR" ] || { echo "FAIL: $TESTS_DIR not found" >&2; exit 1; }
+TS_TESTS_DIR="$APP_ROOT/../industrial-edge-insights-time-series/tests"
+if [ ! -d "$TS_TESTS_DIR" ]; then
+  echo "FAIL: $TS_TESTS_DIR not found; tests/functional/pytest.ini imports helpers from it." >&2
+  echo "      In a sparse checkout, run from the repository root:" >&2
+  echo "      git sparse-checkout add industrial-edge-insights-time-series/tests" >&2
+  exit 1
+fi
 cd "$TESTS_DIR"
 
 case "$HW" in

@@ -34,7 +34,7 @@ optional `references/` (deep docs loaded only when needed), `scripts/`
 
 | Skill | Use it when the user wants to… | Backed by |
 |---|---|---|
-| [`multimodal-deploy`](./multimodal-deploy/SKILL.md) | build / deploy / smoke-test / functionally test the app via Docker Compose (default, vLLM, agentic, agentic + MCP server) | `Makefile` + `scripts/smoke-check.sh` + `scripts/run-functional-tests.sh` + `mcp-server/example/` |
+| [`multimodal-deploy`](./multimodal-deploy/SKILL.md) | build / deploy / smoke-test / functionally test the app via Docker Compose (default, vLLM, agentic, agentic + MCP server), including building the Time Series Analytics microservice from source when explicitly asked | `Makefile` + `scripts/build-time-series-analytics.sh` + `scripts/smoke-check.sh` + `scripts/run-functional-tests.sh` + `mcp-server/example/` |
 
 ## Conventions
 
