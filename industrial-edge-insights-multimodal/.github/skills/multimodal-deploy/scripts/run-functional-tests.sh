@@ -42,6 +42,13 @@ fi
 TESTS_DIR="$APP_ROOT/tests/functional"
 
 [ -d "$TESTS_DIR" ] || { echo "FAIL: $TESTS_DIR not found" >&2; exit 1; }
+TS_TESTS_DIR="$APP_ROOT/../industrial-edge-insights-time-series/tests"
+if [ ! -d "$TS_TESTS_DIR" ]; then
+  echo "FAIL: $TS_TESTS_DIR not found; tests/functional/pytest.ini imports helpers from it." >&2
+  echo "      In a sparse checkout, run from the repository root:" >&2
+  echo "      git sparse-checkout add industrial-edge-insights-time-series/tests" >&2
+  exit 1
+fi
 cd "$TESTS_DIR"
 
 case "$HW" in

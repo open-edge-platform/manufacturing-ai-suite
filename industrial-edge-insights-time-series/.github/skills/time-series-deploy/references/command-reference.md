@@ -55,8 +55,10 @@ and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
   ([Multi-stream ingestion](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html))
 - `ingestion_interval` — simulator ingestion interval (default `"1s"`)
 - `number_of_data_points_per_stream` — when set, enables
-  `ENABLE_BENCHMARKING=true` and sets `BENCHMARK_TOTAL_PTS` (not multiplied
-  by `num_of_streams`; see [Benchmarking](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html))
+  `ENABLE_BENCHMARKING=true` and sets `BENCHMARK_TOTAL_PTS`, a per-stream
+  limit in the wind-turbine UDFs (`points_received[stream_src]`); pass the
+  per-stream count unchanged. [Benchmarking](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html)
+  currently says to multiply by `num_of_streams`, which conflicts with the code.
 - `batch` — append as a second goal (e.g.
   `make up_mqtt_ingestion batch app=wind-turbine-anomaly-detection`) to use
   `config-batch.json` instead of `config.json` for the TSAM config, and swap

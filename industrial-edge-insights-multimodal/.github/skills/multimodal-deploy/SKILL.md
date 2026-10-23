@@ -178,10 +178,18 @@ For `make up_vllm`, `make up_agentic`, and `make up_agentic MCP=true`:
    `configs/vllm/.modelenv` venv, installs the pinned `huggingface_hub`, and
    runs `hf download` for the base model and the weld LoRA adapter). Then
    re-run `make check_models` and require it to pass.
-   - The doc asks the user to review and accept the base model's license
-     first. Show the license link from the doc; proceed only if the user
-     already explicitly asked you to download models or meet prerequisites,
-     otherwise ask first.
+   - **License acceptance.** The doc asks the user to review and accept the
+     base model's license first. Show the license link from the doc and get
+     explicit acceptance of that license before downloading. A request to
+     "meet prerequisites" or "download models" is permission to download,
+     not license acceptance — ask separately.
+   - **Do not delete existing models.** The doc's block runs
+     `rm -rf huggingface models`, which erases anything already staged
+     (including user-supplied or git-ignored models/adapters). Before
+     running it, list the contents of `configs/vllm/huggingface` and
+     `configs/vllm/models`. If either is non-empty, do not run the `rm -rf`
+     without the user's explicit permission; otherwise drop the `rm -rf`
+     and run only the `hf download` for the missing directory.
    - `make download_model` (run inside `up_agentic`) does **not** satisfy
      this gate: it fetches the agentic LLM (`LLM_MODEL_NAME`) into
      `configs/agentic/models` via the `model-download` service, and
@@ -376,6 +384,15 @@ committed files.
 ## Step 4: Functional tests
 
 See `references/functional-tests.md` for the full file-to-hardware mapping.
+
+The suites import shared helpers from the sibling
+`industrial-edge-insights-time-series/tests` tree (`pytest.ini`
+`pythonpath`). The **Clone source code** sparse checkout in Get Started
+omits it, so collection fails. Before running tests, confirm
+`../industrial-edge-insights-time-series/tests` exists; if not, add it from
+the repository root with
+`git sparse-checkout add industrial-edge-insights-time-series/tests`.
+
 Typical invocation (from `tests/functional/`, after
 `pip install -r ../requirements.txt`):
 

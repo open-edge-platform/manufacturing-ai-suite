@@ -164,9 +164,12 @@ stopping at the first failing check. Known doc-only prerequisites:
   `make` (multi-stream doc). Without it, `docker-compose.yml` maps a single
   host port (`30003`) and the scaled OPC-UA servers collide.
 - **Benchmarking**: `number_of_data_points_per_stream` is forwarded as
-  `BENCHMARK_TOTAL_PTS` and is **not** multiplied by `num_of_streams`; for
-  *N points per stream* pass `N * num_of_streams` (benchmarking doc). For
-  `batch`, confirm the app package has batch UDF artifacts.
+  `BENCHMARK_TOTAL_PTS`, which the wind-turbine UDFs apply **per stream**
+  (counted per `source`). For *N points per stream* pass `N` unchanged; the
+  total processed is `N * num_of_streams`. The benchmarking doc's advice to
+  pass `N * num_of_streams` conflicts with the UDF code — follow the code and
+  mention the discrepancy in your report. For `batch`, confirm the app
+  package has batch UDF artifacts.
 - **System metrics** (`INCLUDE=validation`): Telegraf runs as `root`; only
   verified for `wind-turbine-anomaly-detection` (system-metrics doc).
 - **UDF on GPU**: after deployment, follow **Running User Defined
