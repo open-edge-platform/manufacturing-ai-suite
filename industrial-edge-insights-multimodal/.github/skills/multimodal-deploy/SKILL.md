@@ -18,21 +18,16 @@ description: >-
 license: Apache-2.0
 compatibility: >-
   Requires a local checkout of industrial-edge-insights-multimodal (its
-  Makefile, .env, configs, and tests are read at runtime; the skill can be
-  installed anywhere, for example with `npx skills add`), web access to the
-  published user guide at
-  https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/index.html
-  (or the checkout's docs/user-guide copy for release checkouts or offline
-  hosts), a bash-compatible
-  shell, Docker + Docker Compose v2, make, curl, and git (to build the Time
-  Series Analytics microservice from source). Functional tests additionally require Python 3 and the packages in
-  tests/requirements.txt; the MCP example client requires Python 3 and
-  mcp-server/example/requirements.txt. Helm/Kubernetes deployment is not
-  supported.
+  Makefile, .env, configs, and tests are read at runtime; the skill itself
+  can be installed anywhere), web access to the published user guide (or the
+  checkout's docs/user-guide copy), bash, Docker + Docker Compose v2, make,
+  curl, and git. Functional tests need Python 3 and tests/requirements.txt;
+  the MCP example client needs Python 3 and
+  mcp-server/example/requirements.txt. Helm/Kubernetes is not supported.
 metadata:
   author: open-edge-platform
   tags: deployment, docker-compose, manufacturing, multimodal, weld-defect-detection
-allowed-tools: bash make docker pytest
+allowed-tools: bash, make, docker, pytest
 ---
 
 # Multimodal Weld Defect Detection — Deploy Skill
