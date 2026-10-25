@@ -303,6 +303,30 @@ if ! getent group docker | cut -d: -f4 | tr ',' '\n' | grep -qx "$USER"; then
   log "Adding deployment user to Docker group (sudo may prompt)"
   sudo usermod -aG docker "$USER"
 fi
+if [[ ${9:-false} == true ]]; then
+  [[ $3 =~ ^fleet-deployments/[a-z][a-z0-9_]{0,31}/checkout$ ]] \
+    || { echo "Refusing cleanup outside a managed deployment checkout" >&2; exit 1; }
+  parent=${root%/checkout}
+  base=$HOME/fleet-deployments
+  for directory in "$base" "$parent"; do
+    [[ ! -L $directory ]] && [[ ! -e $directory || ( -d $directory && -O $directory ) ]] \
+      || { echo "Unsafe managed deployment directory" >&2; exit 1; }
+    install -d -m 0700 "$directory"
+  done
+  marker=$parent/.managed-checkout
+  [[ ! -e $marker || ( -f $marker && -O $marker ) ]] && [[ ! -L $marker ]] \
+    || { echo "Unsafe managed checkout marker" >&2; exit 1; }
+  if [[ -e $root || -L $root ]]; then
+    [[ -f $marker && ! -L $marker && -O $marker &&
+       $(cat "$marker") == fleet-checkout-v1 && -d $root && ! -L $root && -O $root ]] \
+      || { echo "Refusing to delete an unrecognized deployment checkout" >&2; exit 1; }
+    log "Removing managed checkout; local credentials, models, and edits will be discarded"
+    rm -rf -- "$root"
+  fi
+  [[ ! -L $marker ]] || { echo "Unsafe managed checkout marker" >&2; exit 1; }
+  printf '%s\n' fleet-checkout-v1 > "$marker"
+  chmod 600 "$marker"
+fi
 if [[ ${5:-node_clone} == central_copy ]]; then
   bundle=$6 digest=$7 commit=$8
   log "Verifying transferred Git bundle"
@@ -317,11 +341,6 @@ if [[ ${5:-node_clone} == central_copy ]]; then
     [[ ! -e $root ]] || { echo "Existing non-Git path blocks source delivery" >&2; exit 1; }
     log "Creating checkout from central bundle (no upstream clone)"
     git clone -q --sparse --branch fleet-source "$bundle" "$root"
-    if [[ $app_subdir == . ]]; then
-      git -C "$root" sparse-checkout disable
-    else
-      git -C "$root" sparse-checkout set "$app_subdir"
-    fi
     git -C "$root" checkout -q -B "$branch" "$commit"
     git -C "$root" remote set-url origin "$repo_url"
   fi
@@ -336,8 +355,21 @@ elif [[ -d $root/.git ]]; then
 else
   log "Cloning app branch (this may take several minutes)"
   git clone -q --filter=blob:none --sparse --branch "$branch" "$repo_url" "$root"
-  git -C "$root" sparse-checkout set "$app_subdir"
 fi
+if [[ $app_subdir != . ]]; then
+  [[ $(git -C "$root" cat-file -t "HEAD:$app_subdir" 2>/dev/null) == tree ]] \
+    || { echo "Requested app directory $app_subdir is not present in the selected source revision" >&2; exit 1; }
+fi
+if [[ $(git -C "$root" config --bool core.sparseCheckout) == true ]]; then
+  if [[ $app_subdir == . ]]; then
+    git -C "$root" sparse-checkout disable
+  else
+    log "Including requested app in existing sparse checkout"
+    git -C "$root" sparse-checkout add "$app_subdir"
+  fi
+fi
+[[ -d $root/$app_subdir ]] \
+  || { echo "Requested app directory $app_subdir is missing after checkout preparation" >&2; exit 1; }
 log "App checkout ready"
 REMOTE
 
@@ -422,14 +454,14 @@ prepare_node() {
   rtmp=$(nssh "$i" "$target" mktemp -d)
   [[ $rtmp =~ ^/[A-Za-z0-9._/-]+$ ]] || die "[$name] unexpected remote temp dir"
   nscp "$i" "$LOCAL_TMP/node-prepare.sh" "$LOCAL_TMP/env-merge.sh" "$target:$rtmp/"
-  local source_args=()
+  local source_args=(node_clone - - -)
   if [[ ${SOURCE_DELIVERY:-node_clone} == central_copy ]]; then
     log "[$name] Transferring centrally prepared app source (commit=$SOURCE_COMMIT)"
     nscp "$i" "$SOURCE_BUNDLE" "$target:$rtmp/source.bundle"
     source_args=(central_copy "$rtmp/source.bundle" "$SOURCE_SHA256" "$SOURCE_COMMIT")
   fi
   run_stage "[$name] Packages, Docker group, and app checkout" \
-    nssh "$i" -t "$target" bash "$rtmp/node-prepare.sh" "$REPO_URL" "$REPO_BRANCH" "$REMOTE_ROOT" "$APP_SUBDIR" "${source_args[@]}"
+    nssh "$i" -t "$target" bash "$rtmp/node-prepare.sh" "$REPO_URL" "$REPO_BRANCH" "$REMOTE_ROOT" "$APP_SUBDIR" "${source_args[@]}" "${FLEET_CLEAN_CHECKOUT:-false}"
   log "[$name] Verifying Docker access in a new SSH session"
   nssh "$i" "$target" docker info >/dev/null 2>&1 || die "[$name] ${NUSER[i]} cannot use Docker on $ip"
 

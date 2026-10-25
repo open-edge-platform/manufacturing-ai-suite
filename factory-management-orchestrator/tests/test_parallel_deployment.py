@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -22,6 +23,7 @@ root = Path(os.environ["TEST_EVENTS"])
 stage = os.environ["FLEET_STAGE"]
 name = os.environ["SKILL_NAME"]
 state = Path(os.environ["FLEET_STATE_DIR"])
+assert os.environ["FLEET_CLEAN_CHECKOUT"] == ("false" if "--no-deploy" in sys.argv else "true")
 event = root / f"{stage}-{name}"
 if stage == "prepare":
     with (root / "central.lock").open("x"):
@@ -53,6 +55,32 @@ elif stage == "connect":
 
 
 class ParallelDeploymentTests(unittest.TestCase):
+    def test_each_deployment_gets_an_isolated_checkout_and_matching_policy(self):
+        spec = importlib.util.spec_from_file_location("fleet_inventory", ROOT / "fleet_inventory.py")
+        inventory = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(inventory)
+        doc = yaml.safe_load((ROOT / "hosts.example.yaml").read_text())
+        plan = inventory.build_plan(doc)
+        roots = []
+        for _, _, node, config in plan:
+            expected = f"fleet-deployments/{node['name']}/checkout"
+            self.assertEqual(config["REMOTE_ROOT"], expected)
+            self.assertEqual(config["FLEET_CLEAN_CHECKOUT"], "true")
+            self.assertIn(f"~/{expected}", config["DEPLOY_PROMPT"])
+            self.assertIn(f"~/{expected}", config["SMART_POLICY"])
+            roots.append(expected)
+        self.assertEqual(len(set(roots)), len(roots))
+        # Two deployments of the same recipe on one node must not share a checkout.
+        doc["nodes"] = [doc["nodes"][0]]
+        other = copy.deepcopy(doc["recipes"]["weld"])
+        other["mcp"]["port"] = 3001
+        doc["recipes"]["other"] = other
+        doc["nodes"][0]["deployments"].append(
+            {"recipe": "other", "name": "second", "local_port": 13002}
+        )
+        plan = inventory.build_plan(doc)
+        self.assertNotEqual(plan[0][3]["REMOTE_ROOT"], plan[1][3]["REMOTE_ROOT"])
+
     def run_inventory(self, *options, fail=""):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -73,7 +101,7 @@ class ParallelDeploymentTests(unittest.TestCase):
             worker = root / "worker.py"
             worker.write_text(WORKER)
             script = root / "worker.sh"
-            script.write_text('#!/usr/bin/env bash\nset -euo pipefail\nexec python3 "$TEST_WORKER"\n')
+            script.write_text('#!/usr/bin/env bash\nset -euo pipefail\nexec python3 "$TEST_WORKER" "$@"\n')
             events = root / "events"
             events.mkdir()
             result = subprocess.run(
@@ -108,6 +136,10 @@ class ParallelDeploymentTests(unittest.TestCase):
         result, events = self.run_inventory("--list")
         self.assertEqual(result.returncode, 0)
         self.assertFalse(events)
+
+    def test_no_deploy_disables_clean_checkout(self):
+        result, _ = self.run_inventory("--no-deploy")
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

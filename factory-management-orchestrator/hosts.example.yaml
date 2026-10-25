@@ -12,7 +12,7 @@ recipes:
     source_delivery: central_copy
     repository: https://github.com/vkb1/manufacturing-ai-suite.git
     ref: feature/hermes-skill-mcp-integration
-    remote_root: manufacturing-weld
+    remote_root: manufacturing-weld  # prompt path prefix; checkouts are isolated per deployment
     app_dir: industrial-edge-insights-multimodal
     skill:
       name: multimodal-deploy

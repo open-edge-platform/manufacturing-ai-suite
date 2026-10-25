@@ -262,7 +262,18 @@ def build_plan(doc, selected_nodes=(), selected_recipes=(), user="intel", skip=F
                 raise ValueError(f"duplicate Hermes profile: {profile}")
             profiles.add(profile)
             lp = port(d.get("local_port"), "deployment.local_port", 1024)
-            config = configs[recipe]
+            config = dict(configs[recipe])
+            original_root = config["REMOTE_ROOT"]
+            config["REMOTE_ROOT"] = f"fleet-deployments/{server}/checkout"
+            config["FLEET_CLEAN_CHECKOUT"] = "true"
+            for field in ("DEPLOY_PROMPT", "SMART_POLICY"):
+                config[field] = config[field].replace(
+                    f"~/{original_root}", f"~/{config['REMOTE_ROOT']}"
+                )
+            config["DEPLOY_PROMPT"] = (
+                f"Deployment app directory: ~/{config['REMOTE_ROOT']}/{config['APP_SUBDIR']}. "
+                + config["DEPLOY_PROMPT"]
+            )
             # Physical endpoint identity, not just inventory alias.
             physical = (host.lower(), node["port"])
             for seen, value, label in (
@@ -399,19 +410,19 @@ def main():
     # Serialize shared Hermes state changes, not the remote deployment work.
     groups = {}
     for name, recipe, node, settings in plan:
-        groups.setdefault(recipe, ([], [], settings))
-        groups[recipe][0].append(name)
-        groups[recipe][1].append(node)
+        groups[(recipe, node["name"])] = ([name], [node], settings)
     results = []
     sources = {}
     with tempfile.TemporaryDirectory(prefix="fleet-inventory-") as directory:
         prepared = []
-        for index, (recipe, (names, nodes, settings)) in enumerate(groups.items()):
+        for index, ((recipe, _), (names, nodes, settings)) in enumerate(groups.items()):
             name = ",".join(names)
             inventory = Path(directory) / f"{index}.yaml"
             inventory.write_text(yaml.safe_dump({"nodes": nodes}))
             inventory.chmod(0o600)
             env = {**os.environ, **settings}
+            if args.no_deploy:
+                env["FLEET_CLEAN_CHECKOUT"] = "false"
             try:
                 env.update(prepare_source(settings, directory, sources))
             except (OSError, ValueError, subprocess.CalledProcessError) as error:
