@@ -194,6 +194,8 @@ docker logs -f <container_name> | grep -i error
 
 ## Advanced setup
 
+- [Use the MCP server](./how-to-guides/use-mcp-server.md): Deploy with `MCP=true` for authenticated pipeline control and anomaly queries.
+
 - [How to build from source and deploy](./get-started/build-from-source.md): Guide to build from source and docker compose deployment
 - [How to configure OPC-UA/MQTT alerts](./how-to-guides/configure-alerts.md): Guide for configuring the OPC-UA/MQTT alerts in the Time Series Analytics microservice
 - [How to configure custom UDF deployment package](./how-to-guides/configure-custom-udf.md): Guide for deploying a customized UDF deployment package (UDFs/models/TICKscripts)

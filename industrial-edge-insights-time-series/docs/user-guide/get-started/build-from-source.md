@@ -34,6 +34,9 @@ the data flow of the selected app before proceeding with the following steps.
     make build # builds only data simulator (OPC-UA server and MQTT publisher) docker images
     ```
 
+    To also build the optional MCP server, run `make build MCP=true`.
+    See [Use the MCP server](../how-to-guides/use-mcp-server.md) for credentials and deployment.
+
     > [!NOTE]
     > To include copyleft licensed sources when building the Docker images, use the below command:
     >

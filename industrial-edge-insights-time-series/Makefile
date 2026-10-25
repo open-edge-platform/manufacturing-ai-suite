@@ -62,6 +62,21 @@ ENV_FILE = ./.env
 
 include $(ENV_FILE)
 export $(shell sed 's/=.*//' $(ENV_FILE))
+export MCP_USERNAME MCP_PASSWORD TIME_SERIES_MCP_IMAGE
+MCP ?= false
+ifneq ($(filter $(MCP),true false),$(MCP))
+$(error MCP must be true or false)
+endif
+COMPOSE_FILES = -f $(DOCKER_COMPOSE_FILE)
+ifeq ($(INCLUDE),validation)
+COMPOSE_FILES += -f $(DOCKER_COMPOSE_VALIDATION_FILE)
+endif
+ifeq ($(MCP),true)
+COMPOSE_FILES += -f ./docker-compose-mcp.yml
+export MCP_PROCESSING_MODE := $(if $(filter batch,$(MAKECMDGOALS)),batch,stream)
+endif
+COMPOSE = $(DOCKER_COMPOSE) $(COMPOSE_FILES)
+
 DRI_MOUNT_PATH := $(shell [ -d /dev/dri ] && [ -n "$$(ls -A /dev/dri 2>/dev/null)" ] && echo "/dev/dri" || echo "/dev/null")
 export DRI_MOUNT_PATH
 $(shell chmod 600 .env)
@@ -70,12 +85,12 @@ $(shell chmod 600 .env)
 .PHONY: build
 build:
 	@echo "Building Docker containers..."
-	$(DOCKER_COMPOSE) build --pull;
+	$(COMPOSE) build --pull;
 
 .PHONY: build_copyleft_sources
 build_copyleft_sources:
 	@echo "Building Docker containers including copyleft licensed sources..."
-	$(DOCKER_COMPOSE) build --build-arg COPYLEFT_SOURCES=true --pull;
+	$(COMPOSE) build --build-arg COPYLEFT_SOURCES=true --pull;
 
 # Check if multiple particular variables in .env are assigned with values
 .PHONY: check_env_variables
@@ -119,6 +134,9 @@ check_env_variables:
 				;; \
 		esac; \
 	done
+ifeq ($(MCP),true)
+	@python3 -c 'import os; u=os.getenv("MCP_USERNAME", ""); p=os.getenv("MCP_PASSWORD", ""); valid=bool(u) and ":" not in u and len(u)<=128 and 10<=len(p)<=1024; print("MCP credentials valid" if valid else "Set MCP_USERNAME (no colon, maximum 128 characters) and MCP_PASSWORD (10-1024 characters)"); raise SystemExit(0 if valid else 1)'
+endif
 
 .PHONY: batch
 batch:
@@ -234,16 +252,20 @@ up_mqtt_ingestion: check_env_variables down
 	echo "Starting Docker containers..."; \
 	echo "GPU device path set to: $(DRI_MOUNT_PATH) based on its existence"; \
 	if [ $(INCLUDE) = 'validation' ]; then \
-		$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_VALIDATION_FILE) up --scale ia-opcua-server=0 -d; \
+		$(COMPOSE) up --scale ia-opcua-server=0 -d; \
 	else \
 		for i in $$(seq 1 $(num_of_streams)); do \
 			echo "Starting ia-mqtt-publisher instance $$i for SAMPLE_APP: $$SAMPLE_APP";\
-			$(DOCKER_COMPOSE) run -d --name ia-mqtt-publisher-$$i -e INSTANCE_ID=$$i ia-mqtt-publisher; \
+			$(COMPOSE) run -d --name ia-mqtt-publisher-$$i -e INSTANCE_ID=$$i ia-mqtt-publisher; \
 			docker update --restart unless-stopped ia-mqtt-publisher-$$i; \
 		done; \
-		$(DOCKER_COMPOSE) up --scale ia-opcua-server=0 -d $(shell $(DOCKER_COMPOSE) config --services | grep -v ia-mqtt-publisher); \
+		$(COMPOSE) up --scale ia-opcua-server=0 -d $(shell $(COMPOSE) config --services | grep -v ia-mqtt-publisher); \
 	fi
+ifeq ($(MCP),true)
+	@echo "MCP mode: use start_pipeline to upload the UDF package and enable analytics."
+else
 	@$(upload_tar_file)
+endif
 
 # Run Docker containers
 .PHONY: up_opcua_ingestion
@@ -256,16 +278,23 @@ up_opcua_ingestion: check_env_variables down
 	echo "Starting Docker containers..."; \
 	echo "GPU device path set to: $(DRI_MOUNT_PATH) based on its existence"; \
 	if [ $(INCLUDE) = 'validation' ]; then \
-		$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_VALIDATION_FILE) up --scale ia-mqtt-publisher=0 -d ;\
+		$(COMPOSE) up --scale ia-mqtt-publisher=0 -d ;\
 	else \
-		$(DOCKER_COMPOSE) up --scale ia-opcua-server=$(num_of_streams) --scale ia-mqtt-publisher=0 -d; \
+		$(COMPOSE) up --scale ia-opcua-server=$(num_of_streams) --scale ia-mqtt-publisher=0 -d; \
 	fi
+ifeq ($(MCP),true)
+	@echo "MCP mode: use start_pipeline to upload the UDF package and enable analytics."
+else
 	@$(upload_tar_file)
+endif
 
 
 # Status of the deployed containers
 .PHONY: status
 status:
+ifeq ($(MCP),true)
+	@$(COMPOSE) ps time-series-mcp-server
+endif
 	@echo "Status of the deployed containers..."; \
 	docker ps -a --filter "name=^ia-" --filter "name=mr_" --filter "name=model_" --filter "name=wind-turbine" --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"; \
 	echo "Parsing the logs of all containers to catch any error messages..."; \
@@ -301,7 +330,7 @@ status:
 .PHONY: down
 down:
 	@echo "Stopping Docker containers...";
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) down -v --remove-orphans
+	$(COMPOSE) down -v --remove-orphans
 
 # To push the docker images to docker registry, ensure to configure DOCKER_REGISTRY in .env
 # and have logged into that. Applies mainly when one is dealing with internal docker registry.
@@ -310,7 +339,7 @@ down:
 .PHONY: push_images
 push_images: build
 	@echo "Pushing the images to docker registry"
-	docker compose -f $(DOCKER_COMPOSE_FILE) push
+	$(COMPOSE) push
 
 # Help
 .PHONY: help
@@ -342,4 +371,6 @@ help:
 	@echo "      Example: make up_opcua_ingestion batch app=wind-turbine-anomaly-detection"
 	@echo "  make help                         - Display this help message"
 	@echo "      No parameters required."
-
+	@echo "  MCP=true                          - Add the authenticated MCP server; analytics starts through MCP"
+	@echo "      Set MCP_USERNAME and MCP_PASSWORD first. Example: make up_mqtt_ingestion MCP=true"
+	@echo "      Also use MCP=true with build, down, status, and push_images for MCP deployments."

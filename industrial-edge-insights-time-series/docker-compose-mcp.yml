@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+services:
+  time-series-mcp-server:
+    build:
+      context: ./mcp-server
+    image: ${DOCKER_REGISTRY:-}${TIME_SERIES_MCP_IMAGE:-industrial-edge-insights-time-series-mcp}:2026.1.0
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    environment:
+      MCP_USERNAME: ${MCP_USERNAME:?Set MCP_USERNAME for MCP deployments}
+      MCP_PASSWORD: ${MCP_PASSWORD:?Set MCP_PASSWORD for MCP deployments}
+      MCP_PUBLIC_URL: https://${HOST_IP:-127.0.0.1}:${GRAFANA_PORT:-3000}
+      MCP_PROCESSING_MODE: ${MCP_PROCESSING_MODE:-stream}
+      MCP_CONFIG_DIR: /app/config
+      TIME_SERIES_API_URL: http://ia-time-series-analytics-microservice:5000
+      KAPACITOR_API_URL: http://ia-time-series-analytics-microservice:${KAPACITOR_PORT:-9092}
+      INFLUXDB_URL: http://ia-influxdb:8086
+      INFLUXDB_USERNAME: ${INFLUXDB_USERNAME}
+      INFLUXDB_PASSWORD: ${INFLUXDB_PASSWORD}
+    volumes:
+      - ./apps/${SAMPLE_APP}/time-series-analytics-config:/app/config:ro
+    networks:
+      - timeseries_network
+    depends_on:
+      - ia-time-series-analytics-microservice
+      - ia-influxdb
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    volumes:
+      - ./configs/nginx/mcp.conf:/etc/nginx/mcp.conf:ro
+    depends_on:
+      time-series-mcp-server:
+        condition: service_healthy

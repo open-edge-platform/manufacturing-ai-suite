@@ -118,6 +118,8 @@ Relative to `<skill-dir>`:
 2. Confirm `.env` exists and required creds (`INFLUXDB_USERNAME/PASSWORD`,
    `VISUALIZER_GRAFANA_USER/PASSWORD`) are set — ask the user rather than
    inventing values.
+   For `MCP=true`, also confirm `MCP_USERNAME` and `MCP_PASSWORD` are set
+   in the process environment or local configuration. Never print them.
 3. Confirm `HOST_IP` (default `127.0.0.1`) and `GRAFANA_PORT` (default
    `3000`) in `.env` are correct: `make up_*` uploads the UDF package and
    posts config to `https://${HOST_IP}:${GRAFANA_PORT}/ts-api/...`.
@@ -151,6 +153,12 @@ Relative to `<skill-dir>`:
 - Optional `INCLUDE=validation` to add `docker-compose-validation.override.yml`
   (system-metrics dashboard + host-metric Telegraf inputs) — see
   [Enable system metrics](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/how-to-enable-system-metrics.html).
+- For MCP deployments, read `docs/user-guide/how-to-guides/use-mcp-server.md`.
+  Set `MCP_USERNAME` and `MCP_PASSWORD`, build with `MCP=true`, and use
+  `MCP=true` consistently with deployment, status, teardown, and publishing.
+  Analytics waits for authenticated `start_pipeline`; preserve the selected
+  stream/batch mode. Use verified HTTPS and trust the gateway certificate.
+  Pass `MCP=true` in the environment when running `scripts/smoke-check.sh`.
 
 ## Step 1b: Meet option prerequisites (from the user guide)
 
@@ -176,6 +184,11 @@ stopping at the first failing check. Known doc-only prerequisites:
   Function(UDF) inference on GPU** in [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html)
   (replace `localhost` with `${HOST_IP}` and `3000` with `${GRAFANA_PORT}`
   from `.env` when they differ).
+- **MCP**: username excludes `:` and contains at most 128 characters;
+  password length is 10–1024 characters. Use the example MCP client to start
+  analytics before checking output. Stopping analytics leaves ingestion
+  running; streaming input is not replayed. Continuous simulators prevent
+  one-shot input from ending before an interactive start.
 
 Never edit `.env` without the user's permission.
 

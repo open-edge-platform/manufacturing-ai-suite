@@ -24,6 +24,9 @@ guide at <https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-ma
 | `make build` | `docker compose build --pull`. Builds the data simulator images only (OPC-UA server, MQTT publisher). Builds app images only. It does not build the Time Series Analytics microservice; run `scripts/build-time-series-analytics.sh` first only when the request explicitly asks to build that microservice (SKILL.md Step 2a) |
 | `make build_copyleft_sources` | Same, plus `--build-arg COPYLEFT_SOURCES=true` |
 
+Add `MCP=true` to build the optional local MCP image.
+Use the same flag for deployment, status, teardown, and image publishing.
+
 ## Prerequisite / validation targets (auto-invoked by `up_*`)
 
 | Target | Effect |
@@ -67,6 +70,13 @@ and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
   (system-metrics Grafana dashboard + host-metric Telegraf inputs such as
   `cpu`, `mem`, `disk`, `docker`); `num_of_streams` instance scaling is not
   applied in this mode
+- `MCP=true` — adds `docker-compose-mcp.yml` and skips automatic UDF upload/config.
+  Set `MCP_USERNAME` and `MCP_PASSWORD` first.
+  Deploy with the `batch` goal to select the batch UDF.
+  Use authenticated MCP `start_pipeline` to activate analytics.
+  The server uses native Kapacitor task APIs for status and stop.
+  Read `docs/user-guide/how-to-guides/use-mcp-server.md` for verified TLS
+  and the warning about input received while analytics is stopped.
 
 ## Push / registry
 
@@ -79,3 +89,7 @@ and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
 - `HOST_IP` (default `127.0.0.1`) — host used for all Makefile API calls
 - `GRAFANA_PORT` (default `3000`)
 - `DOCKER_REGISTRY`, `IMAGE_SUFFIX` (push/versioning)
+- `MCP_USERNAME`, `MCP_PASSWORD` (MCP-only authentication; username excludes
+  `:`, maximum 128 characters; password length 10–1024 characters)
+- `TIME_SERIES_MCP_IMAGE` (optional repository, default
+  `industrial-edge-insights-time-series-mcp`, fixed tag `2026.1.0`)
