@@ -581,12 +581,30 @@ connect_node() {
   run_stage "[$name] Hermes MCP verification" hermes mcp test "$name" >/dev/null
 }
 
+ensure_user_systemd() {
+  if systemctl --user show-environment >/dev/null 2>&1; then
+    return 0
+  fi
+  local runtime_dir="/run/user/$(id -u)"
+  if test -S "$runtime_dir/bus" && test -O "$runtime_dir" && test -O "$runtime_dir/bus"; then
+    export XDG_RUNTIME_DIR="$runtime_dir"
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime_dir/bus"
+    if systemctl --user show-environment >/dev/null; then
+      log "Recovered systemd user-session environment from $runtime_dir"
+      return 0
+    fi
+  elif ! systemctl --user show-environment >/dev/null; then
+    log "No existing user-owned systemd bus socket at $runtime_dir/bus"
+  fi
+  die "systemd user services are unavailable for UID $(id -u). Run from a normal login/SSH session as the central-host user, not via sudo or a container. If needed, ask an administrator to run loginctl enable-linger for that user, then log in again."
+}
+
 stage_started=$SECONDS
 log "START: Central host prerequisites and SSH keys"
 for c in hermes ssh scp ssh-copy-id ssh-keygen curl openssl git base64 systemctl loginctl; do
   command -v "$c" >/dev/null || die "missing on this host: $c"
 done
-systemctl --user show-environment >/dev/null 2>&1 || die "systemd user services are not available on this host"
+ensure_user_systemd
 install -d -m 0700 "$HOME/.hermes" "$HOME/.ssh"
 if ! compgen -G "$HOME/.ssh/id_*.pub" >/dev/null; then
   log "Creating default SSH key (private key contents will not be logged)"
