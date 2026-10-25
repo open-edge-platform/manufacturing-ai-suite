@@ -389,9 +389,14 @@ def main():
                 f"{name}\t{recipe}\t{node['name']}\t{node['host']}\t{node['local_port']}\t{env['SKILL_NAME']}"
             )
         return 0
-    # One run per recipe: the setup script deploys all nodes of a run in parallel,
-    # after creating every Hermes profile, and serializes central-host state.
-    # Recipes run one after another because they share that central state.
+    if args.interactive and len(plan) > 1 and not args.no_deploy:
+        print(
+            "ERROR: parallel deployments cannot share an interactive terminal; "
+            "omit --interactive or select a single deployment with --node and --recipe",
+            file=sys.stderr,
+        )
+        return 2
+    # Serialize shared Hermes state changes, not the remote deployment work.
     groups = {}
     for name, recipe, node, settings in plan:
         groups.setdefault(recipe, ([], [], settings))
@@ -400,6 +405,7 @@ def main():
     results = []
     sources = {}
     with tempfile.TemporaryDirectory(prefix="fleet-inventory-") as directory:
+        prepared = []
         for index, (recipe, (names, nodes, settings)) in enumerate(groups.items()):
             name = ",".join(names)
             inventory = Path(directory) / f"{index}.yaml"
@@ -416,19 +422,46 @@ def main():
                 results.append((name, recipe, 1))
                 continue
             env.pop("SKILL_SRC", None)
+            state = Path(directory) / f"state-{index}"
+            state.mkdir(mode=0o700)
+            env["FLEET_STATE_DIR"] = str(state)
             command = ["bash", args.script, "--hosts", str(inventory)]
             if args.no_deploy:
                 command.append("--no-deploy")
             if args.interactive:
                 command.append("--interactive")
-            mode = "one at a time" if args.interactive else "in parallel"
             print(
-                f"Deploying recipe {recipe} on {name} {mode} "
+                f"Preparing recipe {recipe} on {name} "
                 f"(servers {', '.join(node['name'] for node in nodes)})",
                 flush=True,
             )
-            result = subprocess.run(command, env=env, check=False)
-            results.append((name, recipe, result.returncode))
+            result = subprocess.run(
+                command, env={**env, "FLEET_STAGE": "prepare"}, check=False
+            )
+            if result.returncode:
+                results.append((name, recipe, result.returncode))
+                continue
+            prepared.append((name, recipe, command, env))
+        running = []
+        try:
+            for name, recipe, command, env in prepared:
+                print(f"Launching deployment recipe {recipe} on {name} in parallel", flush=True)
+                process = subprocess.Popen(command, env={**env, "FLEET_STAGE": "deploy"})
+                running.append((name, recipe, command, env, process))
+            deployed = [
+                (name, recipe, command, env, process.wait())
+                for name, recipe, command, env, process in running
+            ]
+        finally:
+            for _, _, _, _, process in running:
+                if process.poll() is None:
+                    process.terminate()
+                    process.wait()
+        for name, recipe, command, env, deploy_result in deployed:
+            result = subprocess.run(
+                command, env={**env, "FLEET_STAGE": "connect"}, check=False
+            )
+            results.append((name, recipe, deploy_result or result.returncode))
     print("\nNODES\tRECIPE\tEXIT")
     for name, recipe, result in results:
         print(f"{name}\t{recipe}\t{result}")

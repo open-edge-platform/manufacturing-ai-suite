@@ -125,6 +125,15 @@ central host needs Python 3 and PyYAML (`sudo apt-get install python3-yaml`).
 The helper validates the whole inventory before making changes and dispatches
 each selected node/recipe assignment to an isolated setup run.
 
+All selected recipes are prepared first. Their deployment stages then launch
+concurrently, including different recipes such as weld and wind turbine.
+Shared central-host profile, credential, and MCP registration updates remain
+serialized to avoid configuration races. Each deployment keeps its own log
+and failure status; a failed deployment does not skip the others.
+`--interactive` is supported only for a single selected deployment. A
+multi-deployment interactive run is rejected before setup rather than silently
+switching to sequential deployment.
+
 Start with [hosts.example.yaml](hosts.example.yaml), which contains the complete
 weld recipe. Put your own recipes under `recipes`, then select them in each
 node's `deployments`. [hosts.yaml](hosts.yaml) is the working inventory.
@@ -371,7 +380,7 @@ Then continue with [section 8](#8-verify-and-operate) to start pipelines and que
 | `--node NAME`, `--recipe NAME` | Recipe inventories only: select node/recipe assignments; repeatable |
 | `--list` | Print the resolved node/deployment plan and exit without changing anything |
 | `--user NAME` | SSH user on the nodes (default `deploy`). With a hosts file, used only where the file sets no `user` |
-| `--interactive` | Deploy each node in an interactive Hermes chat instead of in parallel. Use this on the first run if approval prompts block the unattended deployment; exit each chat with `/quit` when it finishes |
+| `--interactive` | Use an interactive Hermes chat for a single selected deployment. Multi-deployment runs are rejected; omit this flag for parallel deployment. Exit the chat with `/quit` when it finishes |
 | `--no-deploy` | Prepare nodes and profiles, and register MCP servers for nodes whose app is already running, without redeploying |
 | `--skip-platform-check` | Writes `PLATFORM_CHECK=false` to the node's `.env`. For CI/validation on non-Panther Lake hardware only. With a hosts file, used only where the file sets no `skip_platform_check` |
 | `SKILL_SRC=<path>` (environment) | Use a local copy of the `multimodal-deploy` skill instead of fetching it |
@@ -671,7 +680,7 @@ fi
 
 finish() {
   local result=$?
-  if [[ -n ${LOCAL_TMP:-} ]]; then rm -rf "$LOCAL_TMP"; fi
+  if [[ -n ${LOCAL_TMP:-} && -z ${FLEET_STATE_DIR:-} ]]; then rm -rf "$LOCAL_TMP"; fi
   if (( result == 0 )); then
     log "DONE: Fleet setup (nodes=${#NAME[@]}, total=$((SECONDS - RUN_STARTED))s)"
   else
@@ -680,6 +689,18 @@ finish() {
 }
 trap finish EXIT
 log "Inventory validated: ${#NAME[@]} node(s); deploy=$DEPLOY; interactive=$INTERACTIVE"
+if $INTERACTIVE && $DEPLOY && (( ${#NAME[@]} > 1 )); then
+  die "Parallel deployments cannot share an interactive terminal; omit --interactive or select a single node"
+fi
+FLEET_STAGE=${FLEET_STAGE:-all}
+case "$FLEET_STAGE" in
+  all|prepare|deploy|connect) ;;
+  *) die "invalid fleet stage: $FLEET_STAGE" ;;
+esac
+if [[ $FLEET_STAGE != all ]]; then
+  [[ ${FLEET_RECIPE_MODE:-} == 1 && -d ${FLEET_STATE_DIR:-} ]] \
+    || die "staged execution requires a recipe inventory and state directory"
+fi
 
 rand_user() { printf 'weld%s' "$(openssl rand -base64 48 | tr -dc 'a-z' | cut -c1-8)"; }
 rand_pass() { printf '%sa7' "$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | cut -c1-22)"; }
@@ -1021,6 +1042,8 @@ ensure_user_systemd() {
   die "systemd user services are unavailable for UID $(id -u). Run from a normal login/SSH session as the central-host user, not via sudo or a container. If needed, ask an administrator to run loginctl enable-linger for that user, then log in again."
 }
 
+LOCAL_TMP=${FLEET_STATE_DIR:-$(mktemp -d)}
+if [[ $FLEET_STAGE == all || $FLEET_STAGE == prepare ]]; then
 stage_started=$SECONDS
 log "START: Central host prerequisites and SSH keys"
 for c in hermes ssh scp ssh-copy-id ssh-keygen curl openssl git base64 systemctl loginctl; do
@@ -1078,18 +1101,23 @@ PY
 fi
 log "DONE: Acquire $SKILL_NAME skill (elapsed=$((SECONDS - stage_started))s)"
 
-LOCAL_TMP=$(mktemp -d)
 run_stage "Write remote helper scripts" write_helpers
 run_stage "Install SSH tunnel service template" write_tunnel_unit
 
 # Profiles first, so they don't clone MCP credentials stored for other nodes.
 for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Configure Hermes profile" setup_profile "$i"; done
 for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Prepare node" prepare_node "$i"; done
+fi
+[[ $FLEET_STAGE != prepare ]] || exit 0
+if [[ $FLEET_STAGE == all || $FLEET_STAGE == deploy ]]; then
 if $DEPLOY; then
   run_stage "Deploy apps across fleet" deploy_all
 else
   log "SKIP: App deployment (--no-deploy); checking existing MCP servers"
 fi
+fi
+[[ $FLEET_STAGE != deploy ]] || exit 0
+ensure_user_systemd
 
 declare -A status connection_time
 rc=0
