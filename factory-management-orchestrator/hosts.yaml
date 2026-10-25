@@ -1,0 +1,133 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+recipes:
+  weld:
+    source_delivery: central_copy
+    repository: https://github.com/vkb1/manufacturing-ai-suite.git
+    ref: feature/vkb1/add-mcp-server-ts
+    remote_root: manufacturing-ai-suite
+    app_dir: industrial-edge-insights-multimodal
+    skill:
+      name: multimodal-deploy
+      path: industrial-edge-insights-multimodal/.github/skills/multimodal-deploy
+    prompt: >-
+      In ~/manufacturing-ai-suite/industrial-edge-insights-multimodal, Meet prerequisites
+      (ignore accepting licenses for downloading models from HF), build time series analytics
+      microservice, build and deploy (pull latest weekly tags of intel/ images) the agentic
+      variant with the MCP server (make up_agentic MCP=true), then run the smoke check.
+      Do not edit .env; if a required credential is missing, stop and name it.
+      Do not start or stop pipelines.
+    approval_policy: >-
+      APPROVE make build, make up_agentic, make down and make status (with or without MCP=true)
+      and .github/skills/multimodal-deploy/scripts/smoke-check.sh when run from
+      ~/manufacturing-ai-suite/industrial-edge-insights-multimodal.
+      ESCALATE anything that edits .env, uses sudo, or touches paths outside that directory.
+    environment:
+      generate_users:
+        - INFLUXDB_USERNAME
+        - VISUALIZER_GRAFANA_USER
+        - MTX_WEBRTCICESERVERS2_0_USERNAME
+        - S3_STORAGE_USERNAME
+        - SEAWEEDFS_WEB_AUTH_USER
+        - MCP_USERNAME
+      generate_passwords:
+        - INFLUXDB_PASSWORD
+        - VISUALIZER_GRAFANA_PASSWORD
+        - MTX_WEBRTCICESERVERS2_0_PASSWORD
+        - S3_STORAGE_PASSWORD
+        - SEAWEEDFS_WEB_AUTH_PASSWORD
+        - MCP_PASSWORD
+      set:
+        HOST_IP: "127.0.0.1"
+    mcp:
+      scheme: https
+      port: 3000
+      path: /mcp
+      certificate:
+        container: nginx_proxy
+        path: /opt/nginx/certs/cert.pem
+      auth:
+        type: basic
+        username_key: MCP_USERNAME
+        password_key: MCP_PASSWORD
+      tools:
+        - describe
+        - list_insights_data
+        - explain
+        - run_agent
+        - get_run_results
+        - start_pipeline
+        - stop_pipeline
+
+  wind_turbine:
+    source_delivery: central_copy
+    repository: https://github.com/vkb1/manufacturing-ai-suite.git
+    ref: feature/vkb1/add-mcp-server-ts
+    remote_root: manufacturing-ai-suite
+    app_dir: industrial-edge-insights-time-series
+    skill:
+      name: time-series-deploy
+      path: industrial-edge-insights-time-series/.github/skills/time-series-deploy
+    prompt: >-
+      In ~/manufacturing-ai-suite/industrial-edge-insights-time-series, follow
+      time-series-deploy to meet prerequisites, build the sample app with MCP
+      (make build MCP=true), deploy wind-turbine-anomaly-detection with MQTT
+      ingestion and MCP (make up_mqtt_ingestion app=wind-turbine-anomaly-detection
+      MCP=true), then run the skill smoke check with MCP=true. Do not edit .env;
+      if a required credential or configuration is missing, stop and report it.
+      Do not start or stop the analytics pipeline.
+    approval_policy: >-
+      APPROVE make build MCP=true, make status MCP=true and
+      .github/skills/time-series-deploy/scripts/smoke-check.sh (with MCP=true)
+      only in ~/manufacturing-ai-suite/industrial-edge-insights-time-series.
+      ESCALATE make up_mqtt_ingestion, make down, any .env edits, analytics
+      pipeline start/stop operations, sudo, and all commands outside that directory.
+    environment:
+      generate_users:
+        - INFLUXDB_USERNAME
+        - VISUALIZER_GRAFANA_USER
+        - MCP_USERNAME
+      generate_passwords:
+        - INFLUXDB_PASSWORD
+        - VISUALIZER_GRAFANA_PASSWORD
+        - MCP_PASSWORD
+      set:
+        HOST_IP: "127.0.0.1"
+    mcp:
+      scheme: https
+      port: 3000
+      path: /mcp
+      certificate:
+        container: nginx
+        path: /opt/nginx/certs/cert.pem
+      auth:
+        type: basic
+        username_key: MCP_USERNAME
+        password_key: MCP_PASSWORD
+      tools:
+        - describe
+        - get_pipeline_status
+        - start_pipeline
+        - stop_pipeline
+        - list_sources
+        - list_insights_data
+        - get_anomaly_summary
+        - get_processing_metrics
+
+defaults:
+  user: deploy
+  port: 22
+  identity_file: ~/.ssh/weld_fleet_ed25519   # created if missing
+nodes:
+  - name: node1
+    host: 10.223.23.38 
+    deployments:
+      - recipe: weld
+        name: node1
+        local_port: 13001
+  - name: node2
+    host: 10.223.23.72
+    deployments:
+      - recipe: wind_turbine
+        name: node2
+        local_port: 13002
