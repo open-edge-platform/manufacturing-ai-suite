@@ -35,8 +35,8 @@ improving both accuracy and efficiency.
   timely intervention.
 - Extensible pipeline: Supports integration with additional data sources
   and models.
-- Agentic workflow: Analyzes fusion results, makes policy decisions, and creates
-  maintenance tickets.
+- [Agentic workflow](./how-to-guides/how-to-deploy-agent-workflow.md): Analyzes
+  fusion results, makes policy decisions, and creates maintenance tickets.
 
 [The application](./weld-defect-detection/index.md) utilizes camera-based
 visual inspection and sensor data analysis to identify anomalies in welding data.

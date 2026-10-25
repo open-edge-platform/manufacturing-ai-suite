@@ -75,7 +75,7 @@ Each suite directory has its own `README.md` with suite-level context. Each sub-
 
 ## License Conventions
 
-**All generated source files must include both lines below** using language-appropriate comment syntax:
+**All generated program source files must include both lines below** using language-appropriate comment syntax. This covers code, scripts, and build or deployment files such as Python, C/C++, JavaScript/TypeScript, shell, Makefiles, Dockerfiles, and YAML. Do not add these headers to documentation files such as Markdown (`.md`) or plain text.
 
 ```
 # SPDX-FileCopyrightText: (C) <YEAR> Intel Corporation
