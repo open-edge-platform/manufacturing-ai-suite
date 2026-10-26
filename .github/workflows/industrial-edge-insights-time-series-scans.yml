@@ -23,7 +23,6 @@ on:
         - trivy-image-scan
         - trivy-config-scan
         - trivy-dockerfile-scan
-        - trivy-helm-scan
         - bandit-scan
         - virus-scan
         - dbs-scan
@@ -234,13 +233,15 @@ jobs:
             S3_STORAGE_PASSWORD=$(openssl rand -hex 10)
             SEAWEEDFS_WEB_AUTH_USER=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
             SEAWEEDFS_WEB_AUTH_PASSWORD=$(openssl rand -hex 10)
+            MCP_USERNAME=$(tr -dc 'a-zA-Z' < /dev/urandom | head -c 8)
+            MCP_PASSWORD=$(openssl rand -hex 10)
             HOST_IP=$(hostname -I | awk '{print $1}')
 
             echo "INFLUXDB_USERNAME: $INFLUXDB_USERNAME"
             echo "VISUALIZER_GRAFANA_USER: $VISUALIZER_GRAFANA_USER"
             echo "MTX_WEBRTCICESERVERS2_0_USERNAME: $MTX_WEBRTCICESERVERS2_0_USERNAME"
             echo "S3_STORAGE_USERNAME: $S3_STORAGE_USERNAME"
-            
+            echo "MCP_USERNAME: $MCP_USERNAME"
             if [[ "$APPLICATION" == "time-series" || "$APPLICATION" == "both" ]]; then
               echo "Building Time Series Sample app and scanning docker images"
               cd $CWD/industrial-edge-insights-time-series/
@@ -297,6 +298,8 @@ jobs:
               sed -i "s/S3_STORAGE_PASSWORD=.*/S3_STORAGE_PASSWORD=${S3_STORAGE_PASSWORD}/g" .env
               sed -i "s/SEAWEEDFS_WEB_AUTH_USER=.*/SEAWEEDFS_WEB_AUTH_USER=${SEAWEEDFS_WEB_AUTH_USER}/g" .env
               sed -i "s/SEAWEEDFS_WEB_AUTH_PASSWORD=.*/SEAWEEDFS_WEB_AUTH_PASSWORD=${SEAWEEDFS_WEB_AUTH_PASSWORD}/g" .env
+              sed -i "s/MCP_USERNAME=.*/MCP_USERNAME=${MCP_USERNAME}/g" .env
+              sed -i "s/MCP_PASSWORD=.*/MCP_PASSWORD=${MCP_PASSWORD}/g" .env
               sed -i "s/HOST_IP=.*/HOST_IP=${HOST_IP}/g" .env
               make build
               make up
@@ -312,10 +315,9 @@ jobs:
               done
 
               IMAGE_SUFFIX=$(grep -m1 '^IMAGE_SUFFIX=' .env | cut -d'=' -f2- | tr -d '"\r' | xargs)
-              WORKBENCH_INSIGHTS_IMAGE=$(grep -m1 '^WORKBENCH_INSIGHTS_IMAGE=' .env | cut -d'=' -f2- | tr -d '"\r' | xargs)
               MULTIMODAL_AGENTIC_UI_IMAGE=$(grep -m1 '^MULTIMODAL_AGENTIC_UI_IMAGE=' .env | cut -d'=' -f2- | tr -d '"\r' | xargs)
-              if [[ -n "$IMAGE_SUFFIX" && -n "$WORKBENCH_INSIGHTS_IMAGE" && -n "$MULTIMODAL_AGENTIC_UI_IMAGE" ]]; then
-                manual_images=("${WORKBENCH_INSIGHTS_IMAGE}:${IMAGE_SUFFIX}" "${MULTIMODAL_AGENTIC_UI_IMAGE}:${IMAGE_SUFFIX}")
+              if [[ -n "$IMAGE_SUFFIX" && -n "$MULTIMODAL_AGENTIC_UI_IMAGE" ]]; then
+                manual_images=("${MULTIMODAL_AGENTIC_UI_IMAGE}:${IMAGE_SUFFIX}")
                 for image in "${manual_images[@]}"; do
                   if docker image inspect "$image" >/dev/null 2>&1; then
                     image_prefix=$(echo "$image" | sed 's|/|-|g' | cut -d':' -f1)
@@ -325,7 +327,7 @@ jobs:
                   fi
                 done
               else
-                echo "IMAGE_SUFFIX, WORKBENCH_INSIGHTS_IMAGE, or MULTIMODAL_AGENTIC_UI_IMAGE missing in .env; skipping manual image additions"
+                echo "IMAGE_SUFFIX or MULTIMODAL_AGENTIC_UI_IMAGE missing in .env; skipping manual image additions"
               fi
 
 
@@ -358,99 +360,6 @@ jobs:
             industrial-edge-insights-time-series/trivy-image-scan*
             industrial-edge-insights-multimodal/trivy-image-scan*
 
-  trivy-config-helm-scan:
-    if: ${{ (inputs.target == 'trivy-config-scan') || (inputs.target == 'trivy-helm-scan') || (inputs.target == 'all-scans') }}
-    permissions:
-      contents: read
-      packages: read          # needed for actions/checkout
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false  
-      - name: Install Trivy from Aqua Security APT repo
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gnupg lsb-release wget apt-transport-https curl jq
-          curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
-          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -cs) main" | \
-          sudo tee /etc/apt/sources.list.d/trivy.list > /dev/null
-          sudo apt-get update
-          sudo apt-get install -y trivy
-      - name: Install Trivy
-        continue-on-error: true
-        shell: bash
-        run: |
-          pwd
-          trivy --version
-          which trivy
-          trivy image --download-db-only
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o trivy-html.tpl
-          cat << 'EOF' > csv.tpl
-          {{ range . }}
-          Trivy Vulnerability Scan Results ({{- .Target -}})
-          VulnerabilityID,Severity,CVSS Score,Title,Library,Vulnerable Version,Fixed Version,Information URL,Triage Information
-          {{ range .Vulnerabilities }}
-              {{- .VulnerabilityID }},
-              {{- .Severity }},
-              {{- range $key, $value := .CVSS }}
-                  {{- if (eq $key "nvd") }}
-                      {{- .V3Score -}}
-                  {{- end }}
-              {{- end }},
-              {{- quote .Title }},
-              {{- quote .PkgName }},
-              {{- quote .InstalledVersion }},
-              {{- quote .FixedVersion }},
-              {{- .PrimaryURL }}
-          {{ else -}}
-              No vulnerabilities found at this time.
-          {{ end }}
-          Trivy Dependency Scan Results ({{ .Target }})
-          ID,Name,Version,Notes
-          {{ range .Packages -}}
-              {{- quote .ID }},
-              {{- quote .Name }},
-              {{- quote .Version }}
-          {{ else -}}
-              No dependencies found at this time.
-          {{ end }}
-          {{ end }}
-          EOF
-
-      - name: Trivy config scan for helm charts
-        env:
-          APPLICATION: ${{ inputs.application }}
-        run: |
-          if [[ "$APPLICATION" == "time-series" || "$APPLICATION" == "both" ]]; then
-            cd industrial-edge-insights-time-series/
-            make gen_helm_charts
-            cd helm
-            INFLUXDB_USERNAME=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
-            INFLUXDB_PASSWORD=$(openssl rand -hex 10)
-            VISUALIZER_GRAFANA_USER=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
-            VISUALIZER_GRAFANA_PASSWORD=$(openssl rand -hex 10)
-
-            sed -i "s/INFLUXDB_USERNAME:.*/INFLUXDB_USERNAME: ${INFLUXDB_USERNAME}/g" values.yaml
-            sed -i "s/INFLUXDB_PASSWORD:.*/INFLUXDB_PASSWORD: ${INFLUXDB_PASSWORD}/g" values.yaml
-            sed -i "s/VISUALIZER_GRAFANA_USER:.*/VISUALIZER_GRAFANA_USER: ${VISUALIZER_GRAFANA_USER}/g" values.yaml
-            sed -i "s/VISUALIZER_GRAFANA_PASSWORD:.*/VISUALIZER_GRAFANA_PASSWORD: ${VISUALIZER_GRAFANA_PASSWORD}/g" values.yaml
-
-            trivy config . >> trivy-timeseries-mqtt-helm.txt
-
-            sed -i "s/TELEGRAF_INPUT_PLUGIN:.*/TELEGRAF_INPUT_PLUGIN: opcua/g" values.yaml
-            trivy config . >> trivy-timeseries-opcua-helm.txt
-
-          fi
-          
-      - name: Upload Scan artifact to Github
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v7.0.1
-        with:
-          name: Trivy Report - Config scan for Helm
-          path: |
-            industrial-edge-insights-time-series/helm/trivy-timeseries-*.txt
-      
   trivy-config-time-series-dockerfile-scan:
     if: ${{ ((inputs.target == 'trivy-config-scan') || (inputs.target == 'trivy-dockerfile-scan') || (inputs.target == 'all-scans')) && ((inputs.application == 'time-series') || (inputs.application == 'both')) }}
     permissions:
@@ -491,12 +400,12 @@ jobs:
           - dockerfile-path: industrial-edge-insights-multimodal/fusion-analytics/Dockerfile
             output-report-path: trivy-fusion-analytics-dockerfile.json
             scan-name: Multimodal Fusion Analytics Dockerfile
-          - dockerfile-path: industrial-edge-insights-multimodal/insights-workbench/Dockerfile
-            output-report-path: trivy-insights-workbench-dockerfile.json
-            scan-name: Multimodal Insights Workbench Dockerfile
           - dockerfile-path: industrial-edge-insights-multimodal/ui-service/Dockerfile
             output-report-path: trivy-multimodal-ui-dockerfile.json
             scan-name: Multimodal UI Service Dockerfile
+          - dockerfile-path: industrial-edge-insights-multimodal/mcp-server/Dockerfile
+            output-report-path: trivy-mcp-server-dockerfile.json
+            scan-name: Multimodal MCP Server Dockerfile
     uses: open-edge-platform/edge-ai-libraries/.github/workflows/trivy-config-mode.yaml@e6e04af3dbca805db9118b85a22ad2998f7eec39
     with:
       dockerfile-path: ${{ matrix.dockerfile-path }}
@@ -730,6 +639,8 @@ jobs:
           S3_STORAGE_PASSWORD=$(openssl rand -hex 10)
           SEAWEEDFS_WEB_AUTH_USER=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
           SEAWEEDFS_WEB_AUTH_PASSWORD=$(openssl rand -hex 10)
+          MCP_USERNAME=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
+          MCP_PASSWORD=$(openssl rand -hex 10)
           HOST_IP=$(hostname -I | awk '{print $1}')
 
           sed -i "s/INFLUXDB_USERNAME=.*/INFLUXDB_USERNAME=${INFLUXDB_USERNAME}/g" .env
@@ -742,6 +653,8 @@ jobs:
           sed -i "s/S3_STORAGE_PASSWORD=.*/S3_STORAGE_PASSWORD=${S3_STORAGE_PASSWORD}/g" .env
           sed -i "s/SEAWEEDFS_WEB_AUTH_USER=.*/SEAWEEDFS_WEB_AUTH_USER=${SEAWEEDFS_WEB_AUTH_USER}/g" .env
           sed -i "s/SEAWEEDFS_WEB_AUTH_PASSWORD=.*/SEAWEEDFS_WEB_AUTH_PASSWORD=${SEAWEEDFS_WEB_AUTH_PASSWORD}/g" .env
+          sed -i "s/MCP_USERNAME=.*/MCP_USERNAME=${MCP_USERNAME}/g" .env
+          sed -i "s/MCP_PASSWORD=.*/MCP_PASSWORD=${MCP_PASSWORD}/g" .env
           sed -i "s/HOST_IP=.*/HOST_IP=${HOST_IP}/g" .env
 
           make build

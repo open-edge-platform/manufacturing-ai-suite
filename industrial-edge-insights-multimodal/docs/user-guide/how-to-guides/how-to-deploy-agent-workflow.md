@@ -1,3 +1,8 @@
+```{eval-rst}
+.. meta::
+   :description: Deploy agents to analyze fusion results, make policy decisions, and create maintenance tickets.
+```
+
 # Deploy the Agentic Workflow for the Multimodal Weld Defect Detection Sample Application
 
 This section shows how to deploy the multimodal sample application with the agentic workflow enabled. The multimodal application produces fusion results, and when new fusion results arrive, the meta-agent in the agentic stack is triggered. The meta-agent, powered by an LLM served through OpenVINO™ model server, produces structured policy decisions, root-cause analysis, and maintenance tickets.
@@ -49,7 +54,7 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
 
 ## Deploy the Agentic Workflow
 
-Run the full agentic stack (downloads the LLM model first, then starts all containers):
+Run the agentic stack (downloads the LLM model first, then starts the containers):
 
 > [!NOTE]
 >
@@ -60,6 +65,12 @@ Run the full agentic stack (downloads the LLM model first, then starts all conta
 ```bash
 cd industrial-edge-insights-multimodal
 make up_agentic
+```
+
+To include the MCP server, set `MCP_USERNAME` and `MCP_PASSWORD` in `.env`, then run:
+
+```bash
+make up_agentic MCP=true
 ```
 
 For a fresh build before deployment:
@@ -149,7 +160,7 @@ Agent reasoning prompts are in `configs/agentic/prompts/weld-quality-monitoring.
 
 2. Check the output in Grafana dashboard:
 
-   - Use the link `https://127.0.0.1:3000` to open Grafana dashboard in a browser, preferably the Chrome browser. For Helm deployment, use the link `https://127.0.0.1:30001`.
+   - Use the link `https://127.0.0.1:3000` to open Grafana dashboard in a browser, preferably the Chrome browser.
 
    - Log in to Grafana dashboard using the `VISUALIZER_GRAFANA_USER` and `VISUALIZER_GRAFANA_PASSWORD` values
      from the `.env` file:

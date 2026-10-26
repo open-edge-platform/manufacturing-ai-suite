@@ -365,6 +365,21 @@ async def detections_page(
         params["min_confidence"] = parsed_confidence
 
     async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        labels_loaded = False
+        try:
+            labels_r = await client.get(f"{_STORAGE_URL}/detections/labels")
+            if labels_r.status_code == 200:
+                labels = labels_r.json()
+                labels_loaded = True
+            else:
+                labels = []
+        except Exception:
+            labels = []
+
+        if labels_loaded and label not in labels and label:
+            label = None
+            params.pop("label", None)
+
         try:
             r = await client.get(f"{_STORAGE_URL}/detections", params=params)
             detections = r.json() if r.status_code == 200 else []
@@ -384,6 +399,7 @@ async def detections_page(
             "use_case_id": _USE_CASE_ID,
             "detections": detections,
             "filter_label": label or "",
+            "labels": labels,
             "filter_confidence": parsed_confidence if parsed_confidence is not None else "",
             "filter_limit": limit,
             "total_count": total_count,

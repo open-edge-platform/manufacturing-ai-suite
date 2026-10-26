@@ -26,7 +26,6 @@ APM_API_KEY = os.getenv("APM_API_KEY", "")
 API_PORT = int(os.getenv("API_PORT", "8080"))
 FUSION_MEASUREMENT = "fusion_result"
 
-# Label allow-list: only alphanumeric, underscore, hyphen, dot, and space
 _SAFE_LABEL_RE = re.compile(r"^[A-Za-z0-9_\-\. ]+$")
 
 _api_start_time = time.time()
@@ -59,12 +58,12 @@ def require_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Ke
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
-def _influx_points(query: str) -> list:
+def _influx_points(query: str, bind_params: dict | None = None) -> list:
     """Execute an InfluxQL query and return results as a list of dicts."""
     if _influx_client is None:
         raise HTTPException(status_code=503, detail="InfluxDB client not initialized")
     try:
-        result = _influx_client.query(query)
+        result = _influx_client.query(query, bind_params=bind_params)
         data = []
         for (measurement, tags), points in result.items():
             fc = (tags or {}).get("fusion_classification", "UNKNOWN")
@@ -104,10 +103,14 @@ def get_detections(
     global _api_request_count
     _api_request_count += 1
 
-    logger.info(f"Detections request: label={label}, min_confidence={min_confidence}, min_id={min_id}, max_id={max_id}, limit={limit}")
+    logger.info("Detections request: label=%r, min_confidence=%s, min_id=%s, max_id=%s, limit=%s", label, min_confidence, min_id, max_id, limit)
     conditions = []
+    bind_params = {}
     if label is not None:
-        conditions.append(f"fusion_classification = '{label}'")
+        if not _SAFE_LABEL_RE.fullmatch(label):
+            raise HTTPException(status_code=400, detail="Invalid label")
+        conditions.append("fusion_classification = $label")
+        bind_params["label"] = label
     if min_confidence is not None:
         conditions.append(f"fusion_confidence >= {min_confidence}")
     if min_id is not None:
