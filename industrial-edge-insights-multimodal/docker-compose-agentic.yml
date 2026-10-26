@@ -67,7 +67,6 @@ services:
     image: openvino/model_server:2026.4.1-gpu
     container_name: apm-llm
     hostname: apm-llm
-    user: "${HOST_UID}:${HOST_GID}"
     # The mounted /model directory contains a pre-converted mediapipe graph
     # (graph.pbtxt) produced by scripts/download_llm_model.sh via the
     # model-download service — device/pipeline_type are already baked into it,
@@ -123,7 +122,6 @@ services:
     image: ${DOCKER_REGISTRY}${MODEL_DOWLOADER_IMAGE}:${DEPS_IMAGE_SUFFIX:-2026.2.0}
     container_name: apm-model-download
     hostname: model-download
-    user: "${HOST_UID}:${HOST_GID}"
     # The model-download entrypoint only accepts the plugin list via the
     # --plugins CLI flag — it does not read an ENABLED_PLUGINS env var.
     command: ["--plugins", "${MODEL_DOWNLOAD_PLUGINS:-huggingface,openvino}"]

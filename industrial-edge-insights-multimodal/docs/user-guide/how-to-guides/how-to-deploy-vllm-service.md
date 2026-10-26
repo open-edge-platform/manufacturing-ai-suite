@@ -32,11 +32,6 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
 
 ## Download Models
 
-Run model staging and `make` as the same non-root user: Make runs vLLM, OVMS, and
-the model-download service with that user's UID:GID. For direct Docker Compose
-commands, first run `export HOST_UID="$(id -u)" HOST_GID="$(id -g)"`. If the model
-directories were created by another user, repair their ownership; do not use `chmod 777`.
-
 This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Qwen3.5-2B fine-tuned LoRA` adapter.
 
 1. Review and accept the [Unsloth Qwen3.5-2B license](https://huggingface.co/unsloth/Qwen3.5-2B/blob/main/LICENSE) before downloading.

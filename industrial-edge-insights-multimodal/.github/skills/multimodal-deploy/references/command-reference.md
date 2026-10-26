@@ -56,7 +56,7 @@ deployment procedures, use the app's published user guide at
 
 | Target | Effect |
 |---|---|
-| `make download_model` | Starts the `model-download` service, polls `http://${HOST_IP}:8200/api/v1/models/results` until ready, requests download/conversion of `LLM_MODEL_NAME` (`LLM_DEVICE`, `LLM_WEIGHT_FORMAT`), then polls the job until completed (up to 600 × 5s) |
+| `make download_model` | Gives the downloader container's user (UID 1000) ownership of `configs/agentic/models` via a short-lived root container (no `sudo`), starts the `model-download` service, polls `http://${HOST_IP}:8200/api/v1/models/results` until ready, requests download/conversion of `LLM_MODEL_NAME` (`LLM_DEVICE`, `LLM_WEIGHT_FORMAT`), then polls the job until completed (up to 600 × 5s) |
 | `make wait_for_tsam` | Polls `https://${HOST_IP}:3000/ts-api/health` (port `3000` is hard-coded, not `GRAFANA_PORT`) until the Time-Series Analytics microservice responds |
 | `make upload_tar_file` | Builds `configs/time-series-analytics-microservice/weld_anomaly_detector.tar` and uploads it to `https://${HOST_IP}:${GRAFANA_PORT}/ts-api/udfs/package`, then runs `post_config` |
 | `make post_config` | Posts `configs/time-series-analytics-microservice/config.json` to `https://${HOST_IP}:${GRAFANA_PORT}/ts-api/config` |
@@ -92,10 +92,6 @@ Example client: `mcp-server/example/example_client.py` (see
 `mcp-server/example/README.md`).
 
 ## Key env vars (`.env`)
-
-Make exports `HOST_UID`/`HOST_GID` (the invoking user) for vLLM, OVMS, and model
-download; export them yourself for direct Compose. `download_model` requires UID 1000.
-Never `chmod 777` model directories; repair ownership instead.
 
 - `HOST_IP` (default `127.0.0.1`; must be IPv4)
 - `GRAFANA_PORT` (default `3000`)

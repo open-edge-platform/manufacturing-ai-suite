@@ -52,9 +52,6 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
 
 2. Download the Vision-Language Model (VLM) model by following the [guide](./how-to-deploy-vllm-service.md#download-models).
 
-`make download_model` runs the downloader as the deploying user, whose UID must be
-1000 because the image keeps its plugin state in `/opt` owned by UID 1000.
-
 ## Deploy the Agentic Workflow
 
 Run the agentic stack (downloads the LLM model first, then starts the containers):

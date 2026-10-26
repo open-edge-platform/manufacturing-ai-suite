@@ -72,8 +72,6 @@ raw commands ad hoc.
 - `MCP_USERNAME/PASSWORD` — MCP server Basic auth for `start_pipeline` and
   `stop_pipeline`; empty by default, validated only with `MCP=true`
 - `DOCKER_REGISTRY`, `IMAGE_SUFFIX`, `WEEKLY_BUILD_DATE` — push/versioning
-- `HOST_UID`, `HOST_GID` — exported by Make (invoking user) for vLLM, OVMS, and model
-  download; export them for direct Compose. Repair model-directory ownership; never `chmod 777`.
 
 ## Useful Commands
 

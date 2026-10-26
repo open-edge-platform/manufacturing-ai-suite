@@ -12,14 +12,12 @@ services:
     restart: unless-stopped
     shm_size: ${VLLM_SHM_SIZE}
     read_only: true
-    user: "${HOST_UID}:${HOST_GID}"
+    user: "1000:1000"
     devices:
       # Following devices under /dev filesystem will be needed based on usecase
       # dri - GPU
     - "${DRI_MOUNT_PATH:-/dev/null}:/dev/dri"
     group_add:
-    - "${RENDER_GROUP_ID:-1002}"
-    - "${VIDEO_GROUP_ID:-44}"
     # render group ID for ubuntu 20.04 host OS
     - "109"
     # render group ID for ubuntu 22.04 host OS
@@ -151,4 +149,3 @@ volumes:
     driver_opts:
       type: tmpfs
       device: tmpfs
-      o: "uid=${HOST_UID},gid=${HOST_GID},mode=0700"
