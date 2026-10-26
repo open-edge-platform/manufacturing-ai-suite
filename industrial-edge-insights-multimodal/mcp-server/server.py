@@ -366,4 +366,4 @@ async def http_explain(request: Request) -> JSONResponse:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True)
+    mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True)  # nosec B104 - required for other Compose services to reach the container listener
