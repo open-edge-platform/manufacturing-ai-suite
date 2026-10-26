@@ -78,7 +78,8 @@ recipes:
       path: industrial-edge-insights-time-series/.github/skills/time-series-deploy
     prompt: >-
       In ~/manufacturing-ai-suite/industrial-edge-insights-time-series, follow
-      time-series-deploy to meet prerequisites, build the sample app with MCP
+      time-series-deploy to meet prerequisites, build time series analytics
+      microservice, build the sample app with MCP
       (make build MCP=true), deploy wind-turbine-anomaly-detection with MQTT
       ingestion and MCP (make up_mqtt_ingestion app=wind-turbine-anomaly-detection
       MCP=true), then run the skill smoke check with MCP=true. Do not edit .env;
