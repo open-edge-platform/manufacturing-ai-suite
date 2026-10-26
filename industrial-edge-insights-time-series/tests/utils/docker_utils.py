@@ -54,9 +54,9 @@ from common_utils import assert_condition
 try:
     import security_utils
     SECURITY_UTILS_AVAILABLE = True
-except ImportError:
+except ImportError as ex:
     SECURITY_UTILS_AVAILABLE = False
-    logger.warning("security_utils not available, some functions may be limited")
+    logger.warning("security_utils not available, some functions may be limited: %s", ex)
 
 HOST_IP = common_utils.get_system_ip()
 SEAWEEDFS_HTTP_STATUS_MARKER = "\n__SEAWEEDFS_HTTP_STATUS__:"
@@ -408,8 +408,8 @@ def count_running_containers_with_prefix(prefix):
         )
         names = [n for n in result.stdout.splitlines() if n.startswith(prefix)]
         return len(names)
-    except (OSError, subprocess.SubprocessError) as e:
-        logger.warning(f"count_running_containers_with_prefix({prefix}) failed: {e}")
+    except (OSError, subprocess.SubprocessError) as ex:
+        logger.warning("count_running_containers_with_prefix(%s) failed: %s", prefix, ex)
         return 0
 
 
@@ -1406,10 +1406,10 @@ def check_logs_for_pattern(container_name, pattern_type, timeout=300, interval=1
                 ["docker", "logs", "--since", f"{since_seconds}s", container_name],
                 capture_output=True, text=True, timeout=cli_timeout,
             )
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as ex:
             logger.warning(
                 f"docker logs for {container_name} did not return in {cli_timeout}s; "
-                f"will retry on next iteration"
+                f"will retry on next iteration: {ex}"
             )
             time.sleep(min(interval, max(0, remaining)))
             continue
@@ -1876,8 +1876,8 @@ def _kapacitor_task_alert_mode_matches(alert_mode):
         if alert_mode == "mqtt":
             return ("my_mqtt_broker" in body) and ("opcua_alerts" not in body)
         return ("opcua_alerts" in body) and ("my_mqtt_broker" not in body)
-    except Exception as exc:
-        logger.warning(f"[reset_loaded_udf_to] Kapacitor introspection failed: {exc}")
+    except Exception as ex:
+        logger.warning("[reset_loaded_udf_to] Kapacitor introspection failed: %s", ex)
         return False
 
 
@@ -2432,8 +2432,8 @@ def _check_built_image_sizes(size_threshold):
             else:
                 logger.info(f"✓ Image {image} passed size check: {size_mb:.2f}MB <= {size_threshold}MB")
 
-        except subprocess.CalledProcessError as e:
-            logger.warning(f"Could not inspect image {image}: {e}")
+        except subprocess.CalledProcessError as ex:
+            logger.warning("Could not inspect image %s: %s", image, ex)
             continue
         except Exception as e:
             logger.error(f"Error checking size for image {image}: {e}")
@@ -2927,8 +2927,8 @@ def setup_mqtt_alerts_docker(sample_app=constants.WIND_SAMPLE_APP):
         # Always return to original directory
         try:
             os.chdir(original_dir)
-        except Exception:
-            logger.warning("Could not restore the original working directory", exc_info=True)
+        except Exception as ex:
+            logger.warning("Could not restore the original working directory: %s", ex)
 
 def invoke_make_up(measure_time=False):
     """
@@ -3265,8 +3265,8 @@ def parse_fusion_decision_logs(fusion_log_samples):
                         'fusion': fused_decision
                     })
 
-            except (IndexError, ValueError) as e:
-                logger.warning(f"Could not parse fusion log line: {line[:100]}... Error: {e}")
+            except (IndexError, ValueError) as ex:
+                logger.warning("Could not parse fusion log line: %s... Error: %s", line[:100], ex)
                 continue
 
     logger.info(f"Analyzed {len(decision_patterns)} fusion decisions from sample logs")
@@ -3799,8 +3799,8 @@ def check_multimodal_mqtt_topic_data(topic, broker_host="localhost", broker_port
         try:
             client.loop_stop()
             client.disconnect()
-        except Exception:
-            logger.warning("Could not stop MQTT client after a failed check", exc_info=True)
+        except Exception as ex:
+            logger.warning("Could not stop MQTT client after a failed check: %s", ex)
         return False
 
 
@@ -4232,8 +4232,8 @@ def check_system_gpu_devices():
                 if any("intel" in line.lower() for line in vga_lines):
                     gpu_devices.append("Intel iGPU")
                     logger.info("Intel iGPU detected via lspci")
-        except (OSError, subprocess.SubprocessError) as exc:
-            logger.warning("Could not detect GPU with lspci", exc_info=exc)
+        except (OSError, subprocess.SubprocessError) as ex:
+            logger.warning("Could not detect GPU with lspci: %s", ex)
 
         # Method 2: Check /dev/dri devices
         try:
@@ -4242,8 +4242,8 @@ def check_system_gpu_devices():
                 if dri_devices:
                     gpu_devices.append(f"DRM devices: {dri_devices}")
                     logger.info(f"DRM GPU devices found: {dri_devices}")
-        except OSError as exc:
-            logger.warning("Could not inspect /dev/dri", exc_info=exc)
+        except OSError as ex:
+            logger.warning("Could not inspect /dev/dri: %s", ex)
 
         # Method 3: Check for GPU in Docker containers
         try:
@@ -4256,8 +4256,8 @@ def check_system_gpu_devices():
             if result.returncode == 0:
                 gpu_devices.append("Docker GPU access available")
                 logger.info("Docker GPU device access confirmed")
-        except (OSError, subprocess.SubprocessError) as exc:
-            logger.warning("Could not verify Docker GPU access", exc_info=exc)
+        except (OSError, subprocess.SubprocessError) as ex:
+            logger.warning("Could not verify Docker GPU access: %s", ex)
 
         return gpu_devices
 
@@ -4304,8 +4304,8 @@ def monitor_gpu_utilization(duration=30):
                     "monitoring_duration": duration,
                     "tool": "intel_gpu_top"
                 }
-        except Exception:
-            logger.warning("intel_gpu_top is unavailable", exc_info=True)
+        except Exception as ex:
+            logger.warning("intel_gpu_top is unavailable: %s", ex)
 
         # Fallback: Check container resource usage
         try:
@@ -4316,8 +4316,8 @@ def monitor_gpu_utilization(duration=30):
                     "monitoring_duration": duration,
                     "tool": "container_stats"
                 }
-        except Exception:
-            logger.warning("Could not read fallback container GPU statistics", exc_info=True)
+        except Exception as ex:
+            logger.warning("Could not read fallback container GPU statistics: %s", ex)
 
         logger.warning("GPU monitoring tools not available")
         return None
@@ -5333,8 +5333,8 @@ def check_s3_image_file_size(img_filename, bucket_path=None):
                     size_str = line.split(':')[1].strip().replace('\r', '')
                     content_length = int(size_str)
                     break
-                except (IndexError, ValueError) as e:
-                    logger.warning(f"Could not parse content-length from line: {line} - {e}")
+                except (IndexError, ValueError) as ex:
+                    logger.warning("Could not parse content-length from line: %s - %s", line, ex)
 
         is_empty = content_length <= 0
 
@@ -5703,9 +5703,9 @@ def execute_influxdb_commands_multimodal(container_name="ia-influxdb", database=
                     elif line.startswith("INFLUXDB_PASSWORD="):
                         influxdb_password = line.split("=", 1)[1]
             logger.info(f"Loaded InfluxDB credentials from multimodal .env: {multimodal_env_path}")
-        except FileNotFoundError:
+        except FileNotFoundError as ex:
             logger.warning(f"Multimodal .env not found at {multimodal_env_path}; "
-                           f"falling back to time-series .env")
+                           f"falling back to time-series .env: {ex}")
 
         if not influxdb_username or not influxdb_password:
             influxdb_username, influxdb_password = get_influxdb_credentials()
