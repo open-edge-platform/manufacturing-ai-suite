@@ -325,7 +325,15 @@ if [[ $3 == fleet-deployments/* ]]; then
       || { echo "Refusing to use an unrecognized deployment checkout" >&2; exit 1; }
     if [[ ${9:-false} == true ]]; then
       log "Removing managed checkout; local credentials, models, and edits will be discarded"
-      rm -rf -- "$root"
+      if ! rm -rf -- "$root" 2>/dev/null; then
+        # Containers (model-download) leave files owned by other UIDs that the SSH user cannot delete
+        log "Some files are owned by another UID; removing them with a throwaway container"
+        image=$(docker inspect -f '{{.Config.Image}}' apm-model-download 2>/dev/null || true)
+        docker run --rm --user 0 --network none --cap-drop ALL --cap-add DAC_OVERRIDE --cap-add FOWNER \
+          --security-opt no-new-privileges --entrypoint rm -v "$parent:/work" "${image:-alpine:3.20}" \
+          -rf -- /work/checkout
+        [[ ! -e $root ]] || { echo "Could not remove $root" >&2; exit 1; }
+      fi
     fi
   elif [[ ! -e $marker ]]; then
     printf '%s\n' fleet-checkout-v1 > "$marker"
