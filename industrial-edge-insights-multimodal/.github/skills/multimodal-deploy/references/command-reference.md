@@ -93,6 +93,10 @@ Example client: `mcp-server/example/example_client.py` (see
 
 ## Key env vars (`.env`)
 
+Make exports `HOST_UID`/`HOST_GID` (the invoking user) for vLLM, OVMS, and model
+download; export them yourself for direct Compose. `download_model` requires UID 1000.
+Never `chmod 777` model directories; repair ownership instead.
+
 - `HOST_IP` (default `127.0.0.1`; must be IPv4)
 - `GRAFANA_PORT` (default `3000`)
 - `PLATFORM_CHECK` (Makefile default `true`; set `false` to skip hardware gate)

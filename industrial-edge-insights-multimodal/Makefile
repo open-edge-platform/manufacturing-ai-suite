@@ -1,6 +1,6 @@
 #
 # Apache v2 license
-# Copyright (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -25,6 +25,10 @@ ENV_FILE = ./.env
 include $(ENV_FILE)
 export $(shell sed 's/=.*//' $(ENV_FILE))
 $(shell chmod 600 .env)
+
+override HOST_UID := $(shell id -u)
+override HOST_GID := $(shell id -g)
+export HOST_UID HOST_GID
 
 # Default values
 KEY_LENGTH=3072
@@ -238,7 +242,7 @@ up: check_env_variables validate_host_ip down
 
 
 .PHONY: check_models
-check_models:
+check_models: prepare_model_directories
 	@echo "Checking if vllm models are available..."
 	@for dir in configs/vllm/models configs/vllm/huggingface; do \
 		if [ ! -d "$$dir" ]; then \
@@ -297,11 +301,21 @@ up_vllm: check_hardware check_models check_env_variables validate_host_ip down
 	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) up -d; \
 	$(MAKE) upload_tar_file
 
-download_model:
+.PHONY: prepare_model_directories
+prepare_model_directories:
+	@set -eu; \
+	for dir in configs/agentic/models configs/vllm/models configs/vllm/huggingface; do \
+		mkdir -p "$$dir"; \
+		if [ ! -w "$$dir" ] || [ ! -x "$$dir" ]; then \
+			echo "ERROR: $$dir must be writable and searchable by $(HOST_UID):$(HOST_GID). Ask its owner to repair ownership; do not use chmod 777." >&2; \
+			exit 1; \
+		fi; \
+	done
+
+.PHONY: download_model
+download_model: prepare_model_directories
 	@echo "Starting Model Download Service..."; \
-	mkdir -p configs/agentic/models; \
-	chmod -R 777 configs/agentic/models; \
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_VLLM) up -d model-download; \
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_VLLM) up -d model-download || exit 1; \
 	echo "Waiting for model-download service to become healthy on port 8200..."; \
 	i=0; \
 	while [ $$i -lt 60 ]; do \

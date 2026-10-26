@@ -430,7 +430,7 @@ services:
   # TIMESERIES_UID with read_only root filesystems. Chown them once up front so
   # those services can actually write to their volumes.
   seaweedfs-volumes-init:
-    image: ${SEAWEEDFS_IMAGE}
+    image: chrislusf/seaweedfs:4.42
     container_name: seaweedfs-volumes-init
     user: "0:0"
     entrypoint: ["sh", "-c"]
@@ -445,7 +445,7 @@ services:
     restart: "no"
 
   seaweedfs-master:
-    image: ${SEAWEEDFS_IMAGE}
+    image: chrislusf/seaweedfs:4.42
     hostname: seaweedfs-master
     container_name: seaweedfs-master
     read_only: true
@@ -466,7 +466,7 @@ services:
         condition: service_completed_successfully
 
   seaweedfs-volume:
-    image: ${SEAWEEDFS_IMAGE}
+    image: chrislusf/seaweedfs:4.42
     hostname: seaweedfs-volume
     container_name: seaweedfs-volume
     read_only: true
@@ -491,7 +491,7 @@ services:
         condition: service_completed_successfully
 
   seaweedfs-filer:
-    image: ${SEAWEEDFS_IMAGE}
+    image: chrislusf/seaweedfs:4.42
     hostname: seaweedfs-filer
     container_name: seaweedfs-filer
     read_only: true
@@ -523,7 +523,7 @@ services:
       start_period: 30s
 
   seaweedfs-s3:
-    image: ${SEAWEEDFS_IMAGE}
+    image: chrislusf/seaweedfs:4.42
     hostname: seaweedfs-s3
     container_name: seaweedfs-s3
     read_only: true
