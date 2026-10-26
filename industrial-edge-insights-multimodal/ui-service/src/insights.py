@@ -226,7 +226,7 @@ def api_explain(payload: ExplainRequest) -> Any:
                 vision_points = list(
                     client.query(
                         vision_query,
-                        bind_params={"vision_timestamp": vision_timestamp},
+                        bind_params={"vision_timestamp": str(vision_timestamp)},
                     ).get_points()
                 )
 

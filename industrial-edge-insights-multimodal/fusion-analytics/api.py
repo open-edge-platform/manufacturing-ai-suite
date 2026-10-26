@@ -193,7 +193,7 @@ def metrics():
             points = list(_influx_client.query(f"SELECT count(fused_decision) as count FROM \"{FUSION_MEASUREMENT}\"").get_points())  # nosec B608 - measurement is a module constant
             count = points[0].get("count", 0) if points else 0
         except Exception:
-            logger.debug("Could not query InfluxDB detection count for metrics", exc_info=True)
+            logger.warning("Could not query InfluxDB detection count for metrics", exc_info=True)
     return (
         f"# HELP fusion_detections_total Total fusion results stored\n"
         f"# TYPE fusion_detections_total gauge\n"

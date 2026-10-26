@@ -2928,7 +2928,7 @@ def setup_mqtt_alerts_docker(sample_app=constants.WIND_SAMPLE_APP):
         try:
             os.chdir(original_dir)
         except Exception:
-            logger.debug("Could not restore the original working directory", exc_info=True)
+            logger.warning("Could not restore the original working directory", exc_info=True)
 
 def invoke_make_up(measure_time=False):
     """
@@ -3266,7 +3266,7 @@ def parse_fusion_decision_logs(fusion_log_samples):
                     })
 
             except (IndexError, ValueError) as e:
-                logger.debug(f"Could not parse fusion log line: {line[:100]}... Error: {e}")
+                logger.warning(f"Could not parse fusion log line: {line[:100]}... Error: {e}")
                 continue
 
     logger.info(f"Analyzed {len(decision_patterns)} fusion decisions from sample logs")
@@ -3800,7 +3800,7 @@ def check_multimodal_mqtt_topic_data(topic, broker_host="localhost", broker_port
             client.loop_stop()
             client.disconnect()
         except Exception:
-            logger.debug("Could not stop MQTT client after a failed check", exc_info=True)
+            logger.warning("Could not stop MQTT client after a failed check", exc_info=True)
         return False
 
 
@@ -4233,7 +4233,7 @@ def check_system_gpu_devices():
                     gpu_devices.append("Intel iGPU")
                     logger.info("Intel iGPU detected via lspci")
         except (OSError, subprocess.SubprocessError) as exc:
-            logger.debug("Could not detect GPU with lspci", exc_info=exc)
+            logger.warning("Could not detect GPU with lspci", exc_info=exc)
 
         # Method 2: Check /dev/dri devices
         try:
@@ -4243,7 +4243,7 @@ def check_system_gpu_devices():
                     gpu_devices.append(f"DRM devices: {dri_devices}")
                     logger.info(f"DRM GPU devices found: {dri_devices}")
         except OSError as exc:
-            logger.debug("Could not inspect /dev/dri", exc_info=exc)
+            logger.warning("Could not inspect /dev/dri", exc_info=exc)
 
         # Method 3: Check for GPU in Docker containers
         try:
@@ -4257,7 +4257,7 @@ def check_system_gpu_devices():
                 gpu_devices.append("Docker GPU access available")
                 logger.info("Docker GPU device access confirmed")
         except (OSError, subprocess.SubprocessError) as exc:
-            logger.debug("Could not verify Docker GPU access", exc_info=exc)
+            logger.warning("Could not verify Docker GPU access", exc_info=exc)
 
         return gpu_devices
 
@@ -4305,7 +4305,7 @@ def monitor_gpu_utilization(duration=30):
                     "tool": "intel_gpu_top"
                 }
         except Exception:
-            logger.debug("intel_gpu_top is unavailable", exc_info=True)
+            logger.warning("intel_gpu_top is unavailable", exc_info=True)
 
         # Fallback: Check container resource usage
         try:
@@ -4317,7 +4317,7 @@ def monitor_gpu_utilization(duration=30):
                     "tool": "container_stats"
                 }
         except Exception:
-            logger.debug("Could not read fallback container GPU statistics", exc_info=True)
+            logger.warning("Could not read fallback container GPU statistics", exc_info=True)
 
         logger.warning("GPU monitoring tools not available")
         return None
