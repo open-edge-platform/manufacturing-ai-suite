@@ -8,9 +8,10 @@
     {
       "name": "time-series-deploy",
       "path": "industrial-edge-insights-time-series/.github/skills/time-series-deploy/SKILL.md",
-      "description": "Build, deploy, smoke-check, and functionally test the Industrial Edge Insights - Time Series sample app (e.g. wind-turbine-anomaly-detection) via its Makefile-driven Docker Compose path (MQTT/OPC-UA ingestion, multi-stream, batch mode).",
+      "description": "Build, deploy, smoke-check, and functionally test the Industrial Edge Insights - Time Series sample app (e.g. wind-turbine-anomaly-detection) via its Makefile-driven Docker Compose path (MQTT/OPC-UA ingestion, multi-stream, batch mode); builds the Time Series Analytics microservice from the latest edge-ai-libraries source only when explicitly asked.",
       "triggers": [
         "build and deploy wind turbine anomaly detection",
+        "build time series analytics microservice from source",
         "deploy time series sample app",
         "run time series with docker compose",
         "deploy time series with mqtt or opcua ingestion",
@@ -22,6 +23,7 @@
         "industrial-edge-insights-time-series/docker-compose.yml",
         "industrial-edge-insights-time-series/.github/skills/time-series-deploy/scripts/smoke-check.sh",
         "industrial-edge-insights-time-series/.github/skills/time-series-deploy/scripts/run-functional-tests.sh",
+        "industrial-edge-insights-time-series/.github/skills/time-series-deploy/scripts/build-time-series-analytics.sh",
         "docker compose"
       ]
     }

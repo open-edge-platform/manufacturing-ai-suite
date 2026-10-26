@@ -17,7 +17,7 @@ on:
 
 jobs:
   sanity:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
@@ -25,7 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - ubuntu_version: ubuntu22 
+          - ubuntu_version: ubuntu24
     steps:
     - name: Determine branch
       id: get_branch
@@ -41,18 +41,19 @@ jobs:
         else
           echo "branch=$REF_NAME" >> $GITHUB_OUTPUT
         fi
-    - name: Check out edge-ai-suites repository
+    - name: Check out manufacturing-ai-suite repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         persist-credentials: false
-        path: edge-ai-suites-repo
+        path: manufacturing-ai-suite-repo
         ref: ${{ steps.get_branch.outputs.branch }}
     - name: Set up Python
       uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: '3.10'
     - name: Install Robot Framework with pip (cached)
-      run: pip3 install robotframework selenium PyYAML requests
+      # PyPI nose 1.3.7 is incompatible with Python 3.10+; pynose provides the same nose module.
+      run: pip3 install robotframework selenium PyYAML requests pynose
     - name: Install required packages
       run: |
         sudo apt-get update
@@ -66,21 +67,40 @@ jobs:
     - name: Sanity Test 
       run: | 
        
-       cd edge-ai-suites-repo/manufacturing-ai-suite/industrial-edge-insights-vision/tests/robot_files
+       cd manufacturing-ai-suite-repo/industrial-edge-insights-vision/tests/robot_files
        robot test.robot || true 
        mkdir -p /tmp/test_results
        cp -r report.html log.html output.xml /tmp/test_results/
-       passed=$(xmllint --xpath "//return/status[@status='PASS']" ./output.xml | wc -l) || true
-       failed=$(xmllint --xpath "//return/status[@status='FAIL']" ./output.xml | wc -l) || true
-       not_run=$(xmllint --xpath "//return/status[@status='NOT RUN']" ./output.xml | wc -l) || true
-       total=$((passed + failed + not_run))
-       echo "### Sanity Test Summary" >> $GITHUB_STEP_SUMMARY
-       echo "- Total: $total" >> $GITHUB_STEP_SUMMARY
-       echo "- ✅ Passed: $passed" >> $GITHUB_STEP_SUMMARY
-       echo "- ❌ Failed: $failed" >> $GITHUB_STEP_SUMMARY
-       echo "- ⏭️ Not Run: $not_run" >> $GITHUB_STEP_SUMMARY
-       echo "- 📄 [Full Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
+       summary_file=/tmp/validation-summary.md
+          {
+            echo "# IRD Apps Weekly Validation Report"
+            echo
+            echo "| Test | Total | Passed | Failed | Not Run |"
+            echo "| --- | ---: | ---: | ---: | ---: |"
+          } > "$summary_file"
+          shopt -s nullglob
+          for output_file in /tmp/test_results/output.xml; do
+            test_name=$(basename "$(dirname "$output_file")")
+            passed=$(xmllint --xpath "count(//test/status[@status='PASS'])" "$output_file" 2>/dev/null || echo 0)
+            failed=$(xmllint --xpath "count(//test/status[@status='FAIL'])" "$output_file" 2>/dev/null || echo 0)
+            not_run=$(xmllint --xpath "count(//test/status[@status='NOT RUN'])" "$output_file" 2>/dev/null || echo 0)
+            total=$((passed + failed + not_run))
+            echo "| $test_name | $total | $passed | $failed | $not_run |" >> "$summary_file"
+          done
+          if [[ $(wc -l < "$summary_file") -eq 4 ]]; then
+            echo "| No test results | 0 | 0 | 0 | 0 |" >> "$summary_file"
+          fi
+          echo "" >> "$summary_file"
+          echo "Run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$summary_file"
+          cat "$summary_file" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo 'body<<EOF'
+            cat "$summary_file"
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
     - name: Upload Scan artifact to Github
+      if: always()
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v7.0.1
       with:
         name: Sanity_Reports
