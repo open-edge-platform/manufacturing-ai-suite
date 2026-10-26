@@ -1,6 +1,4 @@
-# Tests
-
-## Existing functional tests
+## Functional Test Steps
 
 1. Install test dependencies:
 
