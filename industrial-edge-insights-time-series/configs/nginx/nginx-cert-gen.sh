@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-set -euo pipefailgt
+set -euo pipefail
 
 # Set working directory for SSL certificates
 SSL_DIR="/opt/nginx/certs"
@@ -21,5 +21,5 @@ openssl req -x509 -nodes -days "${DAYS}" -"${SHA_ALGO}" -newkey "rsa:${KEY_LENGT
     -addext "basicConstraints=critical,CA:TRUE" \
     -addext "keyUsage=critical,digitalSignature,keyEncipherment,keyCertSign,cRLSign" \
     -addext "extendedKeyUsage=serverAuth" \
-    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+    -addext "subjectAltName=DNS:localhost,IP:${HOST_IP:-127.0.0.1}"
 chmod 640 "$SSL_DIR/key.pem" "$SSL_DIR/cert.pem"
