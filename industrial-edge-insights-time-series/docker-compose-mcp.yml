@@ -5,7 +5,7 @@ services:
   time-series-mcp-server:
     build:
       context: ./mcp-server
-    image: ${DOCKER_REGISTRY:-}${TIME_SERIES_MCP_IMAGE:-industrial-edge-insights-time-series-mcp}:2026.1.0
+    image: ${DOCKER_REGISTRY}${TIME_SERIES_MCP_SERVER_IMAGE}:${IMAGE_SUFFIX:-latest}${WEEKLY_BUILD_DATE:+-${WEEKLY_BUILD_DATE}}${WEEKLY_BUILD_DATE:+-weekly}
     restart: unless-stopped
     read_only: true
     cap_drop:
@@ -15,8 +15,8 @@ services:
     tmpfs:
       - /tmp:size=16m,mode=1777
     environment:
-      MCP_USERNAME: ${MCP_USERNAME:?Set MCP_USERNAME for MCP deployments}
-      MCP_PASSWORD: ${MCP_PASSWORD:?Set MCP_PASSWORD for MCP deployments}
+      MCP_USERNAME: ${MCP_USERNAME:-}
+      MCP_PASSWORD: ${MCP_PASSWORD:-}
       MCP_PUBLIC_URL: https://${HOST_IP:-127.0.0.1}:${GRAFANA_PORT:-3000}
       MCP_PROCESSING_MODE: ${MCP_PROCESSING_MODE:-stream}
       MCP_CONFIG_DIR: /app/config
