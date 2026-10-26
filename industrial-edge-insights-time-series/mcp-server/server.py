@@ -318,8 +318,8 @@ class Backend:
                 "A different UDF task is configured; reconcile it before controlling this task"
             )
 
-    async def task_status(self) -> dict[str, Any]:
-        """Use Kapacitor's stable task API, including with older microservice images."""
+    async def task_snapshot(self) -> tuple[dict[str, Any], str | None]:
+        """Read task state and Kapacitor's last activation time."""
         task = await self.request(
             "GET", f"/kapacitor/v1/tasks/{self.settings.task_id}", kapacitor=True, timeout=10
         )
@@ -328,11 +328,21 @@ class Backend:
             "disabled",
         ):
             raise ToolError("Kapacitor returned an unexpected task identity or state")
-        return {
-            "task_id": task["id"],
-            "status": task["status"],
-            "execution_error": bool(task.get("error")),
-        }
+        return (
+            {
+                "task_id": task["id"],
+                "status": task["status"],
+                "execution_error": bool(task.get("error")),
+            },
+            task.get("last-enabled")
+            if isinstance(task.get("last-enabled"), str)
+            else None,
+        )
+
+    async def task_status(self) -> dict[str, Any]:
+        """Use Kapacitor's stable task API, including with older microservice images."""
+        state, _ = await self.task_snapshot()
+        return state
 
     def package(self) -> bytes:
         """Archive trusted, read-only app assets and alias the batch model in memory."""
@@ -395,15 +405,29 @@ class Backend:
                     "stop and reconcile it before deploying this task"
                 )
             config = copy.deepcopy(baseline)
+            initial_last_enabled = None
             if active_task:
                 config = copy.deepcopy(active)
-                state = await self.task_status()
-                if (
-                    state.get("status") == "enabled"
-                    and not state["execution_error"]
-                    and config["udfs"].get("device") == time_series_inf_device
-                ):
-                    return {"task_id": self.settings.task_id, "status": "enabled", "changed": False}
+                try:
+                    state, initial_last_enabled = await self.task_snapshot()
+                except AnalyticsError as error:
+                    if error.status_code != 404:
+                        raise
+                else:
+                    if (
+                        state["status"] == "enabled"
+                        and not state["execution_error"]
+                        and config["udfs"].get("device") == time_series_inf_device
+                    ):
+                        return {
+                            "task_id": self.settings.task_id,
+                            "status": "enabled",
+                            "changed": False,
+                        }
+            device_changed = (
+                active_task == self.settings.task_id
+                and config["udfs"].get("device") != time_series_inf_device
+            )
             config["udfs"]["device"] = time_series_inf_device
             completed = []
             try:
@@ -418,18 +442,40 @@ class Backend:
                 deadline = asyncio.get_running_loop().time() + self.settings.ready_timeout
                 while True:
                     try:
-                        state = await self.task_status()
+                        state, last_enabled = await self.task_snapshot()
                         if state["execution_error"]:
                             raise ToolError(
                                 "The task reports an execution error; check UDF and Kapacitor logs"
                             )
-                        if state.get("status") == "enabled":
-                            return {
-                                **state,
-                                "device": time_series_inf_device,
-                                "mode": self.settings.mode,
-                                "changed": True,
-                            }
+                        if state["status"] == "enabled":
+                            revision_changed = not device_changed
+                            if device_changed:
+                                if initial_last_enabled is None or last_enabled is None:
+                                    raise ToolError(
+                                        "Cannot verify activation of the requested device "
+                                        "configuration from Kapacitor activation metadata"
+                                    )
+                                revision_changed = last_enabled != initial_last_enabled
+                                if not revision_changed:
+                                    LOGGER.info(
+                                        "Waiting for the requested task configuration to activate"
+                                    )
+                            if revision_changed:
+                                current = await self.request(
+                                    "GET", "/config", params={"restart": "false"}
+                                )
+                                current_udf = current.get("udfs", {})
+                                if current_udf.get("name") != self.settings.task_id:
+                                    raise ToolError(
+                                        "A different UDF task became configured during startup"
+                                    )
+                                if current_udf.get("device") == time_series_inf_device:
+                                    return {
+                                        **state,
+                                        "device": time_series_inf_device,
+                                        "mode": self.settings.mode,
+                                        "changed": True,
+                                    }
                     except AnalyticsError as error:
                         if error.status_code not in (None, 404, 502, 503):
                             raise
@@ -567,7 +613,7 @@ class Backend:
         results = await self.query(
             [
                 # Constant identifiers/predicates, normalized times; source uses bindings.
-                f'SELECT count("wind_speed") AS "count" '  # nosec B608
+                f'SELECT count("anomaly_status") AS "count" '  # nosec B608
                 f'FROM "{RESULT_MEASUREMENT}" '
                 f"WHERE {window.where}{predicate}"
                 for predicate in predicates
@@ -601,9 +647,12 @@ class Backend:
         results = await self.query(
             [
                 # Measurement is from a constant tuple; times normalized, source bound.
-                f'SELECT count("wind_speed") AS "count" '  # nosec B608
+                f'SELECT count("{field}") AS "count" '  # nosec B608
                 f'FROM "{measurement}" WHERE {window.where}'
-                for measurement in (RAW_MEASUREMENT, RESULT_MEASUREMENT)
+                for measurement, field in (
+                    (RAW_MEASUREMENT, "wind_speed"),
+                    (RESULT_MEASUREMENT, "anomaly_status"),
+                )
             ]
             + [
                 # Constant identifiers, normalized times; source uses bindings.
@@ -612,9 +661,12 @@ class Backend:
                 f'FROM "{RESULT_MEASUREMENT}" WHERE {window.where} AND analytic = 1',
                 *[
                     # Constant measurement; source bound, times normalized.
-                    f'SELECT "wind_speed" FROM "{measurement}" '  # nosec B608
+                    f'SELECT "{field}" FROM "{measurement}" '  # nosec B608
                     f"WHERE {window.where} ORDER BY time DESC LIMIT 1"
-                    for measurement in (RAW_MEASUREMENT, RESULT_MEASUREMENT)
+                    for measurement, field in (
+                        (RAW_MEASUREMENT, "wind_speed"),
+                        (RESULT_MEASUREMENT, "anomaly_status"),
+                    )
                 ],
             ],
             window,
