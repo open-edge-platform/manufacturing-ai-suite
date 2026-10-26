@@ -320,10 +320,12 @@ download_model:
 	done; \
 	echo "Requesting download+conversion of '${LLM_MODEL_NAME}' (device=${LLM_DEVICE}, precision=${LLM_WEIGHT_FORMAT})..."; \
 	payload='{"models":[{"name":"${LLM_MODEL_NAME}","hub":"openvino","type":"llm","is_ovms":true,"config":{"precision":"${LLM_WEIGHT_FORMAT}","device":"${LLM_DEVICE}","pipeline_type":"LM_CB"}}],"parallel_downloads":false}'; \
-	http_code=$$(curl -w "%{http_code}" -s -o /tmp/model_response.json -X POST "http://${HOST_IP}:8200/api/v1/models/download?download_path=llm_model_agentic" \
+	resp_file=$$(mktemp) || exit 1; \
+	trap 'rm -f "$$resp_file"' EXIT; \
+	http_code=$$(curl -w "%{http_code}" -s -o "$$resp_file" -X POST "http://${HOST_IP}:8200/api/v1/models/download?download_path=llm_model_agentic" \
 		-H "Content-Type: application/json" \
 		-d "$$payload"); \
-	response=$$(cat /tmp/model_response.json); \
+	response=$$(cat "$$resp_file"); \
 	echo "  HTTP Status: $$http_code"; \
 	echo "  Response: $$response"; \
 	if [ "$$http_code" != "200" ]; then \
