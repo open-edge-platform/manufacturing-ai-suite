@@ -67,7 +67,7 @@ install() {
       echo "No terminal: generated a random WebUI password. Read it with: grep PASSWORD $env_file"
     fi
     ( umask 077
-      printf 'HERMES_WEBUI_HOST=127.0.0.1\nHERMES_WEBUI_PORT=%s\nHERMES_WEBUI_PASSWORD=%s\n' "$PORT" "$pw" > "$env_file" )
+      printf "HERMES_WEBUI_HOST=127.0.0.1\nHERMES_WEBUI_PORT=%s\nHERMES_WEBUI_PASSWORD='%s'\n" "$PORT" "$pw" > "$env_file" )
     unset pw pw2
     echo "Saved settings to $env_file (mode 600)"
   fi
@@ -110,7 +110,7 @@ EOF
 
 wait_healthy() {
   local port host probe
-  port=$(env_value HERMES_WEBUI_PORT)
+  port="${HERMES_WEBUI_PORT:-$(env_value HERMES_WEBUI_PORT)}"
   port="${port:-$PORT}"
   host=$(env_value HERMES_WEBUI_HOST)
   case "$host" in 0.0.0.0 | 127.0.0.1 | "") probe=127.0.0.1 ;; *) probe=$host ;; esac

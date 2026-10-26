@@ -258,6 +258,10 @@ def build_plan(doc, selected_nodes=(), selected_recipes=(), user="intel", skip=F
             server = text(d.get("name", f"{name}_{recipe}"), "deployment.name", NAME)
             match = re.fullmatch(r"weld_node([0-9]+)", server)
             profile = f"weld-node-{match[1]}" if match else server.replace("_", "-")
+            if profile == "default":
+                raise ValueError(
+                    "deployment.name 'default' is reserved for Hermes' central profile"
+                )
             if profile in profiles:
                 raise ValueError(f"duplicate Hermes profile: {profile}")
             profiles.add(profile)
@@ -312,9 +316,8 @@ def prepare_source(settings, directory, sources):
     key = (settings["REPO_URL"], settings["REPO_BRANCH"])
     if key in sources:
         return sources[key]
-    root = Path(directory) / f"source-{len(sources)}"
+    root = Path(tempfile.mkdtemp(prefix="source-", dir=directory))
     repository = root / "repository.git"
-    root.mkdir()
     print(f"Fetching central app source ({key[1]})", flush=True)
     subprocess.run(
         [
@@ -355,7 +358,10 @@ def prepare_source(settings, directory, sources):
     bundle = root / "source.bundle"
     git("bundle", "create", str(bundle), "refs/heads/fleet-source")
     with bundle.open("rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        hasher = hashlib.sha256()
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            hasher.update(chunk)
+        digest = hasher.hexdigest()
     result = {
         "SOURCE_BUNDLE": str(bundle),
         "SOURCE_SHA256": digest,

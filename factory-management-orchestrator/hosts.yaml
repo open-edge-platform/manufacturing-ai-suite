@@ -1,15 +1,23 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+#
+# Node and deployment inventory. Check it without contacting any node:
+#   ./weld-fleet-setup.sh --list
+#
+# No passwords: the script uses key-based SSH. On the first run it creates identity_file if it is
+# missing and runs ssh-copy-id, which asks for the node user's password once in your terminal.
+
 recipes:
   weld:
     source_delivery: central_copy
     repository: https://github.com/vkb1/manufacturing-ai-suite.git
     ref: feature/vkb1/add-mcp-server-ts
-    remote_root: manufacturing-weld
+    remote_root: manufacturing-ai-suite  # prompt path prefix; checkouts are isolated per deployment
     app_dir: industrial-edge-insights-multimodal
     skill:
       name: multimodal-deploy
       path: industrial-edge-insights-multimodal/.github/skills/multimodal-deploy
+      # repository/ref can override the app repository/ref for a separate skill source.
     prompt: >-
       In ~/manufacturing-ai-suite/industrial-edge-insights-multimodal, Meet prerequisites
       (ignore accepting licenses for downloading models from HF), build time series analytics
@@ -63,7 +71,7 @@ recipes:
     source_delivery: central_copy
     repository: https://github.com/vkb1/manufacturing-ai-suite.git
     ref: feature/vkb1/add-mcp-server-ts
-    remote_root: manufacturing-wind-turbine
+    remote_root: manufacturing-ai-suite  # prompt path prefix; checkouts are isolated per deployment
     app_dir: industrial-edge-insights-time-series
     skill:
       name: time-series-deploy
@@ -98,7 +106,7 @@ recipes:
       port: 3000
       path: /mcp
       certificate:
-        container: nginx
+        container: nginx_proxy
         path: /opt/nginx/certs/cert.pem
       auth:
         type: basic
@@ -115,19 +123,19 @@ recipes:
         - get_processing_metrics
 
 defaults:
-  user: deploy
-  port: 22
-  identity_file: ~/.ssh/weld_fleet_ed25519   # created if missing
+  user: deploy                              # same deployment account on every node (see the guide)
+  port: 22                                  # SSH port
+  identity_file: ~/.ssh/weld_fleet_ed25519 # created if missing; omit to use your default SSH key
 nodes:
   - name: node1
-    host: 10.223.23.38 
+    host: node1.example.invalid             # replace with this node's IPv4 address or hostname
     deployments:
       - recipe: weld
-        name: node1
+        name: node1                         # stable MCP server/profile identity
         local_port: 13001
   - name: node2
-    host: 10.223.23.72
+    host: node2.example.invalid             # replace with this node's IPv4 address or hostname
     deployments:
       - recipe: wind_turbine
-        name: node2
-        local_port: 13002
+        name: node2                         # stable MCP server/profile identity
+        local_port: 13002                   # explicit unique local port for every deployment

@@ -161,6 +161,8 @@ for i, node in enumerate(nodes, 1):
         fail(f"node {i}: 'host' is required")
     v = {"name": f"weld_node{i}", "user": cli_user, "port": 22, "identity_file": "", "local_port": 0,
          "skip_platform_check": cli_skip, **defaults, **node}
+    if v["name"] == "default":
+        fail(f"node {i}: name 'default' is reserved for Hermes' central profile")
     if not isinstance(v["skip_platform_check"], bool):
         fail(f"node {i}: skip_platform_check must be true or false")
     for k in ("port", "local_port"):
@@ -202,6 +204,7 @@ declare -A seen_name seen_port
 for i in "${!NAME[@]}"; do
   n=${NAME[i]}
   [[ $n =~ ^[a-z][a-z0-9_]{0,31}$ ]] || die "invalid node name: $n (lowercase letters, digits, _)"
+  [[ $n != default ]] || die "node name 'default' is reserved for Hermes' central profile"
   valid_host "${HOST[i]}" || die "[$n] not an IPv4 address or hostname: ${HOST[i]}"
   [[ ${NUSER[i]} =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "[$n] invalid user: ${NUSER[i]}"
   if ! [[ ${SSH_PORT[i]} =~ ^[0-9]{1,5}$ ]] || (( SSH_PORT[i] < 1 || SSH_PORT[i] > 65535 )); then
@@ -303,9 +306,9 @@ if ! getent group docker | cut -d: -f4 | tr ',' '\n' | grep -qx "$USER"; then
   log "Adding deployment user to Docker group (sudo may prompt)"
   sudo usermod -aG docker "$USER"
 fi
-if [[ ${9:-false} == true ]]; then
+if [[ $3 == fleet-deployments/* ]]; then
   [[ $3 =~ ^fleet-deployments/[a-z][a-z0-9_]{0,31}/checkout$ ]] \
-    || { echo "Refusing cleanup outside a managed deployment checkout" >&2; exit 1; }
+    || { echo "Refusing operation outside a managed deployment checkout" >&2; exit 1; }
   parent=${root%/checkout}
   base=$HOME/fleet-deployments
   for directory in "$base" "$parent"; do
@@ -314,18 +317,26 @@ if [[ ${9:-false} == true ]]; then
     install -d -m 0700 "$directory"
   done
   marker=$parent/.managed-checkout
-  [[ ! -e $marker || ( -f $marker && -O $marker ) ]] && [[ ! -L $marker ]] \
+  [[ ! -L $marker && ( ! -e $marker || ( -f $marker && -O $marker ) ) ]] \
     || { echo "Unsafe managed checkout marker" >&2; exit 1; }
   if [[ -e $root || -L $root ]]; then
     [[ -f $marker && ! -L $marker && -O $marker &&
        $(cat "$marker") == fleet-checkout-v1 && -d $root && ! -L $root && -O $root ]] \
-      || { echo "Refusing to delete an unrecognized deployment checkout" >&2; exit 1; }
-    log "Removing managed checkout; local credentials, models, and edits will be discarded"
-    rm -rf -- "$root"
+      || { echo "Refusing to use an unrecognized deployment checkout" >&2; exit 1; }
+    if [[ ${9:-false} == true ]]; then
+      log "Removing managed checkout; local credentials, models, and edits will be discarded"
+      rm -rf -- "$root"
+    fi
+  elif [[ ! -e $marker ]]; then
+    printf '%s\n' fleet-checkout-v1 > "$marker"
+    chmod 600 "$marker"
+  elif [[ ! -f $marker || ! -O $marker || $(cat "$marker") != fleet-checkout-v1 ]]; then
+    echo "Unsafe managed checkout marker" >&2
+    exit 1
   fi
-  [[ ! -L $marker ]] || { echo "Unsafe managed checkout marker" >&2; exit 1; }
-  printf '%s\n' fleet-checkout-v1 > "$marker"
-  chmod 600 "$marker"
+elif [[ ${9:-false} == true ]]; then
+  echo "Refusing cleanup outside a managed deployment checkout" >&2
+  exit 1
 fi
 if [[ ${5:-node_clone} == central_copy ]]; then
   bundle=$6 digest=$7 commit=$8
@@ -416,7 +427,7 @@ setup_profile() {
   p=$(profile_of "${NAME[i]}")
   log "[$p] Hermes profile for $ip"
   profiles=$(hermes profile list 2>/dev/null || true)
-  if ! grep -qw -- "$p" <<<"$profiles"; then
+  if ! awk -v p="$p" '{ for (i = 1; i <= NF; i++) if ($i == p) found = 1 } END { exit !found }' <<<"$profiles"; then
     log "[${NAME[i]}] Creating Hermes profile"
     hermes profile create "$p" --clone --description "Runs $SKILL_NAME on $ip over SSH"
     hermes -p "$p" config unset mcp_servers >/dev/null 2>&1 || true
