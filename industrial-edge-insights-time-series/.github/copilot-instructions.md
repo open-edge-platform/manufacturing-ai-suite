@@ -66,8 +66,9 @@ raw commands ad hoc.
 - `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD` — validated
   by `make check_env_variables` (length/charset rules)
 - `DOCKER_REGISTRY`, `IMAGE_SUFFIX`, `WEEKLY_BUILD_DATE` — push/versioning
-- `MCP_USERNAME`, `MCP_PASSWORD` — required with `MCP=true`; username excludes
-  `:`, maximum 128 characters; password length 10–1024 characters.
+- `MCP_USERNAME`, `MCP_PASSWORD` — required in `.env` with `MCP=true`; validated
+  by `make check_env_variables` (username: letters only, 5+ characters; password:
+  alphanumeric, 10+ characters, at least one letter and one digit).
 - `TIME_SERIES_MCP_IMAGE` — optional MCP image repository, default
   `industrial-edge-insights-time-series-mcp`; tag `2026.1.0`.
 - MCP backend settings are supplied by the overlay. Native Kapacitor task APIs

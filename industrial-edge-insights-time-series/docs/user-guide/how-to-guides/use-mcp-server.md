@@ -22,16 +22,16 @@ Use them only on a deployment that you intend to replace.
 
 1. Set MCP credentials in the same shell:
 
+   Set `MCP_USERNAME` and `MCP_PASSWORD` in `.env`:
+
    ```bash
-   export MCP_USERNAME=mcpuser
-   read -rsp "MCP password: " MCP_PASSWORD
-   printf '\n'
-   export MCP_PASSWORD
+   MCP_USERNAME=mcpuser
+   MCP_PASSWORD=<your-password>
    ```
 
-   The username must exclude `:` and contain at most 128 characters.
-   The password must contain 10-1024 characters.
-   These variables can also be configured locally with the existing environment configuration.
+   The username must contain only alphabets and be at least 5 characters long.
+   The password must be at least 10 alphanumeric characters with at least one letter and one digit.
+   `make check_env_variables MCP=true` validates both values.
    Never commit credentials.
 
 2. Build the server:

@@ -184,8 +184,8 @@ stopping at the first failing check. Known doc-only prerequisites:
   Function(UDF) inference on GPU** in [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html)
   (replace `localhost` with `${HOST_IP}` and `3000` with `${GRAFANA_PORT}`
   from `.env` when they differ).
-- **MCP**: username excludes `:` and contains at most 128 characters;
-  password length is 10–1024 characters. Use the example MCP client to start
+- **MCP**: username is letters only, 5+ characters; password is alphanumeric,
+  10+ characters with at least one letter and one digit. Use the example MCP client to start
   analytics before checking output. Stopping analytics leaves ingestion
   running; streaming input is not replayed. Continuous simulators prevent
   one-shot input from ending before an interactive start.

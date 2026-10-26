@@ -31,7 +31,7 @@ Use the same flag for deployment, status, teardown, and image publishing.
 
 | Target | Effect |
 |---|---|
-| `check_env_variables` | Validates `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD` in `.env`. Usernames: letters only, at least 5 characters (`INFLUXDB_USERNAME` must not be `admin`). Passwords: alphanumeric, at least 10 characters, with at least one letter and one digit |
+| `check_env_variables` | Validates `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD` in `.env`, plus `MCP_USERNAME/PASSWORD` when `MCP=true`. Usernames: letters only, at least 5 characters (`INFLUXDB_USERNAME` must not be `admin`). Passwords: alphanumeric, at least 10 characters, with at least one letter and one digit |
 
 ## Deploy (Docker Compose)
 
@@ -89,7 +89,7 @@ and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
 - `HOST_IP` (default `127.0.0.1`) — host used for all Makefile API calls
 - `GRAFANA_PORT` (default `3000`)
 - `DOCKER_REGISTRY`, `IMAGE_SUFFIX` (push/versioning)
-- `MCP_USERNAME`, `MCP_PASSWORD` (MCP-only authentication; username excludes
-  `:`, maximum 128 characters; password length 10–1024 characters)
+- `MCP_USERNAME`, `MCP_PASSWORD` (MCP-only authentication, set in `.env`; username: letters
+  only, 5+ characters; password: alphanumeric, 10+ characters with a letter and a digit)
 - `TIME_SERIES_MCP_IMAGE` (optional repository, default
   `industrial-edge-insights-time-series-mcp`, fixed tag `2026.1.0`)

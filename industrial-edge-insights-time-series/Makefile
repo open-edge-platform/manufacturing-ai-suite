@@ -97,6 +97,7 @@ build_copyleft_sources:
 check_env_variables:
 	@echo "Checking if username/password in .env are matching the rules set..."
 	@variables="INFLUXDB_USERNAME INFLUXDB_PASSWORD VISUALIZER_GRAFANA_USER VISUALIZER_GRAFANA_PASSWORD"; \
+	if [ "$(MCP)" = "true" ]; then variables="$$variables MCP_USERNAME MCP_PASSWORD"; fi; \
 	for variable_name in $$variables; do \
 		if printenv "$$variable_name" >/dev/null 2>&1; then \
 			value=$$(printenv "$$variable_name"); \
@@ -136,11 +137,20 @@ check_env_variables:
 					exit 1; \
 				fi \
 				;; \
+			MCP_USERNAME) \
+				if ! echo "$$value" | grep -Eq "^[A-Za-z]{5,}$$"; then \
+					echo "MCP_USERNAME must contain only alphabets and be at least 5 characters minimum"; \
+					exit 1; \
+				fi \
+				;; \
+			MCP_PASSWORD) \
+				if ! echo "$$value" | grep -Eq "^[A-Za-z0-9]{10,}$$" || ! echo "$$value" | grep -q "[0-9]" || ! echo "$$value" | grep -q "[A-Za-z]"; then \
+					echo "MCP_PASSWORD length must be a minimum of 10 alphanumeric characters with at least one digit"; \
+					exit 1; \
+				fi \
+				;; \
 		esac; \
 	done
-ifeq ($(MCP),true)
-	@python3 -c 'import os; u=os.getenv("MCP_USERNAME", ""); p=os.getenv("MCP_PASSWORD", ""); valid=bool(u) and ":" not in u and len(u)<=128 and 10<=len(p)<=1024; print("MCP credentials valid" if valid else "Set MCP_USERNAME (no colon, maximum 128 characters) and MCP_PASSWORD (10-1024 characters)"); raise SystemExit(0 if valid else 1)'
-endif
 
 .PHONY: batch
 batch:
@@ -376,5 +386,5 @@ help:
 	@echo "  make help                         - Display this help message"
 	@echo "      No parameters required."
 	@echo "  MCP=true                          - Add the authenticated MCP server; analytics starts through MCP"
-	@echo "      Set MCP_USERNAME and MCP_PASSWORD first. Example: make up_mqtt_ingestion MCP=true"
+	@echo "      Set MCP_USERNAME and MCP_PASSWORD in .env first. Example: make up_mqtt_ingestion MCP=true"
 	@echo "      Also use MCP=true with build, down, status, and push_images for MCP deployments."
