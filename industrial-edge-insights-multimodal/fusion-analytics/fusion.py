@@ -422,8 +422,8 @@ def fuse_firstcome(mode: Literal["AND", "OR"] = "AND") -> Optional[Dict[str, Any
     vision_metadata = data_dict.get("metadata", {})
     frame_id = vision_metadata.get("frame_id") if isinstance(vision_metadata, dict) else None
 
-    if "metadata" in data_dict and "label" in data_dict["metadata"]["objects"][0]["classification/Model6"]:
-        vision_classification = str(data_dict["metadata"]["objects"][0]["classification/Model6"]["label"])
+    if "metadata" in data_dict and "label" in data_dict["metadata"]["objects"][0]["classification/Model0"]:
+        vision_classification = str(data_dict["metadata"]["objects"][0]["classification/Model0"]["label"])
 
     fusion_confidence = (vision_confidence + timeseries_confidence) / 2.0
     fusion_classification = combine_classifications(
