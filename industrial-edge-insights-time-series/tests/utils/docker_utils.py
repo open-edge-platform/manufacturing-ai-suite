@@ -3737,8 +3737,9 @@ def check_multimodal_mqtt_topic_data(topic, broker_host="localhost", broker_port
                     if data.get("anomaly_status") == 1:
                         logger.info(f"Alert detected: {data}")
                         data_received.set()
-                except (json.JSONDecodeError, UnicodeDecodeError):
+                except (json.JSONDecodeError, UnicodeDecodeError) as ex:
                     # If not JSON, still count as data
+                    logger.warning("Non-JSON MQTT alert payload on %s; counting it as data: %s", topic, ex)
                     data_received.set()
             else:
                 # For other topics, any data counts
