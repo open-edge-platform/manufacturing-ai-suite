@@ -4,8 +4,9 @@
 services:
   time-series-mcp-server:
     build:
-      context: ./mcp-server
+      context: $PWD/mcp-server
     image: ${DOCKER_REGISTRY}${TIME_SERIES_MCP_SERVER_IMAGE}:${IMAGE_SUFFIX:-latest}${WEEKLY_BUILD_DATE:+-${WEEKLY_BUILD_DATE}}${WEEKLY_BUILD_DATE:+-weekly}
+    container_name: time-series-mcp-server
     restart: unless-stopped
     read_only: true
     cap_drop:

@@ -249,6 +249,7 @@ docker logs -f <container_name> | grep -i error
 - [How to configure MQTT alerts](./how-to-guides/how-to-configure-alerts.md): Guide for configuring the MQTT alerts in the Time Series Analytics microservice
 - [How to update config](./how-to-guides/how-to-update-config.md): Guide updating configuration of Time Series Analytics Microservice.
 - [How to deploy vLLM service](./how-to-guides/how-to-deploy-vllm-service.md): Guide for deploying the sample app with vLLM enabled.
+- [Use the MCP server](./how-to-guides/use-mcp-server.md): Deploy with `MCP=true` for authenticated pipeline control and agentic analysis through MCP tools.
 
 <!--hide_directive
 :::{toctree}

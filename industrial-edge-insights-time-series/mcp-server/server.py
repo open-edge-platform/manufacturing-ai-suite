@@ -115,7 +115,7 @@ class Settings:  # pylint: disable=too-many-instance-attributes
 
 
 class AccessMiddleware:  # pylint: disable=too-few-public-methods
-    """Authenticate HTTP connections and restrict browser origins and hosts."""
+    """Authenticate HTTP connections and restrict browser origins."""
 
     def __init__(self, app: ASGIApp, settings: Settings):
         self.app = app
@@ -127,14 +127,6 @@ class AccessMiddleware:  # pylint: disable=too-few-public-methods
             return
         headers = Headers(scope=scope)
         origin = headers.get("origin")
-        public_host = urlsplit(self.settings.public_url).netloc
-        if headers.get("host") not in (
-            public_host,
-            "127.0.0.1:8000",
-            "time-series-mcp-server:8000",
-        ):
-            await JSONResponse({"error": "Invalid Host"}, status_code=403)(scope, receive, send)
-            return
         if origin is not None and origin != self.settings.public_url:
             await JSONResponse({"error": "Invalid Origin"}, status_code=403)(scope, receive, send)
             return

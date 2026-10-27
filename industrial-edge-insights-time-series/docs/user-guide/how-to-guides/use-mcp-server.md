@@ -37,7 +37,7 @@ Use them only on a deployment that you intend to replace.
 2. Build the server:
 
    ```bash
-   make build MCP=true
+   make build
    ```
 
    The MCP image is built locally; a published MCP image is not required.
@@ -162,7 +162,7 @@ make status MCP=true
 make down MCP=true
 ```
 
-Use `MCP=true` consistently for build, status, shutdown, and image publishing.
+Use `MCP=true` consistently for deployment, status, and shutdown.
 The server port is internal; only nginx exposes `/mcp`.
 Its internal `/health` endpoint provides liveness and does not require credentials.
 Browser origins must match the configured HTTPS gateway origin.

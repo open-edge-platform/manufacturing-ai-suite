@@ -67,15 +67,19 @@ MCP ?= false
 ifneq ($(filter $(MCP),true false),$(MCP))
 $(error MCP must be true or false)
 endif
+DOCKER_COMPOSE_MCP_FILE = ./docker-compose-mcp.yml
 COMPOSE_FILES = -f $(DOCKER_COMPOSE_FILE)
 ifeq ($(INCLUDE),validation)
 COMPOSE_FILES += -f $(DOCKER_COMPOSE_VALIDATION_FILE)
 endif
+# Build and push cover every image, including the MCP server, regardless of MCP
+IMAGE_COMPOSE_FILES := $(COMPOSE_FILES) -f $(DOCKER_COMPOSE_MCP_FILE)
 ifeq ($(MCP),true)
-COMPOSE_FILES += -f ./docker-compose-mcp.yml
+COMPOSE_FILES += -f $(DOCKER_COMPOSE_MCP_FILE)
 export MCP_PROCESSING_MODE := $(if $(filter batch,$(MAKECMDGOALS)),batch,stream)
 endif
 COMPOSE = $(DOCKER_COMPOSE) $(COMPOSE_FILES)
+IMAGE_COMPOSE = $(DOCKER_COMPOSE) $(IMAGE_COMPOSE_FILES)
 
 DRI_MOUNT_PATH := $(shell [ -d /dev/dri ] && [ -n "$$(ls -A /dev/dri 2>/dev/null)" ] && echo "/dev/dri" || echo "/dev/null")
 export DRI_MOUNT_PATH
@@ -85,12 +89,12 @@ $(shell chmod 600 .env)
 .PHONY: build
 build:
 	@echo "Building Docker containers..."
-	$(COMPOSE) build --pull;
+	$(IMAGE_COMPOSE) build --pull;
 
 .PHONY: build_copyleft_sources
 build_copyleft_sources:
 	@echo "Building Docker containers including copyleft licensed sources..."
-	$(COMPOSE) build --build-arg COPYLEFT_SOURCES=true --pull;
+	$(IMAGE_COMPOSE) build --build-arg COPYLEFT_SOURCES=true --pull;
 
 # Check if multiple particular variables in .env are assigned with values
 .PHONY: check_env_variables
@@ -353,16 +357,16 @@ down:
 .PHONY: push_images
 push_images: build
 	@echo "Pushing the images to docker registry"
-	$(COMPOSE) push
+	$(IMAGE_COMPOSE) push
 
 # Help
 .PHONY: help
 help:
 	@echo "Makefile commands:"
-	@echo "  make build                        - Build Docker containers"
-	@echo "      No parameters required."
-	@echo "  make build_copyleft_sources       - Build Docker containers including copyleft licensed sources"
-	@echo "      No parameters required."
+	@echo "  make build                        - Build all Docker images, including the MCP server"
+	@echo "      Optional: INCLUDE=validation (also includes the validation override)"
+	@echo "  make build_copyleft_sources       - Build all Docker images including copyleft licensed sources"
+	@echo "      Optional: INCLUDE=validation"
 	@echo "  make up_mqtt_ingestion            - Start Docker containers using MQTT ingestion"
 	@echo "      Optional: app (default: wind-turbine-anomaly-detection), num_of_streams (default: 1), number_of_data_points_per_stream, ingestion_interval"
 	@echo "      Example: make up_mqtt_ingestion app=wind-turbine-anomaly-detection num_of_streams=2"
@@ -375,7 +379,7 @@ help:
 	@echo "      No parameters required."
 	@echo "  make check_env_variables          - Validate required .env variables"
 	@echo "      No parameters required."
-	@echo "  make push_images                  - Push the images to docker registry"
+	@echo "  make push_images                  - Build and push all images, including the MCP server, to the docker registry"
 	@echo "      Optional: DOCKER_REGISTRY (set in .env or as param)"
 	@echo "      Example: make push_images DOCKER_REGISTRY=myregistry"
 	@echo "  make <ingestion_target> batch      - Run batch processing with an ingestion target"
@@ -387,4 +391,4 @@ help:
 	@echo "      No parameters required."
 	@echo "  MCP=true                          - Add the authenticated MCP server; analytics starts through MCP"
 	@echo "      Set MCP_USERNAME and MCP_PASSWORD in .env first. Example: make up_mqtt_ingestion MCP=true"
-	@echo "      Also use MCP=true with build, down, status, and push_images for MCP deployments."
+	@echo "      Also use MCP=true with down and status for MCP deployments. build and push_images always include the MCP server image."

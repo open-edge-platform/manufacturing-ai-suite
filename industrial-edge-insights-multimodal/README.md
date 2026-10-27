@@ -20,5 +20,6 @@ Refer to the [How it works](./docs/user-guide/weld-defect-detection/index.md#how
 - [How to build from source and deploy](./docs/user-guide/get-started/build-from-source.md): Guide to build from source and docker compose deployment.
 - [How to configure MQTT alerts](./docs/user-guide/how-to-guides/how-to-configure-alerts.md): Guide for configuring the MQTT alerts for the sample app.
 - [How to update configuration](./docs/user-guide/how-to-guides/how-to-update-config.md): Guide for updating the configuration.
+- [Use the MCP server](./docs/user-guide/how-to-guides/use-mcp-server.md): Control the pipelines and run agentic analysis through MCP tools.
 - [Troubleshooting](./docs/user-guide/troubleshooting.md): Troubleshooting information.
 - [Release Notes](./docs/user-guide/release-notes.md): Information on the latest updates, improvements, and bug fixes.
