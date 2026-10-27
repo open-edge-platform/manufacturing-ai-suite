@@ -38,7 +38,7 @@ Complete these steps on the central Hermes host. The administrator owns inventor
 - Hermes Agent installed and configured with an LLM provider, as described in [Install Hermes on the central host](#install-hermes-on-the-central-host). The `hermes` command must be available to the user running setup.
 - These commands available on the host: `ssh`, `scp`, `ssh-copy-id`, `ssh-keygen`, `curl`, `openssl`, `git`, `base64`, `systemctl`, and `loginctl`.
 - Python 3 and PyYAML to read and validate the YAML inventory. On Debian or Ubuntu, install PyYAML with `sudo apt-get install python3-yaml` if it is missing.
-- The installer files kept together: `weld-fleet-setup.sh` and `fleet_inventory.py`.
+- The installer files kept together: `fleet-setup.sh` and `fleet_inventory.py`.
 - Network access to the configured Git repositories and to any services used by the skills.
 
 #### Edge nodes
@@ -251,13 +251,13 @@ The normal recipe deployment removes and recreates its managed checkout. Back up
 From this directory, print and validate the planned deployments without connecting to nodes or changing anything:
 
 ```bash
-./weld-fleet-setup.sh --list
+./fleet-setup.sh --list
 ```
 
 Check the displayed node names, recipes, profiles, hosts, local ports, and skills. Update the inventory and repeat the check if any value is wrong. If you use a different inventory file, pass it explicitly:
 
 ```bash
-./weld-fleet-setup.sh --hosts /path/to/hosts.yaml --list
+./fleet-setup.sh --hosts /path/to/hosts.yaml --list
 ```
 
 ### Run the installer
@@ -265,7 +265,7 @@ Check the displayed node names, recipes, profiles, hosts, local ports, and skill
 Run the installer from this directory in an interactive terminal, as the same user who installed and configured Hermes:
 
 ```bash
-bash ./weld-fleet-setup.sh
+bash ./fleet-setup.sh
 ```
 
 The installer uses `hosts.yaml` by default. It validates the inventory, checks the central host, and then prepares each configured deployment. Depending on the node's state, it may:
@@ -280,13 +280,13 @@ Keep the terminal open to answer SSH, `sudo`, or approval prompts. The installer
 To use another inventory, pass its path:
 
 ```bash
-bash ./weld-fleet-setup.sh --hosts /path/to/hosts.yaml
+bash ./fleet-setup.sh --hosts /path/to/hosts.yaml
 ```
 
 To work through a single deployment with an interactive Hermes session, select its node. The following uses `node1`, which has one deployment in the checked-in inventory:
 
 ```bash
-bash ./weld-fleet-setup.sh --node node1 --interactive
+bash ./fleet-setup.sh --node node1 --interactive
 ```
 
 If a node has multiple deployments, also pass `--recipe` with the recipe identifier from your inventory to select a single assignment.
@@ -320,7 +320,7 @@ hermes chat --oneshot -q \
   "Call mcp__node1__describe and mcp__node2__describe and summarize each result."
 ```
 
-The tunnel and MCP server must be available for the test to pass. The installer pins the retrieved TLS certificate; do not disable certificate verification to work around a TLS error. If the app is already running with a regenerated certificate, use `bash ./weld-fleet-setup.sh --no-deploy` to refresh the pin and registration without redeploying the app. This still performs node and profile preparation; it is not a read-only check.
+The tunnel and MCP server must be available for the test to pass. The installer pins the retrieved TLS certificate; do not disable certificate verification to work around a TLS error. If the app is already running with a regenerated certificate, use `bash ./fleet-setup.sh --no-deploy` to refresh the pin and registration without redeploying the app. This still performs node and profile preparation; it is not a read-only check.
 
 ### Bring up Hermes WebUI
 
@@ -423,6 +423,6 @@ Use the same natural-language requests as in the browser. If tools are missing, 
 ## Related files
 
 - [`SOUL.md`](SOUL.md) — reusable factory-management persona for the central Hermes assistant.
-- [`weld-fleet-setup.sh`](weld-fleet-setup.sh) — installer entry point.
+- [`fleet-setup.sh`](fleet-setup.sh) — installer entry point.
 - [`fleet_inventory.py`](fleet_inventory.py) — recipe inventory validation and orchestration.
 - [`hermes-webui.sh`](hermes-webui.sh) — optional Hermes WebUI installer.

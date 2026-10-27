@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Node and deployment inventory. Check it without contacting any node:
-#   ./weld-fleet-setup.sh --list
+#   ./fleet-setup.sh --list
 #
 # No passwords: the script uses key-based SSH. On the first run it creates identity_file if it is
 # missing and runs ssh-copy-id, which asks for the node user's password once in your terminal.
