@@ -93,6 +93,29 @@ def normalize_label(label: str | None) -> str:
     return _LABEL_NORMALIZATION.get(str(label), str(label).replace("_", " "))
 
 
+def extract_vision_classification(metadata: Any) -> tuple[str, float]:
+    """Return the Model0 label/confidence, tolerating empty or partial metadata."""
+    if not isinstance(metadata, dict):
+        return "No Label", 0.0
+
+    objects = metadata.get("objects")
+    if not isinstance(objects, list) or not objects or not isinstance(objects[0], dict):
+        return "No Label", 0.0
+
+    classification = objects[0].get("classification/Model0")
+    if not isinstance(classification, dict):
+        return "No Label", 0.0
+
+    label = classification.get("label")
+    if not isinstance(label, str) or not label.strip():
+        label = "No Label"
+    try:
+        confidence = float(classification.get("confidence", 0.0) or 0.0)
+    except (TypeError, ValueError):
+        confidence = 0.0
+    return label, confidence
+
+
 def combine_classifications(
     vision_label: str,
     timeseries_label: str,
@@ -279,18 +302,9 @@ def on_message(client, userdata, msg):
             # Debug: uncomment to see incoming messages
             # logger.info(f"Received from Vision: {payload}")
 
-            vision_confidence = 0
-            vision_classification = "No Label"
-
-            if "metadata" in payload and "objects" in payload["metadata"] and "classification/Model0" in payload["metadata"]["objects"][0]:
-                if "label" in payload["metadata"]["objects"][0]["classification/Model0"]:
-                    vision_classification = str(payload["metadata"]["objects"][0]["classification/Model0"]["label"])
-                else:
-                    vision_classification = "No Label"
-                if "confidence" in payload["metadata"]["objects"][0]["classification/Model0"]:
-                    vision_confidence = float(payload["metadata"]["objects"][0]["classification/Model0"]["confidence"])
-                else:
-                    vision_confidence = 0.0
+            vision_classification, vision_confidence = extract_vision_classification(
+                payload.get("metadata")
+            )
 
             # Write vision weld classification results to InfluxDB
             json_body = [{
@@ -402,7 +416,6 @@ def fuse_firstcome(mode: Literal["AND", "OR"] = "AND") -> Optional[Dict[str, Any
     # Extract anomaly decisions from both messages
     if source_queue == "vision":
         # Vision message processed first
-        vision_confidence = float(source_entry["metadata"]["objects"][0]["classification/Model0"].get("confidence", 0.0) or 0.0)
         vision_rtp_time = source_entry["metadata"].get("rtp", {}).get("sender_ntp_unix_timestamp_ns")
         ts_time = target_entry["time"]
         timeseries_anomaly = target_entry["anomaly_status"]
@@ -411,7 +424,6 @@ def fuse_firstcome(mode: Literal["AND", "OR"] = "AND") -> Optional[Dict[str, Any
         data_dict = source_entry
     else:
         # Time-series message processed first
-        vision_confidence = float(target_entry["metadata"]["objects"][0]["classification/Model0"].get("confidence", 0.0) or 0.0)
         vision_rtp_time = target_entry["metadata"].get("rtp", {}).get("sender_ntp_unix_timestamp_ns")
         ts_time = source_entry["time"]
         timeseries_anomaly = source_entry["anomaly_status"]
@@ -421,9 +433,9 @@ def fuse_firstcome(mode: Literal["AND", "OR"] = "AND") -> Optional[Dict[str, Any
 
     vision_metadata = data_dict.get("metadata", {})
     frame_id = vision_metadata.get("frame_id") if isinstance(vision_metadata, dict) else None
-
-    if "metadata" in data_dict and "label" in data_dict["metadata"]["objects"][0]["classification/Model0"]:
-        vision_classification = str(data_dict["metadata"]["objects"][0]["classification/Model0"]["label"])
+    vision_classification, vision_confidence = extract_vision_classification(
+        vision_metadata
+    )
 
     fusion_confidence = (vision_confidence + timeseries_confidence) / 2.0
     fusion_classification = combine_classifications(

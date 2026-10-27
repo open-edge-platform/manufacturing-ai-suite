@@ -235,6 +235,12 @@ Routes:
 
 Analysis must remain in every route because Ticketing depends on both Policy and Analysis. Use only these registered agent names.
 
-Return ONLY a JSON object with exactly these fields:
-{"severity":"LOW|MEDIUM|HIGH|CRITICAL","reason":"brief reason citing the matching defect class and threshold","route":["policy","analysis","ticketing"]}
-For HIGH and CRITICAL, include "evidence" before "ticketing" in the route.
+Return ONLY one JSON object with exactly these fields: `severity`, `reason`, and `route`. Set `route` from the selected severity as follows:
+- LOW or MEDIUM: `["policy", "analysis", "ticketing"]`
+- HIGH or CRITICAL: `["policy", "analysis", "evidence", "ticketing"]`
+
+Valid LOW/MEDIUM example:
+{"severity":"LOW","reason":"No actionable threshold was met","route":["policy","analysis","ticketing"]}
+
+Valid HIGH/CRITICAL example:
+{"severity":"CRITICAL","reason":"Crater Cracks avg_confidence 0.91 meets the CRITICAL threshold 0.80","route":["policy","analysis","evidence","ticketing"]}
