@@ -5,7 +5,7 @@
 # and registers each node's MCP server with the Hermes on this host.
 set -euo pipefail
 
-SSH_USER=intel
+SSH_USER=
 SKIP_PLATFORM_CHECK=false
 DEPLOY=true
 INTERACTIVE=false
@@ -112,7 +112,7 @@ PY
 fi
 (( ${#SELECTORS[@]} == 0 )) || die "--node/--recipe require a recipe inventory"
 [[ $# -ge 1 && -n $HOSTS_FILE ]] && die "give either --hosts or node IPs, not both"
-[[ $SSH_USER =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "invalid --user: $SSH_USER"
+[[ -z $SSH_USER || $SSH_USER =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "invalid --user: $SSH_USER"
 [[ $REPO_URL =~ ^https://[A-Za-z0-9./_-]+$ ]] || die "invalid REPO_URL: $REPO_URL"
 [[ $REPO_BRANCH =~ ^[A-Za-z0-9._/-]+$ ]] || die "invalid REPO_BRANCH: $REPO_BRANCH"
 
@@ -161,6 +161,8 @@ for i, node in enumerate(nodes, 1):
         fail(f"node {i}: 'host' is required")
     v = {"name": f"weld_node{i}", "user": cli_user, "port": 22, "identity_file": "", "local_port": 0,
          "skip_platform_check": cli_skip, **defaults, **node}
+    if not v["user"]:
+        fail(f"node {i}: 'user' is required (set it under 'defaults' or on the node, or pass --user)")
     if v["name"] == "default":
         fail(f"node {i}: name 'default' is reserved for Hermes' central profile")
     if not isinstance(v["skip_platform_check"], bool):
@@ -186,6 +188,7 @@ valid_host() {
 }
 
 if [[ $# -ge 1 ]]; then
+  [[ -n $SSH_USER ]] || die "--user is required when node IPs are given on the command line"
   for ip in "$@"; do
     NAME+=("weld_node$((${#NAME[@]} + 1))") HOST+=("$ip") NUSER+=("$SSH_USER") SSH_PORT+=(22) KEY+=("")
     LPORT+=(0) SKIP+=("$SKIP_PLATFORM_CHECK")

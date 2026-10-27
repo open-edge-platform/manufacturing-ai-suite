@@ -199,7 +199,7 @@ def recipe_config(name, raw):
     return env
 
 
-def build_plan(doc, selected_nodes=(), selected_recipes=(), user="intel", skip=False):
+def build_plan(doc, selected_nodes=(), selected_recipes=(), user="", skip=False):
     mapping(doc, {"defaults", "recipes", "nodes"}, "inventory")
     defaults = mapping(doc.get("defaults", {}), SSH_KEYS, "defaults")
     recipes = mapping(
@@ -236,6 +236,10 @@ def build_plan(doc, selected_nodes=(), selected_recipes=(), user="intel", skip=F
         host = text(node.get("host"), "node.host", r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}")
         if re.fullmatch(r"[0-9.]+", host):
             ipaddress.IPv4Address(host)
+        if not node["user"]:
+            raise ValueError(
+                f"{node.get('name')}: user is required (set it under defaults or on the node, or pass --user)"
+            )
         text(node["user"], "node.user", r"[a-z_][a-z0-9_-]{0,31}")
         port(node["port"], "node.port")
         if type(node["skip_platform_check"]) is not bool:
@@ -380,7 +384,7 @@ def main():
     parser.add_argument("--script", required=True)
     parser.add_argument("--node", action="append", default=[])
     parser.add_argument("--recipe", action="append", default=[])
-    parser.add_argument("--user", default="intel")
+    parser.add_argument("--user", default="")
     parser.add_argument("--skip-platform-check", action="store_true")
     for option in ("list", "no-deploy", "interactive"):
         parser.add_argument(f"--{option}", action="store_true")
