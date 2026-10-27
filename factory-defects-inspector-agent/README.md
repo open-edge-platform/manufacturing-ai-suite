@@ -1,6 +1,8 @@
-# Factory Management Orchestrator
+# Factory Defects Inspector Agent
 
-The factory management installer prepares a central [Hermes Agent](https://github.com/NousResearch/hermes-agent) to work with manufacturing applications on remote edge nodes. It uses deployment skills to prepare and deploy applications, exposes each node's MCP server through an SSH tunnel, and registers the servers with Hermes.
+The Factory Defects Inspector Agent is a [Hermes Agent](https://github.com/NousResearch/hermes-agent) on a central host that helps people investigate defects and anomalies reported by manufacturing applications on remote edge nodes, such as weld defect detection and wind-turbine anomaly detection. It supports human inspection and decisions; it is not a safety interlock and does not make final pass/fail calls.
+
+The installer (`fleet-setup.sh`) sets the agent up. It uses deployment skills to prepare and deploy the applications, exposes each node's MCP server through an SSH tunnel, and registers the servers with Hermes. These "fleet" scripts and settings manage nodes and deployments; inspection happens afterward through Hermes chat.
 
 This README helps two audiences prepare for and use the installer:
 
@@ -113,13 +115,13 @@ Start a test chat to confirm the selected model responds:
 hermes
 ```
 
-Ask a simple question and verify that it receives a response. Only then return to this repository's `factory-management-orchestrator` directory and continue with node preparation and fleet deployment.
+Ask a simple question and verify that it receives a response. Only then return to this repository's `factory-defects-inspector-agent` directory and continue with node preparation and fleet deployment.
 
 When the integration issues are resolved, configure Hermes with the Inference Router's OpenAI-compatible endpoint and served model reported by the installer, not the OVMS endpoint directly. Keep the local backend bound to loopback and validate both inference and the fleet's MCP tool calls before replacing the temporary model configuration.
 
-### Set the factory-management persona
+### Set the Factory Defects Inspector Agent persona
 
-[`SOUL.md`](SOUL.md) is a reusable Hermes persona template for this orchestrator. It defines the assistant's purpose, evidence-based reporting, administrator/operator workflows, and confirmation boundaries for operational changes. It deliberately contains no node addresses, credentials, or fixed model selections; those remain in inventory, provider configuration, and live tool results.
+[`SOUL.md`](SOUL.md) is a reusable Hermes persona template for this agent. It defines the assistant's purpose, evidence-based reporting, administrator/operator workflows, and confirmation boundaries for operational changes. It deliberately contains no node addresses, credentials, or fixed model selections; those remain in inventory, provider configuration, and live tool results.
 
 Review the template before applying it. From this directory, as the central Hermes user:
 
@@ -135,7 +137,7 @@ chmod 600 "$hermes_home/SOUL.md"
 
 The copy commands prompt before overwriting existing files. If the active persona contains customizations you need, merge the reviewed template into it instead of replacing it. Keep the backup until you have verified the new behavior.
 
-Start a new default-profile Hermes chat, including in the WebUI, and ask it to explain its factory-management role and how it handles a request to stop a pipeline. Confirm that it identifies the target and seeks approval rather than making a change. Review any profile-specific persona separately; these instructions do not install the template into node profiles.
+Start a new default-profile Hermes chat, including in the WebUI, and ask it to explain its role and how it handles a request to stop a pipeline. Confirm that it identifies the target and seeks approval rather than making a change. Review any profile-specific persona separately; these instructions do not install the template into node profiles.
 
 This is behavioral guidance, not an access-control mechanism. The fleet installer does not automatically install or overwrite the persona, and changing this template alone does not change an existing Hermes installation.
 
@@ -422,7 +424,7 @@ Use the same natural-language requests as in the browser. If tools are missing, 
 
 ## Related files
 
-- [`SOUL.md`](SOUL.md) — reusable factory-management persona for the central Hermes assistant.
+- [`SOUL.md`](SOUL.md) — reusable Factory Defects Inspector Agent persona for the central Hermes assistant.
 - [`fleet-setup.sh`](fleet-setup.sh) — installer entry point.
-- [`fleet_inventory.py`](fleet_inventory.py) — recipe inventory validation and orchestration.
+- [`fleet_inventory.py`](fleet_inventory.py) — recipe inventory validation and deployment planning.
 - [`hermes-webui.sh`](hermes-webui.sh) — optional Hermes WebUI installer.
