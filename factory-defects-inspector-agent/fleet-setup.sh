@@ -13,8 +13,8 @@ HOSTS_FILE=
 LIST_ONLY=false
 SELECTORS=()
 
-REPO_URL=${REPO_URL:-https://github.com/vkb1/manufacturing-ai-suite.git}
-REPO_BRANCH=${REPO_BRANCH:-feature/vkb1/add-mcp-server-ts}
+REPO_URL=${REPO_URL:-https://github.com/open-edge-platform/manufacturing-ai-suite}
+REPO_BRANCH=${REPO_BRANCH:-main}
 REMOTE_ROOT=${REMOTE_ROOT:-manufacturing-ai-suite}
 APP_SUBDIR=${APP_SUBDIR:-industrial-edge-insights-multimodal}
 APP_REL="$REMOTE_ROOT/$APP_SUBDIR"
