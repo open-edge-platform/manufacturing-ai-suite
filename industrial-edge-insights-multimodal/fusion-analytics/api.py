@@ -82,7 +82,7 @@ def health():
         raise HTTPException(status_code=503, detail="InfluxDB client not initialized")
     try:
         _influx_client.ping()
-        points = _influx_points(f"SELECT count(fused_decision) as count FROM \"{FUSION_MEASUREMENT}\"")
+        points = _influx_points(f"SELECT count(fused_decision) as count FROM \"{FUSION_MEASUREMENT}\"")  # nosec B608 - measurement is a module constant
         count = points[0].get("count", 0) if points else 0
         return {"status": "ok", "detections_count": count}
     except HTTPException:
@@ -139,7 +139,7 @@ def get_summary(
         conditions.append(f"time <= {max_id}")
 
     where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ""
-    query = f"SELECT COUNT(fusion_confidence) as count, MEAN(fusion_confidence) as avg_confidence, MAX(fusion_confidence) as max_confidence, MIN(fusion_confidence) as min_confidence FROM \"{FUSION_MEASUREMENT}\"{where_clause} GROUP BY fusion_classification ORDER BY time ASC"
+    query = f"SELECT COUNT(fusion_confidence) as count, MEAN(fusion_confidence) as avg_confidence, MAX(fusion_confidence) as max_confidence, MIN(fusion_confidence) as min_confidence FROM \"{FUSION_MEASUREMENT}\"{where_clause} GROUP BY fusion_classification ORDER BY time ASC"  # nosec B608 - measurement is constant; bounds are validated integers
     points = _influx_points(query)
 
     # SELECT COUNT("fusion_confidence"), MEAN("fusion_confidence") FROM "fusion_result" GROUP BY "fusion_classification"
@@ -167,7 +167,7 @@ def get_summary(
 @api_app.get("/detections/max_id")
 def get_max_id():
     """Return total stored detection count used as a watermark by consumers."""
-    points = _influx_points(f"SELECT count(fused_decision) AS count,time FROM \"{FUSION_MEASUREMENT}\" ORDER BY time DESC LIMIT 1")
+    points = _influx_points(f"SELECT count(fused_decision) AS count,time FROM \"{FUSION_MEASUREMENT}\" ORDER BY time DESC LIMIT 1")  # nosec B608 - measurement is a module constant
     max_id = points[0].get("time", 0) if points else 0
     total_count = points[0].get("count", 0) if points else 0
     return {"max_id": max_id, "total_count": total_count}
@@ -180,10 +180,10 @@ def metrics():
     count = 0
     if _influx_client is not None:
         try:
-            points = list(_influx_client.query(f"SELECT count(fused_decision) as count FROM \"{FUSION_MEASUREMENT}\"").get_points())
+            points = list(_influx_client.query(f"SELECT count(fused_decision) as count FROM \"{FUSION_MEASUREMENT}\"").get_points())  # nosec B608 - measurement is a module constant
             count = points[0].get("count", 0) if points else 0
         except Exception:
-            pass
+            logger.warning("Could not query InfluxDB detection count for metrics", exc_info=True)
     return (
         f"# HELP fusion_detections_total Total fusion results stored\n"
         f"# TYPE fusion_detections_total gauge\n"

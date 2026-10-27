@@ -77,7 +77,11 @@ check_env_variables:
 	@variables="INFLUXDB_USERNAME INFLUXDB_PASSWORD VISUALIZER_GRAFANA_USER VISUALIZER_GRAFANA_PASSWORD MTX_WEBRTCICESERVERS2_0_USERNAME MTX_WEBRTCICESERVERS2_0_PASSWORD S3_STORAGE_USERNAME S3_STORAGE_PASSWORD SEAWEEDFS_WEB_AUTH_USER SEAWEEDFS_WEB_AUTH_PASSWORD"; \
 	if [ "$(MCP)" = "true" ]; then variables="$$variables MCP_USERNAME MCP_PASSWORD"; fi; \
 	for variable_name in $$variables; do \
-		value=$$(grep -E "^$$variable_name=" $(ENV_FILE) | cut -d'=' -f2); \
+		if printenv "$$variable_name" >/dev/null 2>&1; then \
+			value=$$(printenv "$$variable_name"); \
+		else \
+			value=$$(grep -E "^$$variable_name=" $(ENV_FILE) | cut -d'=' -f2); \
+		fi; \
 		if [ -z "$$value" ]; then \
 			echo "'$$variable_name' in $(ENV_FILE) is unassigned."; \
 			exit 1; \

@@ -13,12 +13,22 @@ used by both train_qwen.py and infer_qwen.py.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
 
 import torch
+from datasets import load_dataset
+
+
+def load_local_dataset(dataset_path: str, split: str) -> Any:
+    """Load a prepared local dataset without allowing implicit Hub downloads."""
+    path = Path(dataset_path).expanduser()
+    if not path.is_dir():
+        raise ValueError(f"Dataset path must be a local directory: {dataset_path}")
+    return load_dataset(str(path.resolve()), split=split)  # nosec B615 - path is verified local
 
 
 def detect_device() -> str:

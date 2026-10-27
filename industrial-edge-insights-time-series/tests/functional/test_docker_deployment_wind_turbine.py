@@ -7,7 +7,6 @@
 import os
 import sys
 import pytest
-import subprocess
 import logging
 # Add parent directory to path for utils imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -974,4 +973,3 @@ def test_nginx_proxy_integration_wind_turbine(setup_wind_turbine_environment):
         logger.info("✓ Direct service access validated successfully")
 
 # GPU tests live in test_GPU_docker.py
-

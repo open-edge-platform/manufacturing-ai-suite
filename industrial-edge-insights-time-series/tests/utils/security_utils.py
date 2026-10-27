@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import subprocess
+import subprocess  # nosec B404 - exec_command explicitly disables shell execution
 import json
 import time
 import os
@@ -287,10 +287,10 @@ def fetch_docker_credentials(credential_type):
 
         if credential_type == "influxdb":
             username_key = "INFLUXDB_USERNAME="
-            password_key = "INFLUXDB_PASSWORD="
+            password_key = "INFLUXDB_PASSWORD="  # nosec B105 - this is an environment variable name
         elif credential_type == "grafana":
             username_key = "VISUALIZER_GRAFANA_USER="
-            password_key = "VISUALIZER_GRAFANA_PASSWORD="
+            password_key = "VISUALIZER_GRAFANA_PASSWORD="  # nosec B105 - this is an environment variable name
         else:
             logger.error(f"Unknown credential type: {credential_type}")
             return None, None
@@ -304,6 +304,9 @@ def fetch_docker_credentials(credential_type):
                 username = line.split('=', 1)[1]
             elif line.startswith(password_key):
                 password = line.split('=', 1)[1]
+
+        username = os.environ.get(username_key[:-1], username)
+        password = os.environ.get(password_key[:-1], password)
         
         # Note: Not logging credentials for security reasons  
         logger.info(f"Successfully retrieved {credential_type.upper()} credentials from .env file")
@@ -416,6 +419,9 @@ def read_env_file(env_file_path: str):
                     if '=' in line:
                         key, value = line.split('=', 1)
                         env_vars[key.strip()] = value.strip()
+        for key in env_vars:
+            if key in os.environ:
+                env_vars[key] = os.environ[key]
     except FileNotFoundError:
         logger.warning(f".env file not found at {env_file_path}")
     
