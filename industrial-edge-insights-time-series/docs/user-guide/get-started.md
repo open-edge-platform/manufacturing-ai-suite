@@ -114,7 +114,7 @@ To trigger the UDF inference on `GPU` in Time Series Analytics Microservice, run
 ```sh
 cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
 curl -k -X 'POST' \
- 'https://localhost:3000/ts-api/config' \
+ 'https://127.0.0.1:3000/ts-api/config' \
  -H 'accept: application/json' \
  -H 'Content-Type: application/json' \
  -d "$(sed 's/"device": "CPU"/"device": "GPU"/' config.json)"

@@ -146,7 +146,7 @@ SHA_ALGO="sha384"
 
 echo "Generating SSL certificates for Nginx..."
 
-envsubst '$MEDIAMTX_SERVER $WHIP_SERVER_PORT $NGINX_DEFAULT_TIMEOUT $NGINX_STREAM_TIMEOUT' < /tmp/default.conf.template > /etc/nginx/nginx.conf
+envsubst "\$MEDIAMTX_SERVER \$WHIP_SERVER_PORT \$NGINX_DEFAULT_TIMEOUT \$NGINX_STREAM_TIMEOUT" < /tmp/default.conf.template > /etc/nginx/nginx.conf
 
 openssl req -x509 -nodes -days "${DAYS}" -"${SHA_ALGO}" -newkey "rsa:${KEY_LENGTH}" \
     -keyout "$SSL_DIR/key.pem" -out "$SSL_DIR/cert.pem" -subj "/CN=localhost" \

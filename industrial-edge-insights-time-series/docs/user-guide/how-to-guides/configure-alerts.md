@@ -116,7 +116,7 @@ export SAMPLE_APP="wind-turbine-anomaly-detection"
 
 rm -f ${SAMPLE_APP}.tar
 tar cf ${SAMPLE_APP}.tar models/ tick_scripts/ udfs/
-curl -X POST https://localhost:3000/ts-api/udfs/package -F "file=@${SAMPLE_APP}.tar" -k
+curl -X POST https://127.0.0.1:3000/ts-api/udfs/package -F "file=@${SAMPLE_APP}.tar" -k
 ```
 
 > [!NOTE]
@@ -138,7 +138,7 @@ https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industria
 ```sh
 cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
 curl -k -X 'POST' \
-'https://localhost:3000/ts-api/config' \
+'https://127.0.0.1:3000/ts-api/config' \
 -H 'accept: application/json' \
 -H 'Content-Type: application/json' \
 -d @config-opcua.json
