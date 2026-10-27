@@ -124,6 +124,15 @@ def get_detections(
     return _influx_points(query, bind_params=bind_params)
 
 
+@api_app.get("/detections/labels")
+def get_detection_labels():
+    """Return distinct detection labels currently stored in InfluxDB."""
+    points = _influx_points(
+        f'SHOW TAG VALUES FROM "{FUSION_MEASUREMENT}" WITH KEY = "fusion_classification"'
+    )
+    return sorted({point["value"] for point in points if point.get("value")})
+
+
 @api_app.get("/detections/summary")
 def get_summary(
     min_id: int | None = Query(None, ge=0, description="Row offset for scoping the summary window"),
