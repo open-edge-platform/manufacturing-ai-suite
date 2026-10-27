@@ -20,7 +20,7 @@ recipes:
       # repository/ref can override the app repository/ref for a separate skill source.
     prompt: >-
       In ~/manufacturing-ai-suite/industrial-edge-insights-multimodal, Meet prerequisites
-      (ignore accepting licenses for downloading models from HF), build time series analytics
+      (ignore accepting licenses check for downloading models from HF), build time series analytics
       microservice, build and deploy (pull latest weekly tags of intel/ images) the agentic
       variant with the MCP server (make up_agentic MCP=true), then run the smoke check.
       Do not edit .env; if a required credential is missing, stop and name it.
