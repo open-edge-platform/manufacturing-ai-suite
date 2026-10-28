@@ -262,8 +262,8 @@ make status                # containers + recent error-log scan
   HTTP, stateless, behind nginx with the self-signed certificate). nginx does
   not add authentication to `/mcp`; the server requires HTTP Basic auth
   (`MCP_USERNAME`/`MCP_PASSWORD`) only for `start_pipeline` and
-  `stop_pipeline`. The read-only tools (`describe`, `list_insights_data`,
-  `explain`, `get_run_results`) and `run_agent` do not require credentials,
+  `stop_pipeline`. The read-only tools (`describe`, `get_pipeline_status`,
+  `list_insights_data`, `explain`, `get_run_results`) and `run_agent` do not require credentials,
   so do not expose the gateway beyond a trusted network.
 - The server also has plain-HTTP routes `/start_pipeline`, `/stop_pipeline`,
   and `/explain` on port 8000, but nginx proxies only `/mcp`; those routes

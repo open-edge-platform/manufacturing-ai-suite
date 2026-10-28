@@ -21,6 +21,7 @@ Try a read-only call:
 Call other tools independently:
 
 ```sh
+.venv/bin/python example_client.py --insecure get_pipeline_status
 .venv/bin/python example_client.py --insecure list_insights_data --page 1 --page-size 10
 .venv/bin/python example_client.py --insecure explain --selected-time 2026-10-17T12:00:00Z
 .venv/bin/python example_client.py --insecure run_agent --time-range 30s

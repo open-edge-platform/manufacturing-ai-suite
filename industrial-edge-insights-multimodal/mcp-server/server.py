@@ -246,6 +246,27 @@ async def stop_pipeline() -> dict[str, Any]:
 
 
 @mcp.tool()
+async def get_pipeline_status() -> dict[str, Any]:
+    """Return the time-series task status and active DL Streamer pipeline statuses."""
+    results: dict[str, Any] = {}
+    for service, url in (
+        ("time_series", f"{TIME_SERIES_API_URL}/pipeline_status"),
+        ("dlstreamer", f"{PIPELINE_API_URL}/pipelines/status"),
+    ):
+        try:
+            response = await _request("GET", url, timeout=10)
+            results[service] = response.json()
+        except httpx.HTTPStatusError as error:
+            if service == "time_series" and error.response.status_code == 409:
+                results[service] = {"status": "not_configured"}
+            else:
+                results[service] = {"error": _upstream_error(error)}
+        except httpx.RequestError as error:
+            results[service] = {"error": _upstream_error(error)}
+    return results
+
+
+@mcp.tool()
 async def explain(selected_time: str) -> dict[str, Any]:
     """Explain one fused weld detection by its ISO-8601 timestamp."""
     response = await _request(

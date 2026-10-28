@@ -82,11 +82,12 @@ deployment procedures, use the app's published user guide at
 |---|---|---|
 | `start_pipeline(vision_inf_device=CPU\|GPU\|NPU, time_series_inf_device=CPU\|GPU)` | Basic | Uploads the UDF package, posts the Time-Series Analytics config, waits up to 120 s for the `weld_anomaly_detector` task, then starts the `weld_defect_classification` DL Streamer pipeline |
 | `stop_pipeline()` | Basic | Stops all `QUEUED`/`RUNNING` DL Streamer instances and the time-series task |
-| `explain(selected_time)` | Basic | Explains one fused detection (ISO-8601 timestamp) via `multimodal-agentic-ui` |
-| `list_insights_data(page, page_size)` | Basic | Paginated fusion results |
-| `run_agent(time_range=30s\|1m\|5m\|10m\|30m)` | Basic | Starts an agentic analysis run; returns `run_id` |
-| `get_run_results(run_id)` | Basic | Agent run status/result (`reasoning`, `completed`, `error`) |
-| `describe()` | Basic | Server purpose, tool list, input schemas |
+| `get_pipeline_status()` | — | Returns `time_series` task status and `dlstreamer` pipeline statuses; reports unavailable services separately |
+| `explain(selected_time)` | — | Explains one fused detection (ISO-8601 timestamp) via `multimodal-agentic-ui` |
+| `list_insights_data(page, page_size)` | — | Paginated fusion results |
+| `run_agent(time_range=30s\|1m\|5m\|10m\|30m)` | — | Starts an agentic analysis run; returns `run_id` |
+| `get_run_results(run_id)` | — | Agent run status/result (`reasoning`, `completed`, `error`) |
+| `describe()` | — | Server purpose, tool list, input schemas |
 
 Example client: `mcp-server/example/example_client.py` (see
 `mcp-server/example/README.md`).
