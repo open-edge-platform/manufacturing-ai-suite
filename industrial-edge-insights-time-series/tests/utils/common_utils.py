@@ -952,7 +952,7 @@ def update_host_ip_in_env(env_file_path=None, target_ip=None):
         
         # Get target IP
         if target_ip is None:
-            target_ip = get_system_ip()
+            target_ip = "127.0.0.1"
             if target_ip is None:
                 logger.error("Could not detect system IP address for .env update")
                 return False

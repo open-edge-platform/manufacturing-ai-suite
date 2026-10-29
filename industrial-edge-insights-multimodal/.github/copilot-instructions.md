@@ -69,8 +69,7 @@ raw commands ad hoc.
   `make check_env_variables` (length/charset rules)
 - `PLATFORM_CHECK` — set `false` to skip the Panther Lake hardware gate (CI only)
 - `LLM_DEVICE`, `LLM_WEIGHT_FORMAT`, `LLM_MODEL_NAME` — vLLM/agentic model selection
-- `MCP_USERNAME/PASSWORD` — MCP server Basic auth for `start_pipeline` and
-  `stop_pipeline`; empty by default, validated only with `MCP=true`
+- `MCP_USERNAME/PASSWORD` — MCP server Basic auth for all requests; empty by default, validated only with `MCP=true`
 - `DOCKER_REGISTRY`, `IMAGE_SUFFIX`, `WEEKLY_BUILD_DATE` — push/versioning
 
 ## Useful Commands

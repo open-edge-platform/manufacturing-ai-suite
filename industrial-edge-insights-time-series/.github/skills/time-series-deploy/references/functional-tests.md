@@ -30,3 +30,9 @@ Markers available (see `pytest.ini`): `kpi`, `mqtt`, `opcua`,
 Reports: pass `--html=<name>.html` to get an HTML report; always summarize
 PASS/FAIL counts from the pytest console output in your answer, don't just
 point at the report file.
+
+MCP tests are separate from the destructive functional deployment fixtures.
+For changes to MCP tools or deployment wiring, install the pinned runtime
+dependencies from `mcp-server/requirements.txt` plus `pytest==8.4.2` and
+`pytest-asyncio==1.2.0` in a dedicated environment, then run `tests/mcp/`.
+See `tests/README.md` for commands and opt-in isolated Docker query and lifecycle tests.

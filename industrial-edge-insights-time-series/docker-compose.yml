@@ -261,6 +261,7 @@ services:
     read_only: true
     user: "${TIMESERIES_UID}:${TIMESERIES_UID}"
     environment:
+      HOST_IP: ${HOST_IP:-127.0.0.1}
       no_proxy: "ia-grafana,ia-time-series-analytics-microservice,ia-mqtt-broker,${no_proxy}"
       NO_PROXY: "ia-grafana,ia-time-series-analytics-microservice,ia-mqtt-broker,${no_proxy}"
     ports:

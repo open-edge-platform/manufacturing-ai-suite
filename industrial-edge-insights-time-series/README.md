@@ -22,5 +22,6 @@ Refer to [Wind Turbine Anomaly Detection](./docs/user-guide/wind-turbine-anomaly
 - [How to connect to secure MQTT broker](./docs/user-guide/how-to-guides/connect-to-secure-mqtt-broker.md): Guide for connecting to a secure MQTT broker.
 - [How to connect to secure OPC UA server](./docs/user-guide/how-to-guides/connect-to-secure-opcua-server.md): Guide for connecting to a secure OPC UA server.
 - [How to create a new sample app](./docs/user-guide/how-to-guides/create-a-new-sample-app.md): Guide for creating a new sample app.
+- [Use the MCP server](./docs/user-guide/how-to-guides/use-mcp-server.md): Control analytics and query anomaly results through authenticated MCP tools.
 - **Release Notes**
   - [Release Notes](./docs/user-guide/release-notes.md): Information on the latest updates, improvements, and bug fixes.

@@ -19,6 +19,7 @@ jobs:
       contents: read # needed for actions/checkout
     runs-on: ubuntu-latest
     outputs:
+      factory-defects-inspector-agent_changed: ${{ steps.filter.outputs.factory-defects-inspector-agent }}
       hmi-augmented-worker_changed: ${{ steps.filter.outputs.hmi-augmented-worker }}
       industrial-edge-insights-multimodal_changed: ${{ steps.filter.outputs.industrial-edge-insights-multimodal }}
       edge-insights-time-series_changed: ${{ steps.filter.outputs.edge-insights-time-series }}
@@ -33,6 +34,8 @@ jobs:
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
         with:
           filters: |
+            factory-defects-inspector-agent:
+              - 'factory-defects-inspector-agent/docs/user-guide/**'
             hmi-augmented-worker:
               - 'hmi-augmented-worker/docs/user-guide/**'
             industrial-edge-insights-multimodal:
@@ -41,6 +44,15 @@ jobs:
               - 'industrial-edge-insights-time-series/docs/user-guide/**'
             edge-insights-vision:
               - 'industrial-edge-insights-vision/docs/user-guide/**'
+
+  build-factory-defects-inspector-agent:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.factory-defects-inspector-agent_changed == 'true' }}
+    uses: $/.github/workflows/docs-reusable-workflow.yaml
+    with:
+      docs_directory: factory-defects-inspector-agent
 
   build-hmi-augmented-worker:
     permissions:

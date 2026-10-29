@@ -1,6 +1,6 @@
 #
 # Apache v2 license
-# Copyright (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
 
@@ -43,12 +43,12 @@ AGENTIC_NGINX_PROFILE = $(if $(filter true,$(MCP)),agentic_mcp,agentic)
 .PHONY: build
 build:
 	@echo "Building Docker containers...";
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) build --pull;
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_MCP) build --pull;
 
 .PHONY: build_copyleft_sources
 build_copyleft_sources:
 	@echo "Building Docker containers including copyleft licensed sources..."
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) build --build-arg COPYLEFT_SOURCES=true --pull;
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_MCP) build --build-arg COPYLEFT_SOURCES=true --pull;
 
 .PHONY: validate_host_ip
 validate_host_ip:
@@ -301,11 +301,18 @@ up_vllm: check_hardware check_models check_env_variables validate_host_ip down
 	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) up -d; \
 	$(MAKE) upload_tar_file
 
+# The model-download container runs as a non-root user and must write into the bind-mounted
+# configs/agentic/models directory, which on the host is owned by the invoking user (or root,
+# if Docker created it). A one-off root container first chowns it to the uid:gid that owns /opt
+# in the image, i.e. the user the service runs as.
 download_model:
 	@echo "Starting Model Download Service..."; \
 	mkdir -p configs/agentic/models; \
-	chmod -R 777 configs/agentic/models; \
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_VLLM) up -d model-download; \
+	docker run --rm --user 0:0 --entrypoint sh \
+		-v "$$PWD/configs/agentic/models:/opt/models" \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
+		-c 'chown -R "$$(stat -c %u:%g /opt)" /opt/models' || exit 1; \
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_VLLM) up -d model-download || exit 1; \
 	echo "Waiting for model-download service to become healthy on port 8200..."; \
 	i=0; \
 	while [ $$i -lt 60 ]; do \
@@ -321,10 +328,12 @@ download_model:
 	done; \
 	echo "Requesting download+conversion of '${LLM_MODEL_NAME}' (device=${LLM_DEVICE}, precision=${LLM_WEIGHT_FORMAT})..."; \
 	payload='{"models":[{"name":"${LLM_MODEL_NAME}","hub":"openvino","type":"llm","is_ovms":true,"config":{"precision":"${LLM_WEIGHT_FORMAT}","device":"${LLM_DEVICE}","pipeline_type":"LM_CB"}}],"parallel_downloads":false}'; \
-	http_code=$$(curl -w "%{http_code}" -s -o /tmp/model_response.json -X POST "http://${HOST_IP}:8200/api/v1/models/download?download_path=llm_model_agentic" \
+	resp_file=$$(mktemp) || exit 1; \
+	trap 'rm -f "$$resp_file"' EXIT; \
+	http_code=$$(curl -w "%{http_code}" -s -o "$$resp_file" -X POST "http://${HOST_IP}:8200/api/v1/models/download?download_path=llm_model_agentic" \
 		-H "Content-Type: application/json" \
 		-d "$$payload"); \
-	response=$$(cat /tmp/model_response.json); \
+	response=$$(cat "$$resp_file"); \
 	echo "  HTTP Status: $$http_code"; \
 	echo "  Response: $$response"; \
 	if [ "$$http_code" != "200" ]; then \
@@ -424,20 +433,33 @@ down:
 .PHONY: push_images
 push_images: build
 	@echo "Pushing the images to docker registry"
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) push
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_MCP) push
 
 
 # Help
 .PHONY: help
 help:
 	@echo "Makefile commands:"
-	@echo "  make build                        - Build Docker containers"
-	@echo "  make up_agentic                   - Start the application and the agentic stack including vLLM"
-	@echo "  make up_agentic MCP=true          - Also start the MCP server"
+	@echo "  make build                        - Build all Docker images, including the MCP server"
+	@echo "  make build_copyleft_sources       - Build all Docker images including copyleft licensed sources"
+	@echo "  make up                           - Start the base application (MQTT ingestion)"
 	@echo "  make up_vllm                      - Start the application and the vLLM stack"
-	@echo "  make build_copyleft_sources       - Build Docker containers including copyleft licensed sources"
-	@echo "  make up                           - Start Docker containers"
-	@echo "  make down                         - Stop Docker containers"
-	@echo "  make clean                        - Remove all stopped containers and unused images"
-	@echo "  make push_images                  - Push the images to docker registry"
+	@echo "      Requires: models under configs/vllm (see check_models) and a supported platform (see check_hardware)"
+	@echo "  make up_agentic                   - Start the application and the agentic stack including vLLM"
+	@echo "      Requires: supported platform (see check_hardware); downloads the agentic models first"
+	@echo "  make up_agentic MCP=true          - Also start the authenticated MCP server"
+	@echo "      Set MCP_USERNAME and MCP_PASSWORD in .env first. Pipelines are then started through MCP."
+	@echo "  make down                         - Stop Docker containers and remove volumes"
+	@echo "      Use MCP=true if the MCP server was started."
+	@echo "  make status                       - Show status of deployed containers and check for errors"
+	@echo "  make check_env_variables          - Validate required .env variables (MCP=true also checks MCP_USERNAME/MCP_PASSWORD)"
+	@echo "  make validate_host_ip             - Validate HOST_IP in .env"
+	@echo "  make check_models                 - Check that the vLLM model directories are populated"
+	@echo "  make check_hardware               - Check the platform for the vLLM/agentic stacks"
+	@echo "      Optional: PLATFORM_CHECK=false skips the check (CI/validation use only)"
+	@echo "  make download_model               - Download the agentic models"
+	@echo "  make upload_tar_file              - Upload the weld anomaly detection UDF package to the Time-Series Analytics microservice"
+	@echo "  make post_config                  - Post the weld anomaly detection config to the Time-Series Analytics microservice"
+	@echo "  make push_images                  - Build and push all images, including the MCP server, to the docker registry"
+	@echo "      Optional: DOCKER_REGISTRY (set in .env or as param)"
 	@echo "  make help                         - Display this help message"

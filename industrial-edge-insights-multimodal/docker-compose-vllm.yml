@@ -6,7 +6,7 @@
 
 services:
   vllm-server:
-    image: ${VLLM_IMAGE}
+    image: intel/vllm:0.21.0-ubuntu24.04
     container_name: vllm-server
     hostname: vllm-server
     restart: unless-stopped

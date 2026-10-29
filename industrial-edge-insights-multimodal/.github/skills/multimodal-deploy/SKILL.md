@@ -342,7 +342,8 @@ From the app root, run `<skill-dir>/scripts/smoke-check.sh` (or set
   `https://${HOST_IP}:${GRAFANA_PORT}/` (values read from `.env`; `-k` for
   the self-signed cert) with retries,
 - if the `multimodal-mcp-server` container is running, sends an MCP
-  `tools/list` request to `https://${HOST_IP}:${GRAFANA_PORT}/mcp` and
+  `tools/list` request (authenticated with `MCP_USERNAME`/`MCP_PASSWORD` from
+  `.env`) to `https://${HOST_IP}:${GRAFANA_PORT}/mcp` and
   requires HTTP 200 with the `describe` tool in the response. This probe is
   read-only; it does not start or stop pipelines.
 

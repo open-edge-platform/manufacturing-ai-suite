@@ -59,7 +59,7 @@ except ImportError as ex:
     SECURITY_UTILS_AVAILABLE = False
     logger.warning("security_utils not available, some functions may be limited: %s", ex)
 
-HOST_IP = common_utils.get_system_ip()
+HOST_IP = constants.HOST_IP
 SEAWEEDFS_HTTP_STATUS_MARKER = "\n__SEAWEEDFS_HTTP_STATUS__:"
 
 def run_command(cmd, capture_output=False):
@@ -478,7 +478,7 @@ def wait_until_service_ready(timeout=constants.WIND_TURBINE_CONTAINER_READY_TIME
         try:
             result = common_utils.exec_command(
                 ["curl", "-s", "-k", "-o", "/dev/null", "-w", "%{http_code}",
-                 "https://localhost:3000/ts-api/health"],
+                 f"https://{HOST_IP}:3000/ts-api/health"],
                 capture_output=True, text=True, timeout=constants.WIND_TURBINE_CURL_TIMEOUT
             )
             http_code = result.stdout.strip() if result.returncode == 0 else "000"
@@ -521,9 +521,8 @@ def get_credential_fields():
         "INFLUXDB_PASSWORD",
         "VISUALIZER_GRAFANA_USER",
         "VISUALIZER_GRAFANA_PASSWORD",
-        "MR_MINIO_ACCESS_KEY",
-        "MR_PSQL_PASSWORD",
-        "MR_MINIO_SECRET_KEY"
+        "MCP_USERNAME",
+        "MCP_PASSWORD"
     ]
 
 def generate_invalid_value(field_name):
@@ -562,9 +561,8 @@ def generate_test_credentials(case_type="valid", invalid_field=None):
             "INFLUXDB_PASSWORD": generate_password(10),
             "VISUALIZER_GRAFANA_USER": generate_username(5),
             "VISUALIZER_GRAFANA_PASSWORD": generate_password(10),
-            "MR_MINIO_ACCESS_KEY": generate_password(10),
-            "MR_PSQL_PASSWORD": generate_password(10),
-            "MR_MINIO_SECRET_KEY": generate_password(10),
+            "MCP_USERNAME": generate_username(5),
+            "MCP_PASSWORD": generate_password(10)
         }
 
     elif case_type == "invalid":
@@ -1486,7 +1484,7 @@ def upload_udf_tar_package(sample_app=constants.WIND_SAMPLE_APP):
     Implements the documented workflow:
       cd apps/<sample_app>/time-series-analytics-config
       tar cf <sample_app>.tar models/ tick_scripts/ udfs/
-      curl -X POST https://localhost:3000/ts-api/udfs/package -F "file=@<sample_app>.tar" -k
+      curl -X POST https://{HOST_IP}:3000/ts-api/udfs/package -F "file=@<sample_app>.tar" -k
 
     Args:
         sample_app (str): Sample app name (e.g. constants.WIND_SAMPLE_APP).
@@ -1497,7 +1495,7 @@ def upload_udf_tar_package(sample_app=constants.WIND_SAMPLE_APP):
     import tarfile as _tarfile
     import tempfile as _tempfile
 
-    upload_endpoint = "https://localhost:3000/ts-api/udfs/package"
+    upload_endpoint = f"https://{HOST_IP}:3000/ts-api/udfs/package"
 
     success, original_dir = check_and_set_working_directory(return_original=True)
     if not success:
@@ -1628,7 +1626,7 @@ def update_config_file(ingestion_type="opcua"):
             try:
                 test_result = common_utils.exec_command(
                     ["curl", "-s", "-k", "-o", "/dev/null", "-w", "%{http_code}",
-                     "https://localhost:3000/ts-api/health"],
+                     f"https://{HOST_IP}:3000/ts-api/health"],
                     capture_output=True, text=True, timeout=10
                 )
                 status_code = test_result.stdout.strip() if test_result.returncode == 0 else "000"
@@ -1678,7 +1676,7 @@ def update_config_file(ingestion_type="opcua"):
         # Step 5: Send configuration update using curl to Docker-based service with retries
         if ingestion_type == "opcua":
             curl_command = [
-                "curl", "-X", "POST", "https://localhost:3000/ts-api/config",
+                "curl", "-X", "POST", f"https://{HOST_IP}:3000/ts-api/config",
                 "-k",
                 "-H", "accept: application/json",
                 "-H", "Content-Type: application/json",
@@ -1698,7 +1696,7 @@ def update_config_file(ingestion_type="opcua"):
             ]
         elif ingestion_type == "mqtt":
             curl_command = [
-                "curl", "-X", "POST", "https://localhost:3000/ts-api/config",
+                "curl", "-X", "POST", f"https://{HOST_IP}:3000/ts-api/config",
                 "-k",
                 "-H", "accept: application/json",
                 "-H", "Content-Type: application/json",
@@ -1808,7 +1806,7 @@ def execute_gpu_config_curl(device="gpu", sample_app=constants.WIND_SAMPLE_APP):
         # Post configuration to the time-series analytics API
         curl_command = [
             "curl", "-k", "-X", "POST",
-            "https://localhost:3000/ts-api/config",
+            f"https://{HOST_IP}:3000/ts-api/config",
             "-H", "accept: application/json",
             "-H", "Content-Type: application/json",
             "-d", gpu_config_json
@@ -1848,7 +1846,7 @@ def _kapacitor_task_alert_mode_matches(alert_mode):
     try:
         result = common_utils.exec_command(
             ["docker", "exec", tsam_name,
-             "curl", "-s", "http://localhost:9092/kapacitor/v1/tasks/windturbine_anomaly_detector"],
+             "curl", "-s", f"http://{HOST_IP}:9092/kapacitor/v1/tasks/windturbine_anomaly_detector"],
             capture_output=True, text=True, timeout=15,
         )
         if result.returncode != 0:
@@ -3065,7 +3063,9 @@ def generate_multimodal_test_credentials(case_type="valid", invalid_field=None):
             "S3_STORAGE_USERNAME": "",
             "S3_STORAGE_PASSWORD": "",  # nosec B105 - intentionally blank invalid-input fixture
             "SEAWEEDFS_WEB_AUTH_USER": "",
-            "SEAWEEDFS_WEB_AUTH_PASSWORD": ""  # nosec B105 - intentionally blank invalid-input fixture
+            "SEAWEEDFS_WEB_AUTH_PASSWORD": "",
+            "MCP_USERNAME": "",
+            "MCP_PASSWORD": ""  # nosec B105 - intentionally blank invalid-input fixture
         }
     elif case_type == "valid":
         # Generate valid S3 credentials that meet Makefile requirements
@@ -3084,7 +3084,9 @@ def generate_multimodal_test_credentials(case_type="valid", invalid_field=None):
             "S3_STORAGE_USERNAME": s3_username,
             "S3_STORAGE_PASSWORD": s3_password,
             "SEAWEEDFS_WEB_AUTH_USER": generate_username(5),
-            "SEAWEEDFS_WEB_AUTH_PASSWORD": generate_password(10)
+            "SEAWEEDFS_WEB_AUTH_PASSWORD": generate_password(10),
+            "MCP_USERNAME": generate_username(5),
+            "MCP_PASSWORD": generate_password(10)
         }
 
         # Validate that S3 credentials are properly set
@@ -3101,7 +3103,9 @@ def generate_multimodal_test_credentials(case_type="valid", invalid_field=None):
             "S3_STORAGE_USERNAME": generate_username(2),  # Invalid: too short
             "S3_STORAGE_PASSWORD": generate_password(2),   # Invalid: too short
             "SEAWEEDFS_WEB_AUTH_USER": generate_username(4),
-            "SEAWEEDFS_WEB_AUTH_PASSWORD": generate_password(9)
+            "SEAWEEDFS_WEB_AUTH_PASSWORD": generate_password(9),
+            "MCP_USERNAME": generate_username(3),
+            "MCP_PASSWORD": generate_password(3)
         }
 
     else:
@@ -4155,6 +4159,8 @@ def execute_multimodal_gpu_config_curl(config, device="gpu"):
         config (dict): Multimodal configuration dictionary
         device (str): Device to use for configuration ('gpu', 'cpu', etc.)
 
+    The endpoint is resolved from the deployment environment at request time.
+
     Returns:
         bool: True if curl command was successful, False otherwise
     """
@@ -4170,9 +4176,10 @@ def execute_multimodal_gpu_config_curl(config, device="gpu"):
 
         # Construct curl command for multimodal deployment using external API endpoint
         # as documented in get-started.md
+        endpoint_url = f"https://{HOST_IP}:3000/ts-api/config"
         curl_command = [
             "curl", "-k", "-X", "POST",
-            f"{constants.DOCKER_TSA_API_BASE_URL}/config",
+            endpoint_url,
             "-H", "accept: application/json",
             "-H", "Content-Type: application/json",
             "-d", gpu_config_json,
@@ -4709,7 +4716,7 @@ def test_nginx_proxy_endpoint(container_name, endpoint_url, timeout=30):
 
     Args:
         container_name (str): Name of the nginx container
-        endpoint_url (str): URL to test (e.g., "https://localhost:15443/")
+        endpoint_url (str): URL to test (e.g., "https://{HOST_IP}:15443/")
         timeout (int): Timeout for the request
 
     Returns:
@@ -4780,7 +4787,7 @@ def test_service_direct_access(container_name, service_url, timeout=30):
 
     Args:
         container_name (str): Name of the service container
-        service_url (str): URL to test (e.g., "http://localhost:3000/")
+        service_url (str): URL to test (e.g., "http://127.0.0.1:3000/")
         timeout (int): Timeout for the request
 
     Returns:
@@ -4796,7 +4803,7 @@ def test_service_direct_access(container_name, service_url, timeout=30):
 
         # Special handling for Grafana - test login endpoint instead of root
         if container_name == "ia-grafana":
-            test_url = f"http://localhost:3000/login"
+            test_url = f"https://{HOST_IP}:3000/login"
         else:
             test_url = service_url
 
@@ -4874,13 +4881,16 @@ def verify_critical_user_endpoints(endpoint_containers):
 
             # Test endpoint based on container type
             if container == "ia-grafana":
-                result = test_service_direct_access(container, f"http://localhost:{port}/", constants.TEST_CURL_TIMEOUT)
+                logging.info(f"Testing Grafana endpoint inside the container at http://{HOST_IP}:{port}/")
+                result = test_service_direct_access(container, f"http://{HOST_IP}:{port}/", constants.TEST_CURL_TIMEOUT)
             elif container == "dlstreamer-pipeline-server":
-                result = test_service_direct_access(container, f"http://localhost:{port}/", constants.TEST_CURL_TIMEOUT)
+                logging.info(f"Testing DL Streamer endpoint inside the container at http://{HOST_IP}:{port}/")
+                result = test_service_direct_access(container, f"http://{HOST_IP}:{port}/", constants.TEST_CURL_TIMEOUT)
             elif container == "nginx_proxy":
-                result = test_nginx_proxy_endpoint(container, f"https://localhost:{port}/", constants.TEST_CURL_TIMEOUT)
+                logging.info(f"Testing Nginx Proxy endpoint on the test host at https://{HOST_IP}:{port}/")  
+                result = test_nginx_proxy_endpoint(container, f"https://{HOST_IP}:{port}/", constants.TEST_CURL_TIMEOUT)
             else:
-                result = test_service_direct_access(container, f"http://localhost:{port}/", constants.TEST_CURL_TIMEOUT)
+                result = test_service_direct_access(container, f"http://{HOST_IP}:{port}/", constants.TEST_CURL_TIMEOUT)
 
             if result["success"]:
                 endpoint_results["accessible_endpoints"][container] = f"Port {port} accessible"
@@ -5574,7 +5584,7 @@ def execute_dlstreamer_pipeline_activation(device="GPU",
     Sends a POST request to the dlstreamer-pipeline-server REST API using the external
     endpoint as documented in get-started.md:
 
-        curl -k https://localhost:3000/dsps-api/pipelines/user_defined_pipelines/weld_defect_classification \
+        curl -k f"{constants.DOCKER_DSPS_API_BASE_URL}/pipelines/user_defined_pipelines/weld_defect_classification \
              -X POST -H 'Content-Type: application/json' \
              -d "$(sed 's/"device": "CPU"/"device": "GPU"/' pipeline-request-cpu.json)"
 
@@ -5618,7 +5628,7 @@ def execute_dlstreamer_pipeline_activation(device="GPU",
         # Use external API endpoint as documented in get-started.md
         curl_command = [
             "curl", "-k",
-            f"{constants.DOCKER_DSPS_API_BASE_URL}/pipelines/user_defined_pipelines/{pipeline_name}",
+            f"https://{HOST_IP}:3000/dsps-api/pipelines/user_defined_pipelines/{pipeline_name}",
             "-X", "POST",
             "-H", "Content-Type: application/json",
             "-d", payload_json

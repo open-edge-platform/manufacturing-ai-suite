@@ -73,10 +73,17 @@ wait_for_url "https://${HOST_IP}:${GRAFANA_PORT}/"
 # Read-only MCP probe (tools/list); runs only for `make up_agentic MCP=true` deployments.
 check_mcp() {
   local url="https://${HOST_IP}:${GRAFANA_PORT}/mcp"
-  local body code i=0
+  local body code i=0 mcp_user mcp_password
+  mcp_user="$(read_env MCP_USERNAME)"
+  mcp_password="$(read_env MCP_PASSWORD)"
+  if [ -z "$mcp_user" ] || [ -z "$mcp_password" ]; then
+    echo "FAIL: MCP_USERNAME and MCP_PASSWORD must be set in .env for the MCP probe" >&2
+    return 1
+  fi
   body="$(mktemp)"
   while :; do
     code="$(curl -sk -o "$body" -w '%{http_code}' -X POST "$url" \
+      --user "${mcp_user}:${mcp_password}" \
       -H 'Content-Type: application/json' \
       -H 'Accept: application/json, text/event-stream' \
       -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' 2>/dev/null || true)"

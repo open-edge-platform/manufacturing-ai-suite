@@ -42,6 +42,7 @@ HOST_IP="$(read_env HOST_IP)"
 HOST_IP="${HOST_IP:-127.0.0.1}"
 GRAFANA_PORT="$(read_env GRAFANA_PORT)"
 GRAFANA_PORT="${GRAFANA_PORT:-3000}"
+MCP="${MCP:-false}"
 MAX_RETRIES=30
 SLEEP_SECS=5
 
@@ -66,8 +67,16 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 echo "-- Container status --"
-make status || true
+make status MCP="$MCP"
 echo "-- Endpoint check --"
 wait_for_url "https://${HOST_IP}:${GRAFANA_PORT}/"
+
+if [ "$MCP" = "true" ]; then
+  echo "-- MCP liveness --"
+  docker compose -f docker-compose.yml -f docker-compose-mcp.yml exec -T \
+    time-series-mcp-server python -c \
+    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
+  echo "OK: MCP liveness; use the authenticated example client to verify tools and task state."
+fi
 
 echo "Smoke check passed"

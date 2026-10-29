@@ -65,7 +65,7 @@ services:
       start_period: 30s
 
   apm-llm:
-    image: ${DOCKER_REGISTRY}${OVMS_IMAGE}
+    image: openvino/model_server:2026.4.1-gpu
     container_name: apm-llm
     hostname: apm-llm
     # The mounted /model directory contains a pre-converted mediapipe graph
@@ -186,7 +186,7 @@ services:
       start_period: 15s
 
   prometheus:
-    image: ${PROMETHEUS_IMAGE}
+    image: prom/prometheus:v2.53.4
     container_name: apm-prometheus
     hostname: apm-prometheus
     volumes:
