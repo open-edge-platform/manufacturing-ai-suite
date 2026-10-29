@@ -79,6 +79,8 @@ The copy commands prompt before overwriting existing files. If the active person
 
 To automate this step, run `./hermes-webui.sh persona` instead: it is a no-op when the installed persona already matches the template, and otherwise backs up the existing persona to `SOUL.md.backup.<timestamp>` before replacing it. `./hermes-webui.sh setup` combines persona installation with the optional WebUI bring-up (see [Bring Up Hermes WebUI](../how-to-guides/bring-up-hermes-webui.md)).
 
-Start a new default-profile Hermes chat, including in the WebUI, and ask it to explain its role and how it handles a request to stop a pipeline. Confirm that it identifies the target and seeks approval rather than making a change. Review any profile-specific persona separately; these instructions do not install the template into node profiles.
+Start a new default-profile Hermes chat, including in the WebUI, and ask it to explain its role and how it handles a request to stop a pipeline. Confirm that it identifies the target and seeks approval rather than making a change.
 
-This is behavioral guidance, not an access-control mechanism. The fleet installer does not automatically install or overwrite the persona, and changing this template alone does not change an existing Hermes installation.
+**Install the persona before running the fleet installer.** The installer creates each node profile as a clone of the default profile, and the clone copies the default profile's `SOUL.md` at creation time — so node profiles automatically inherit whatever persona the default profile has when `fleet-setup.sh` runs. Because the installer recreates node profiles from the current default profile on every run, a persona installed or updated later is picked up by the next installer run; it does not propagate to existing node profiles by itself.
+
+This is behavioral guidance, not an access-control mechanism. The fleet installer never installs or overwrites the default profile's persona, and changing this template alone does not change an existing Hermes installation.
