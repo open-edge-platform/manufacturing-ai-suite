@@ -35,6 +35,7 @@ The available nodes, skills, prompts, and MCP tools depend on the configured inv
 
 get-started.md
 how-to-guides.md
+release-notes.md
 
 :::
 hide_directive-->
