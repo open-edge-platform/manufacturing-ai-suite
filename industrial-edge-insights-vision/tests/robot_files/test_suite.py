@@ -69,16 +69,6 @@ class test_suite(unittest.TestCase):
         env["TEST_CASE"] = "PCB005"
         ret = self._run_nose("../functional_tests/apps.py:TestCaseManager.test_apps")
         return ret
-    
-    def TC_001_PDDHELM(self):
-        env["TEST_CASE"] = "PDDHELM001"
-        ret = self._run_nose("../functional_tests/apps_helm.py:TestCaseManager.test_apps")
-        return ret
-
-    def TC_001_PCBHELM(self):
-        env["TEST_CASE"] = "PCBHELM001"
-        ret = self._run_nose("../functional_tests/apps_helm.py:TestCaseManager.test_apps")
-        return ret
 
 
 

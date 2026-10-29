@@ -314,8 +314,6 @@ If not, follow the [installation guide for docker engine](https://docs.docker.co
 
 ## Further Reading
 
-- [Deploy with Helm](./get-started/deploy-with-helm.md)
-- [Deploy multiple instances with Helm](./get-started/deploy-multiple-instances-with-helm.md)
 - [Run multiple AI pipelines](./how-to-customize/run-multiple-ai-pipelines.md)
 - [Enable MLOps](./how-to-extend-functionality/enable-mlops.md)
 - [Publish frames to S3 storage pipelines](./how-to-extend-functionality/store-frames-in-s3.md)
@@ -336,8 +334,6 @@ If not, follow the [installation guide for docker engine](https://docs.docker.co
 
 Vision System Requirements <./get-started/vision-system-requirements.md>
 ./get-started/environment-variables
-./get-started/deploy-with-helm
-./get-started/deploy-multiple-instances-with-helm
 
 :::
 hide_directive-->

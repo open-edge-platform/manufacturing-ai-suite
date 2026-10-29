@@ -1,5 +1,30 @@
 # Release Notes: Industrial Edge Insights - Time Series
 
+## Version 2026.3
+
+**December 2026**
+
+This release introduces **AI agent skills for deploying the app and MCP server**, **AI agent skills for building the Time Series sample app**, **Docker Compose-only deployment**, and **2026.3.0 service images**, alongside reliability fixes and documentation improvements.
+
+**New**
+
+- **AI agent skills**: added cross-harness instructions to build a Time Series sample app from a business use case, deploy the app and MCP server, and run tests, with example prompts and helpers.
+
+**Improved**
+
+- **Deployment**: removed Helm support and related tests; Docker Compose is now the supported deployment method.
+- **Runtime and dependencies**: updated sample app images to 2026.3.0, Python base images to 3.14, and OPC UA simulator dependencies for compatibility.
+- **Platform validation**: improved GPU functional checks and added validated-platform guidance.
+- **Network and shell security**: restricted published ports to the configured host, defaulting to loopback, and hardened shell operations.
+- **Reliability**: configured the MQTT publisher to restart after container or host restarts.
+- **Documentation**: updated deployment, release, platform, and reference-script guidance.
+
+**Fixed**
+
+- **OPC UA command output**: corrected `make up_opcua_ingestion` so it no longer displays echoed Telegraf configuration.
+
+---
+
 ## Version 2026.2
 
 **Release Date**: September 10, 2026

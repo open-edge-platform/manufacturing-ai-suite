@@ -6,7 +6,6 @@
 
 # Default values
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-DEPLOYMENT_TYPE=""                     # Default deployment type (empty for existing flow)
 CONFIG_FILE=$SCRIPT_DIR/config.yml     # Config file path for multiple instances
 
 init() {
@@ -32,23 +31,13 @@ init() {
         exit 1
     fi
 
-    # Set the appropriate HOST_IP with port for curl commands based on deployment type and config file presence
+    # Set the appropriate HOST_IP with port for curl commands based on config file presence
     if [[ -f "$CONFIG_FILE" ]]; then
-        if [[ "$DEPLOYMENT_TYPE" == "helm" ]]; then
-            CURL_HOST_IP="${HOST_IP}:$NGINX_HTTPS_PORT"
-            echo "Using Helm deployment - curl commands will use: $CURL_HOST_IP"
-        else
-            CURL_HOST_IP="$HOST_IP:$NGINX_HTTPS_PORT"
-            echo "Using default deployment - curl commands will use: $CURL_HOST_IP"
-        fi
+        CURL_HOST_IP="$HOST_IP:$NGINX_HTTPS_PORT"
+        echo "Using default deployment - curl commands will use: $CURL_HOST_IP"
     else
-        if [[ "$DEPLOYMENT_TYPE" == "helm" ]]; then
-            CURL_HOST_IP="${HOST_IP}:$NGINX_HTTPS_PORT"
-            echo "Using Helm deployment - curl commands will use: $CURL_HOST_IP"
-        else
-            CURL_HOST_IP="${HOST_IP}:$NGINX_HTTPS_PORT"
-            echo "Using default deployment - curl commands will use: $CURL_HOST_IP"
-        fi
+        CURL_HOST_IP="${HOST_IP}:$NGINX_HTTPS_PORT"
+        echo "Using default deployment - curl commands will use: $CURL_HOST_IP"
     fi
 }
 
@@ -170,12 +159,7 @@ get_status_all() {
 get_status_flag() {
     if [[ -f "$CONFIG_FILE" && -n "$INSTANCE_NAME" ]]; then
         get_sample_app
-        # if deployment type is helm, then set ENV_PATH as SCRIPT_DIR/helm/temp_apps/SAMPLE_APP/INSTANCE_NAME/.env
-        if [[ "$DEPLOYMENT_TYPE" == "helm" ]]; then
-            ENV_PATH="$SCRIPT_DIR/helm/temp_apps/$SAMPLE_APP/$INSTANCE_NAME/.env"
-        else    
-            ENV_PATH="$SCRIPT_DIR/temp_apps/$SAMPLE_APP/$INSTANCE_NAME/.env"
-        fi
+        ENV_PATH="$SCRIPT_DIR/temp_apps/$SAMPLE_APP/$INSTANCE_NAME/.env"
         # If instance_id is set, loop through each id and call get_status_instance
         if [[ -n "$INSTANCE_ID" ]]; then
             init
@@ -200,11 +184,7 @@ get_status_flag() {
         if [[ -f "$CONFIG_FILE" ]]; then
             echo "Config file found. Fetching status for all instances defined in $CONFIG_FILE"
             while IFS='|' read -r sample_app instance_name; do
-                if [[ "$DEPLOYMENT_TYPE" == "helm" ]]; then
-                    ENV_PATH="$SCRIPT_DIR/helm/temp_apps/$sample_app/$instance_name/.env"
-                else
-                    ENV_PATH="$SCRIPT_DIR/temp_apps/$sample_app/$instance_name/.env"
-                fi
+                ENV_PATH="$SCRIPT_DIR/temp_apps/$sample_app/$instance_name/.env"
                 echo "Processing instance: $instance_name from sample app: $sample_app"
                 get_status_all
             done < <(parse_config_yml)
@@ -221,9 +201,7 @@ err() {
 }
 
 usage() {
-    echo "Usage: $0 [helm] [--all] [ -i | --id <instance_id> ] [-h | --help]"
-    echo "Arguments:"
-    echo "  helm                            For Helm deployment (adds :30443 port to HOST_IP for curl commands)"
+    echo "Usage: $0 [--all] [ -i | --id <instance_id> ] [-h | --help]"
     echo "Options:"
     echo "  --all                           Get status of all pipelines instances (default)"
     echo "  -i, --instance <instance_name>  Get status of pipeline instance(s) for a specified INSTANCE_NAME from config.yml"
@@ -232,24 +210,6 @@ usage() {
 }
 
 main() {
-    # Check for helm argument first and set DEPLOYMENT_TYPE
-    args=("$@")
-    for i in "${!args[@]}"; do
-        if [[ "${args[i]}" == "helm" ]]; then
-            DEPLOYMENT_TYPE="helm"
-            # Remove helm from the args array
-            unset 'args[i]'
-            break
-        fi
-    done
-
-    # Reconstruct the arguments from the modified array (removing empty elements)
-    filtered_args=()
-    for arg in "${args[@]}"; do
-        [[ -n "$arg" ]] && filtered_args+=("$arg")
-    done
-    set -- "${filtered_args[@]}"
-
     # If no arguments provided, fetch status of all pipeline instances depending whether config.yml is present
     # If config.yml is present, fetch status of all instances defined in it where ENV_PATH=SCRIPT_DIR/temp_apps/SAMPLE_APP/INSTANCE_NAME/.env
     # else fetch status where ENV_PATH=SCRIPT_DIR/.env

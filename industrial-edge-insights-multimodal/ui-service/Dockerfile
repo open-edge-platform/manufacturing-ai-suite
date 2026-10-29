@@ -12,7 +12,7 @@ WORKDIR /app
 RUN groupadd -r appuser && useradd -r -g appuser -u 1001 appuser
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt && \
+RUN pip install --no-cache-dir --no-compile -r requirements.txt && \
     python -m pip uninstall -y pip
 
 COPY src/ ./src/

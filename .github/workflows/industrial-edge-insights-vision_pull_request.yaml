@@ -185,129 +185,6 @@ jobs:
           name: bandit-report
           path: bandit_report.json
 
-  trivy-config-helm-scan:
-    outputs:
-      high_findings: ${{ steps.collect-trivy-high.outputs.has_high }}
-    permissions:
-      contents: read
-      packages: read          # needed for actions/checkout
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.1
-        with:
-          persist-credentials: false  
-      - name: Install Trivy from Aqua Security APT repo
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gnupg lsb-release wget apt-transport-https curl jq
-          curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
-          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -cs) main" | \
-          sudo tee /etc/apt/sources.list.d/trivy.list > /dev/null
-          sudo apt-get update
-          sudo apt-get install -y trivy
-      - name: Download Trivy Vulnerability DB and Report Format
-        continue-on-error: true
-        shell: bash
-        run: |
-          pwd
-          cd industrial-edge-insights-vision/
-          trivy --version
-          which trivy
-          trivy image --download-db-only
-          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o trivy-html.tpl
-          cat << 'EOF' > csv.tpl
-          {{ range . }}
-          Trivy Vulnerability Scan Results ({{- .Target -}})
-          VulnerabilityID,Severity,CVSS Score,Title,Library,Vulnerable Version,Fixed Version,Information URL,Triage Information
-          {{ range .Vulnerabilities }}
-              {{- .VulnerabilityID }},
-              {{- .Severity }},
-              {{- range $key, $value := .CVSS }}
-                  {{- if (eq $key "nvd") }}
-                      {{- .V3Score -}}
-                  {{- end }}
-              {{- end }},
-              {{- quote .Title }},
-              {{- quote .PkgName }},
-              {{- quote .InstalledVersion }},
-              {{- quote .FixedVersion }},
-              {{- .PrimaryURL }}
-          {{ else -}}
-              No vulnerabilities found at this time.
-          {{ end }}
-          Trivy Dependency Scan Results ({{ .Target }})
-          ID,Name,Version,Notes
-          {{ range .Packages -}}
-              {{- quote .ID }},
-              {{- quote .Name }},
-              {{- quote .Version }}
-          {{ else -}}
-              No dependencies found at this time.
-          {{ end }}
-          {{ end }}
-          EOF
-
-      - name: Trivy config scan for helm charts 
-        run: |
-          cd industrial-edge-insights-vision/helm
-          ignore_file=$(mktemp)
-          trap 'rm -f "$ignore_file"' EXIT
-          printf '%s\n' AVD-KSV-0014 AVD-KSV-0118 > "$ignore_file"
-          trivy config --ignorefile "$ignore_file" \
-          --helm-set-string webrtcturnserver.username=user,webrtcturnserver.password=password \
-          --severity HIGH,CRITICAL --exit-code 1 \
-          --format json --output trivy-Spineapp-helm.json .
-
-      - name: Summarize Trivy config findings
-        if: always()
-        run: |
-          report="industrial-edge-insights-vision/helm/trivy-Spineapp-helm.json"
-          table="industrial-edge-insights-vision/helm/trivy-Spineapp-helm.txt"
-          echo "## Trivy Helm Config Findings" >> "$GITHUB_STEP_SUMMARY"
-          if [ ! -s "$report" ]; then
-            echo "Trivy JSON report was not generated." | tee "$table" >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-          high_count=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' "$report")
-          critical_count=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL")] | length' "$report")
-          {
-            echo "| File | Line | Severity | Rule | Finding | Resolution |"
-            echo "|------|-----:|----------|------|---------|------------|"
-            jq -r '.Results[]? as $result | $result.Misconfigurations[]? | "| \($result.Target | gsub("\\|"; "\\\\|") | gsub("[\\r\\n]+"; " ")) | \(.CauseMetadata.StartLine // "N/A") | \(.Severity) | \(.ID) | \(.Title | gsub("\\|"; "\\\\|") | gsub("[\\r\\n]+"; " ")) | \(.Resolution // "" | gsub("\\|"; "\\\\|") | gsub("[\\r\\n]+"; " ")) |"' "$report"
-            if [ "$high_count" -eq 0 ] && [ "$critical_count" -eq 0 ]; then
-              echo "| - | - | - | - | No HIGH or CRITICAL findings | - |"
-            fi
-          } > "$table"
-          cat "$table" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "HIGH: $high_count | CRITICAL: $critical_count" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Collect Trivy HIGH findings
-        id: collect-trivy-high
-        if: always()
-        run: |
-          report="industrial-edge-insights-vision/helm/trivy-Spineapp-helm.json"
-          high_count=0
-          if [ -s "$report" ]; then
-            high_count=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' "$report")
-          fi
-          if [ "$high_count" -gt 0 ]; then
-            echo "has_high=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_high=false" >> "$GITHUB_OUTPUT"
-          fi
-          echo "Trivy HIGH findings: $high_count"
-          
-      - name: Upload Scan artifact to Github
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v6.0.0
-        with:
-          name: Trivy Report - Config scan for Helm
-          path: |
-            industrial-edge-insights-vision/helm/trivy-Spineapp-helm.json
-            industrial-edge-insights-vision/helm/trivy-Spineapp-helm.txt
-       
   sanity:
     uses: ./.github/workflows/industrial-edge-insights-vision_sanity.yaml
     with:
@@ -320,7 +197,7 @@ jobs:
     name: Verify Scan Status
     runs-on: ubuntu-24.04
     if: always()
-    needs: [virus-scan, shellcheck, bandit, trivy-config-helm-scan, sanity]
+    needs: [virus-scan, shellcheck, bandit, sanity]
     steps:
       - name: Generate scan status
         env:
@@ -331,8 +208,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          names=("virus-scan" "shellcheck" "bandit" "trivy-config-helm-scan" "sanity")
-          statuses=("${{ needs.virus-scan.result }}" "${{ needs.shellcheck.result }}" "${{ needs.bandit.result }}" "${{ needs.trivy-config-helm-scan.result }}" "${{ needs.sanity.result }}")
+          names=("virus-scan" "shellcheck" "bandit" "sanity")
+          statuses=("${{ needs.virus-scan.result }}" "${{ needs.shellcheck.result }}" "${{ needs.bandit.result }}" "${{ needs.sanity.result }}")
           passed=0
           failed=0
           skipped=0
@@ -400,8 +277,8 @@ jobs:
   comment-high-findings:
     name: Comment on HIGH findings
     runs-on: ubuntu-24.04
-    needs: [bandit, trivy-config-helm-scan]
-    if: always() && github.event_name == 'pull_request' && (needs.bandit.outputs.high_findings == 'true' || needs.trivy-config-helm-scan.outputs.high_findings == 'true')
+    needs: [bandit]
+    if: always() && github.event_name == 'pull_request' && needs.bandit.outputs.high_findings == 'true'
     permissions:
       actions: read
       pull-requests: write
@@ -410,7 +287,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           BANDIT_HIGH: ${{ needs.bandit.outputs.high_findings }}
-          TRIVY_HIGH: ${{ needs.trivy-config-helm-scan.outputs.high_findings }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           marker="<!-- spineapp-high-security-findings -->"
@@ -419,11 +295,6 @@ jobs:
             bandit_job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --paginate --jq '.jobs[] | select(.name == "Bandit") | .html_url' | head -n 1)
             bandit_job=${bandit_job:-$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID}
             body+=$'\n'"| Bandit scan | [Open job]($bandit_job) |"
-          fi
-          if [ "$TRIVY_HIGH" = "true" ]; then
-            trivy_job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --paginate --jq '.jobs[] | select(.name | contains("trivy-config-helm-scan")) | .html_url' | head -n 1)
-            trivy_job=${trivy_job:-$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID}
-            body+=$'\n'"| Trivy Helm config scan | [Open job]($trivy_job) |"
           fi
           comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate --jq '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | contains("<!-- spineapp-high-security-findings -->"))) | .id' | tail -n 1)
           if [ -n "$comment_id" ]; then

@@ -126,16 +126,3 @@ Follow the steps below to run the pipeline.
    :::
    ::::
    hide_directive-->
-
-## Deployment with Helm
-
-### Intel® NPU K8S Extension
-
-If you are deploying a NPU based pipeline (example: with VA elements like `vapostproc`, `vah264dec`, `vajpegdec`, etc., and/or with `device=NPU` in `gvadetect` in `dlstreamer_pipeline_server_config.json`) with Intel® NPU K8S Extension, ensure to set the below details in the file `helm/values.yaml` appropriately in order to utilize the underlying NPU.
-
-```sh
-npu:
-  enabled: true
-  type: "npu.intel.com/accel"
-  count: 1
-```

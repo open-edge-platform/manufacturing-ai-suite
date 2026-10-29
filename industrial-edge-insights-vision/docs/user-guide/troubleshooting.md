@@ -73,38 +73,6 @@ This should resolve the time discrepancy in Prometheus.
 
 Restart the DL Streamer pipeline server container with the pipeline that has this RTSP source.
 
-## Deployment with Intel® GPU K8S Extension
-
-If you are deploying a GPU based pipeline (example: with VA elements like `vapostproc`, `vah264dec`, etc., and/or with `device=GPU` in `gvadetect` in `dlstreamer_pipeline_server_config.json`) with Intel® GPU k8s Extension, ensure to set the below details in the file `helm/values.yaml` appropriately in order to utilize the underlying GPU.
-
-```sh
-gpu:
-   enabled: true
-   type: "gpu.intel.com/i915"
-   count: 1
-```
-
-## For Helm Deployments, **`dlstreamer-pipeline-server` pod shows `CreateContainerError`**
-
-  - **Issue**: The `dlstreamer-pipeline-server` pod fails to start and shows `CreateContainerError`. This issue is seen only on environments using the `docker://` container runtime.
-  - **Check Container Runtime**: Run the following command to check which container runtime is being used:
-
-    ```bash
-    kubectl get nodes -o wide
-    ```
-
-    Inspect the `CONTAINER-RUNTIME` column to check if the node is using the `docker://` runtime.
-
-  - **Fix**: Run the following command to configure the Intel GPU device plugin for container runtime compatibility:
-
-    ```bash
-    kubectl patch ds intel-gpu-plugin -n intel-device-plugins --type='json' \
-      -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value": "-bypath=none"}]'
-    ```
-    Restart the Helm deployment once this fix is implemented.
-
-
-
 ## Inference on NPU
 
 To perform inferencing on an NPU device (for platforms with NPU accelerators such as Ultra Core processors), ensure you have completed the required prerequisites. Refer to the relevant [DL Streamer instructions](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/advanced_install/advanced_install_guide_prerequisites.html#optional-prerequisite-2-install-intel-npu-drivers) to install Intel® NPU drivers.
