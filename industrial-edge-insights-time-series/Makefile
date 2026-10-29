@@ -62,6 +62,25 @@ ENV_FILE = ./.env
 
 include $(ENV_FILE)
 export $(shell sed 's/=.*//' $(ENV_FILE))
+export MCP_USERNAME MCP_PASSWORD TIME_SERIES_MCP_IMAGE
+MCP ?= false
+ifneq ($(filter $(MCP),true false),$(MCP))
+$(error MCP must be true or false)
+endif
+DOCKER_COMPOSE_MCP_FILE = ./docker-compose-mcp.yml
+COMPOSE_FILES = -f $(DOCKER_COMPOSE_FILE)
+ifeq ($(INCLUDE),validation)
+COMPOSE_FILES += -f $(DOCKER_COMPOSE_VALIDATION_FILE)
+endif
+# Build and push cover every image, including the MCP server, regardless of MCP
+IMAGE_COMPOSE_FILES := $(COMPOSE_FILES) -f $(DOCKER_COMPOSE_MCP_FILE)
+ifeq ($(MCP),true)
+COMPOSE_FILES += -f $(DOCKER_COMPOSE_MCP_FILE)
+export MCP_PROCESSING_MODE := $(if $(filter batch,$(MAKECMDGOALS)),batch,stream)
+endif
+COMPOSE = $(DOCKER_COMPOSE) $(COMPOSE_FILES)
+IMAGE_COMPOSE = $(DOCKER_COMPOSE) $(IMAGE_COMPOSE_FILES)
+
 DRI_MOUNT_PATH := $(shell [ -d /dev/dri ] && [ -n "$$(ls -A /dev/dri 2>/dev/null)" ] && echo "/dev/dri" || echo "/dev/null")
 export DRI_MOUNT_PATH
 $(shell chmod 600 .env)
@@ -70,20 +89,25 @@ $(shell chmod 600 .env)
 .PHONY: build
 build:
 	@echo "Building Docker containers..."
-	$(DOCKER_COMPOSE) build --pull;
+	$(IMAGE_COMPOSE) build --pull;
 
 .PHONY: build_copyleft_sources
 build_copyleft_sources:
 	@echo "Building Docker containers including copyleft licensed sources..."
-	$(DOCKER_COMPOSE) build --build-arg COPYLEFT_SOURCES=true --pull;
+	$(IMAGE_COMPOSE) build --build-arg COPYLEFT_SOURCES=true --pull;
 
 # Check if multiple particular variables in .env are assigned with values
 .PHONY: check_env_variables
 check_env_variables:
 	@echo "Checking if username/password in .env are matching the rules set..."
 	@variables="INFLUXDB_USERNAME INFLUXDB_PASSWORD VISUALIZER_GRAFANA_USER VISUALIZER_GRAFANA_PASSWORD"; \
+	if [ "$(MCP)" = "true" ]; then variables="$$variables MCP_USERNAME MCP_PASSWORD"; fi; \
 	for variable_name in $$variables; do \
-		value=$$(grep -E "^$$variable_name=" $(ENV_FILE) | cut -d'=' -f2); \
+		if printenv "$$variable_name" >/dev/null 2>&1; then \
+			value=$$(printenv "$$variable_name"); \
+		else \
+			value=$$(grep -E "^$$variable_name=" $(ENV_FILE) | cut -d'=' -f2); \
+		fi; \
 		if [ -z "$$value" ]; then \
 			echo "'$$variable_name' in $(ENV_FILE) is unassigned."; \
 			exit 1; \
@@ -114,6 +138,18 @@ check_env_variables:
 			VISUALIZER_GRAFANA_PASSWORD) \
 				if ! echo "$$value" | grep -Eq "^[A-Za-z0-9]{10,}$$" || ! echo "$$value" | grep -q "[0-9]" || ! echo "$$value" | grep -q "[A-Za-z]"; then \
 					echo "VISUALIZER_GRAFANA_PASSWORD length must be a minimum of 10 alphanumeric characters with at least one digit"; \
+					exit 1; \
+				fi \
+				;; \
+			MCP_USERNAME) \
+				if ! echo "$$value" | grep -Eq "^[A-Za-z]{5,}$$"; then \
+					echo "MCP_USERNAME must contain only alphabets and be at least 5 characters minimum"; \
+					exit 1; \
+				fi \
+				;; \
+			MCP_PASSWORD) \
+				if ! echo "$$value" | grep -Eq "^[A-Za-z0-9]{10,}$$" || ! echo "$$value" | grep -q "[0-9]" || ! echo "$$value" | grep -q "[A-Za-z]"; then \
+					echo "MCP_PASSWORD length must be a minimum of 10 alphanumeric characters with at least one digit"; \
 					exit 1; \
 				fi \
 				;; \
@@ -234,16 +270,20 @@ up_mqtt_ingestion: check_env_variables down
 	echo "Starting Docker containers..."; \
 	echo "GPU device path set to: $(DRI_MOUNT_PATH) based on its existence"; \
 	if [ $(INCLUDE) = 'validation' ]; then \
-		$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_VALIDATION_FILE) up --scale ia-opcua-server=0 -d; \
+		$(COMPOSE) up --scale ia-opcua-server=0 -d; \
 	else \
 		for i in $$(seq 1 $(num_of_streams)); do \
 			echo "Starting ia-mqtt-publisher instance $$i for SAMPLE_APP: $$SAMPLE_APP";\
-			$(DOCKER_COMPOSE) run -d --name ia-mqtt-publisher-$$i -e INSTANCE_ID=$$i ia-mqtt-publisher; \
+			$(COMPOSE) run -d --name ia-mqtt-publisher-$$i -e INSTANCE_ID=$$i ia-mqtt-publisher; \
 			docker update --restart unless-stopped ia-mqtt-publisher-$$i; \
 		done; \
-		$(DOCKER_COMPOSE) up --scale ia-opcua-server=0 -d $(shell $(DOCKER_COMPOSE) config --services | grep -v ia-mqtt-publisher); \
+		$(COMPOSE) up --scale ia-opcua-server=0 -d $(shell $(COMPOSE) config --services | grep -v ia-mqtt-publisher); \
 	fi
+ifeq ($(MCP),true)
+	@echo "MCP mode: use start_pipeline to upload the UDF package and enable analytics."
+else
 	@$(upload_tar_file)
+endif
 
 # Run Docker containers
 .PHONY: up_opcua_ingestion
@@ -256,16 +296,23 @@ up_opcua_ingestion: check_env_variables down
 	echo "Starting Docker containers..."; \
 	echo "GPU device path set to: $(DRI_MOUNT_PATH) based on its existence"; \
 	if [ $(INCLUDE) = 'validation' ]; then \
-		$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_VALIDATION_FILE) up --scale ia-mqtt-publisher=0 -d ;\
+		$(COMPOSE) up --scale ia-mqtt-publisher=0 -d ;\
 	else \
-		$(DOCKER_COMPOSE) up --scale ia-opcua-server=$(num_of_streams) --scale ia-mqtt-publisher=0 -d; \
+		$(COMPOSE) up --scale ia-opcua-server=$(num_of_streams) --scale ia-mqtt-publisher=0 -d; \
 	fi
+ifeq ($(MCP),true)
+	@echo "MCP mode: use start_pipeline to upload the UDF package and enable analytics."
+else
 	@$(upload_tar_file)
+endif
 
 
 # Status of the deployed containers
 .PHONY: status
 status:
+ifeq ($(MCP),true)
+	@$(COMPOSE) ps time-series-mcp-server
+endif
 	@echo "Status of the deployed containers..."; \
 	docker ps -a --filter "name=^ia-" --filter "name=mr_" --filter "name=model_" --filter "name=wind-turbine" --format "table {{.ID}}\t{{.Names}}\t{{.Status}}\t{{.Ports}}"; \
 	echo "Parsing the logs of all containers to catch any error messages..."; \
@@ -301,7 +348,7 @@ status:
 .PHONY: down
 down:
 	@echo "Stopping Docker containers...";
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) down -v --remove-orphans
+	$(COMPOSE) down -v --remove-orphans
 
 # To push the docker images to docker registry, ensure to configure DOCKER_REGISTRY in .env
 # and have logged into that. Applies mainly when one is dealing with internal docker registry.
@@ -310,16 +357,16 @@ down:
 .PHONY: push_images
 push_images: build
 	@echo "Pushing the images to docker registry"
-	docker compose -f $(DOCKER_COMPOSE_FILE) push
+	$(IMAGE_COMPOSE) push
 
 # Help
 .PHONY: help
 help:
 	@echo "Makefile commands:"
-	@echo "  make build                        - Build Docker containers"
-	@echo "      No parameters required."
-	@echo "  make build_copyleft_sources       - Build Docker containers including copyleft licensed sources"
-	@echo "      No parameters required."
+	@echo "  make build                        - Build all Docker images, including the MCP server"
+	@echo "      Optional: INCLUDE=validation (also includes the validation override)"
+	@echo "  make build_copyleft_sources       - Build all Docker images including copyleft licensed sources"
+	@echo "      Optional: INCLUDE=validation"
 	@echo "  make up_mqtt_ingestion            - Start Docker containers using MQTT ingestion"
 	@echo "      Optional: app (default: wind-turbine-anomaly-detection), num_of_streams (default: 1), number_of_data_points_per_stream, ingestion_interval"
 	@echo "      Example: make up_mqtt_ingestion app=wind-turbine-anomaly-detection num_of_streams=2"
@@ -332,7 +379,7 @@ help:
 	@echo "      No parameters required."
 	@echo "  make check_env_variables          - Validate required .env variables"
 	@echo "      No parameters required."
-	@echo "  make push_images                  - Push the images to docker registry"
+	@echo "  make push_images                  - Build and push all images, including the MCP server, to the docker registry"
 	@echo "      Optional: DOCKER_REGISTRY (set in .env or as param)"
 	@echo "      Example: make push_images DOCKER_REGISTRY=myregistry"
 	@echo "  make <ingestion_target> batch      - Run batch processing with an ingestion target"
@@ -342,4 +389,6 @@ help:
 	@echo "      Example: make up_opcua_ingestion batch app=wind-turbine-anomaly-detection"
 	@echo "  make help                         - Display this help message"
 	@echo "      No parameters required."
-
+	@echo "  MCP=true                          - Add the authenticated MCP server; analytics starts through MCP"
+	@echo "      Set MCP_USERNAME and MCP_PASSWORD in .env first. Example: make up_mqtt_ingestion MCP=true"
+	@echo "      Also use MCP=true with down and status for MCP deployments. build and push_images always include the MCP server image."

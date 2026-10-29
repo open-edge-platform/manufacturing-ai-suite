@@ -9,6 +9,7 @@ This section collects guides for Time Series Analytics microservice and associat
 - [Fine-Tune a VLM with Unsloth Library — Weld Usecase](./how-to-guides/how-to-fine-tune-vlm-weld-usecase.md)
 - [Deploy vLLM Service For Defect Explanation](./how-to-guides/how-to-deploy-vllm-service.md)
 - [Deploy the Agentic Workflow for the Multimodal Weld Defect Detection Sample App](./how-to-guides/how-to-deploy-agent-workflow.md)
+- [Use the MCP server](./how-to-guides/use-mcp-server.md)
 
 <!--hide_directive
 :::{toctree}
@@ -21,6 +22,7 @@ Configure RTSP Camera <./how-to-guides/how-to-configure-rtsp-camera.md>
 Fine-Tune a VLM with Unsloth Library — Weld Usecase <./how-to-guides/how-to-fine-tune-vlm-weld-usecase.md>
 Deploy vLLM Service For Defect Explanation <./how-to-guides/how-to-deploy-vllm-service.md>
 Deploy the Agentic Workflow for the Multimodal Weld Defect Detection Sample App <./how-to-guides/how-to-deploy-agent-workflow.md>
+Use the MCP server <./how-to-guides/use-mcp-server.md>
 
 :::
 hide_directive-->

@@ -19,7 +19,10 @@ pip3 install -r ../requirements.txt
 
 `pytest.ini` adds the time-series test utilities
 (`../../../industrial-edge-insights-time-series/tests/...`) to `pythonpath`, so
-the sibling `industrial-edge-insights-time-series` directory must be present.
+the sibling `industrial-edge-insights-time-series/tests` directory must be
+present. The Get Started sparse checkout omits it; add it from the
+repository root with
+`git sparse-checkout add industrial-edge-insights-time-series/tests`.
 
 The tests overwrite `.env`: credentials are replaced with generated values
 and `HOST_IP` is set to the system IP address. Back up `.env` first if the

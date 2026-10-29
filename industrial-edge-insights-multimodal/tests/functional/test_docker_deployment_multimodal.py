@@ -22,7 +22,7 @@ from common_utils import assert_condition
 pytest_plugins = ["conftest_docker"]
 
 logger = logging.getLogger(__name__)
-HOST_IP = common_utils.get_system_ip()
+HOST_IP = constants.HOST_IP
 def test_blank_values():
     """TC_001: Testing blank values in .env file for multimodal deployment"""
     logger.info("TC_001: Testing blank values, checking make check env variables with blank values in .env file")

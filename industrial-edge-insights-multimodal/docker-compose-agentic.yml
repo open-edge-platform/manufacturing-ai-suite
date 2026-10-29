@@ -11,7 +11,7 @@ services:
     # Pulled from the EAL agent-quality-handler microservice — no longer
     # built from this repo. See services/agent-service (removed) history
     # for the prior in-repo implementation this replaced.
-    image: ${DOCKER_REGISTRY}${AGENTIC_QUALITY_HANDLER_IMAGE}:${DEPS_IMAGE_SUFFIX:-2026.2.0}
+    image: ${DOCKER_REGISTRY}${AGENTIC_QUALITY_HANDLER_IMAGE}:${AGENTIC_IMAGE_SUFFIX:-2026.2.0}${WEEKLY_BUILD_DATE:+-${WEEKLY_BUILD_DATE}}${WEEKLY_BUILD_DATE:+-weekly}
     container_name: apm-agent
     hostname: apm-agent
     environment:
@@ -23,7 +23,8 @@ services:
       # LLM service (OVMS — OpenVINO Model Server)
       LLM_BASE_URL: http://apm-llm:8000/v3
       LLM_MODEL_NAME: ${LLM_MODEL_NAME}
-      LLM_MODE: ${LLM_MODE:-server}
+      LLM_MODE: ${LLM_MODE:-llm}
+      AGENT_MODE: ${AGENT_MODE:-sequential}
       LLM_API_KEY: ${LLM_API_KEY:-UNUSED}
       # MQTT — subscribes only to the detection layer's "batch-complete"
       # event; never subscribes to raw detections directly.
@@ -64,7 +65,7 @@ services:
       start_period: 30s
 
   apm-llm:
-    image: ${DOCKER_REGISTRY}${OVMS_IMAGE}
+    image: openvino/model_server:2026.4.1-gpu
     container_name: apm-llm
     hostname: apm-llm
     # The mounted /model directory contains a pre-converted mediapipe graph
@@ -185,7 +186,7 @@ services:
       start_period: 15s
 
   prometheus:
-    image: ${PROMETHEUS_IMAGE}
+    image: prom/prometheus:v2.53.4
     container_name: apm-prometheus
     hostname: apm-prometheus
     volumes:

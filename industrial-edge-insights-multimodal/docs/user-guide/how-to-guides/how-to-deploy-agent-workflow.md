@@ -73,6 +73,8 @@ To include the MCP server, set `MCP_USERNAME` and `MCP_PASSWORD` in `.env`, then
 make up_agentic MCP=true
 ```
 
+See [Use the MCP server](./use-mcp-server.md) for the tools and the example client.
+
 For a fresh build before deployment:
 
 ```bash

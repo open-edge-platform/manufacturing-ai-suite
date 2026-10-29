@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import subprocess
+import subprocess  # nosec B404 - exec_command explicitly disables shell execution
 import json
 import time
 import os
@@ -26,7 +26,7 @@ import pandas as pd
 
 # Set up logger
 logger = logging.getLogger(__name__)
-
+HOST_IP = constants.HOST_IP
 async def login_to_grafana(url, username, password):
     """
     Simple Grafana authentication test using the API endpoint.
@@ -287,10 +287,10 @@ def fetch_docker_credentials(credential_type):
 
         if credential_type == "influxdb":
             username_key = "INFLUXDB_USERNAME="
-            password_key = "INFLUXDB_PASSWORD="
+            password_key = "INFLUXDB_PASSWORD="  # nosec B105 - this is an environment variable name
         elif credential_type == "grafana":
             username_key = "VISUALIZER_GRAFANA_USER="
-            password_key = "VISUALIZER_GRAFANA_PASSWORD="
+            password_key = "VISUALIZER_GRAFANA_PASSWORD="  # nosec B105 - this is an environment variable name
         else:
             logger.error(f"Unknown credential type: {credential_type}")
             return None, None
@@ -304,6 +304,9 @@ def fetch_docker_credentials(credential_type):
                 username = line.split('=', 1)[1]
             elif line.startswith(password_key):
                 password = line.split('=', 1)[1]
+
+        username = os.environ.get(username_key[:-1], username)
+        password = os.environ.get(password_key[:-1], password)
         
         # Note: Not logging credentials for security reasons  
         logger.info(f"Successfully retrieved {credential_type.upper()} credentials from .env file")
@@ -376,7 +379,7 @@ async def login_to_grafana_docker(port=3000):
         # For Docker deployment, Grafana is accessible via nginx proxy on HTTPS
         # The nginx service exposes ${GRAFANA_PORT}:443 (HTTPS)
         # Only test HTTPS path - HTTP working would be a security bug
-        grafana_url = f"https://localhost:{port}"
+        grafana_url = f"https://{HOST_IP}:{port}"
         
         logger.info(f"Attempting to login to Grafana at: {grafana_url}")
         
@@ -416,6 +419,9 @@ def read_env_file(env_file_path: str):
                     if '=' in line:
                         key, value = line.split('=', 1)
                         env_vars[key.strip()] = value.strip()
+        for key in env_vars:
+            if key in os.environ:
+                env_vars[key] = os.environ[key]
     except FileNotFoundError:
         logger.warning(f".env file not found at {env_file_path}")
     
@@ -434,7 +440,7 @@ def get_docker_ports_from_env(project_root: str = None):
     """
     if project_root is None:
         # Default to the wind turbine project directory
-        project_root = "/home/user/WW35_NMAP/frameworks.ai.ai-suite-for-timeseries/edge-ai-suites/manufacturing-ai-suite/wind-turbine-anomaly-detection"
+        project_root = constants.EDGE_AI_SUITES_DIR
     
     env_file_path = os.path.join(project_root, ".env")
     env_vars = read_env_file(env_file_path)

@@ -7,6 +7,11 @@ Source of truth: `Makefile` in the component root. Re-derive this table from
 the live file if it ever disagrees. Helm/Kubernetes deployment is not
 supported; there are no Helm targets.
 
+This file only catalogues Make targets. For system requirements,
+prerequisites, and step-by-step procedures, use the app's published user
+guide at <https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/index.html>
+(see "Normative references" in `SKILL.md`).
+
 ## App selection
 
 - `app=<name>` selects the sample app (default `wind-turbine-anomaly-detection`).
@@ -16,14 +21,17 @@ supported; there are no Helm targets.
 
 | Target | Effect |
 |---|---|
-| `make build` | `docker compose build --pull` |
+| `make build` | `docker compose build --pull`. Builds the data simulator images only (OPC-UA server, MQTT publisher). Builds app images only. It does not build the Time Series Analytics microservice; run `scripts/build-time-series-analytics.sh` first only when the request explicitly asks to build that microservice (SKILL.md Step 2a) |
 | `make build_copyleft_sources` | Same, plus `--build-arg COPYLEFT_SOURCES=true` |
+
+Add `MCP=true` to build the optional local MCP image.
+Use the same flag for deployment, status, teardown, and image publishing.
 
 ## Prerequisite / validation targets (auto-invoked by `up_*`)
 
 | Target | Effect |
 |---|---|
-| `check_env_variables` | Validates `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD` in `.env`. Usernames: letters only, at least 5 characters (`INFLUXDB_USERNAME` must not be `admin`). Passwords: alphanumeric, at least 10 characters, with at least one letter and one digit |
+| `check_env_variables` | Validates `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD` in `.env`, plus `MCP_USERNAME/PASSWORD` when `MCP=true`. Usernames: letters only, at least 5 characters (`INFLUXDB_USERNAME` must not be `admin`). Passwords: alphanumeric, at least 10 characters, with at least one letter and one digit |
 
 ## Deploy (Docker Compose)
 
@@ -45,10 +53,15 @@ and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
 - `app` — sample app name (default `wind-turbine-anomaly-detection`)
 - `num_of_streams` — number of simulated streams (default `1`); >1 triggers
   regeneration of a multi-stream Telegraf config via a local Python venv
-  (`generate-telegraf-config.py`)
+  (`generate-telegraf-config.py`). For `up_opcua_ingestion` with >1 stream,
+  export `OPCUA_SERVER_PORT_MAPPING=30003-30100` first
+  ([Multi-stream ingestion](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html))
 - `ingestion_interval` — simulator ingestion interval (default `"1s"`)
 - `number_of_data_points_per_stream` — when set, enables
-  `ENABLE_BENCHMARKING=true` and sets `BENCHMARK_TOTAL_PTS`
+  `ENABLE_BENCHMARKING=true` and sets `BENCHMARK_TOTAL_PTS`, a per-stream
+  limit in the wind-turbine UDFs (`points_received[stream_src]`); pass the
+  per-stream count unchanged. [Benchmarking](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html)
+  currently says to multiply by `num_of_streams`, which conflicts with the code.
 - `batch` — append as a second goal (e.g.
   `make up_mqtt_ingestion batch app=wind-turbine-anomaly-detection`) to use
   `config-batch.json` instead of `config.json` for the TSAM config, and swap
@@ -57,6 +70,13 @@ and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
   (system-metrics Grafana dashboard + host-metric Telegraf inputs such as
   `cpu`, `mem`, `disk`, `docker`); `num_of_streams` instance scaling is not
   applied in this mode
+- `MCP=true` — adds `docker-compose-mcp.yml` and skips automatic UDF upload/config.
+  Set `MCP_USERNAME` and `MCP_PASSWORD` first.
+  Deploy with the `batch` goal to select the batch UDF.
+  Use authenticated MCP `start_pipeline` to activate analytics.
+  The server uses native Kapacitor task APIs for status and stop.
+  Read `docs/user-guide/how-to-guides/use-mcp-server.md` for verified TLS
+  and the warning about input received while analytics is stopped.
 
 ## Push / registry
 
@@ -69,3 +89,7 @@ and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
 - `HOST_IP` (default `127.0.0.1`) — host used for all Makefile API calls
 - `GRAFANA_PORT` (default `3000`)
 - `DOCKER_REGISTRY`, `IMAGE_SUFFIX` (push/versioning)
+- `MCP_USERNAME`, `MCP_PASSWORD` (MCP-only authentication, set in `.env`; username: letters
+  only, 5+ characters; password: alphanumeric, 10+ characters with a letter and a digit)
+- `TIME_SERIES_MCP_IMAGE` (optional repository, default
+  `industrial-edge-insights-time-series-mcp`, fixed tag `2026.1.0`)

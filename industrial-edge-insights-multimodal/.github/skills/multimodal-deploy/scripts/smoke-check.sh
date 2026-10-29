@@ -4,14 +4,33 @@
 #
 # Smoke-check the Multimodal Weld Defect Detection sample app (Docker Compose).
 #
-# Usage: smoke-check.sh
+# Usage: smoke-check.sh   (run from the app root, or set MULTIMODAL_APP_ROOT)
 #
 set -euo pipefail
 
 [ "$#" -eq 0 ] || { echo "Usage: $0" >&2; exit 2; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+
+# The skill may be installed outside the repo (for example via `npx skills add`),
+# so resolve the app root from MULTIMODAL_APP_ROOT, then the current directory,
+# then the in-repo location (.github/skills/multimodal-deploy/scripts).
+is_app_root() {
+  [ -f "$1/Makefile" ] && [ -f "$1/docker-compose-agentic.yml" ] && [ -d "$1/fusion-analytics" ]
+}
+APP_ROOT=""
+for candidate in "${MULTIMODAL_APP_ROOT:-}" "$PWD" "$SCRIPT_DIR/../../../.."; do
+  if [ -n "$candidate" ] && is_app_root "$candidate"; then
+    APP_ROOT="$(cd "$candidate" && pwd)"
+    break
+  fi
+done
+if [ -z "$APP_ROOT" ]; then
+  echo "FAIL: industrial-edge-insights-multimodal app root not found." >&2
+  echo "      Run from the app root or set MULTIMODAL_APP_ROOT=/path/to/industrial-edge-insights-multimodal" >&2
+  echo "      To get a checkout, see 'Clone source code' in https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html" >&2
+  exit 1
+fi
 cd "$APP_ROOT"
 
 read_env() {
@@ -54,10 +73,17 @@ wait_for_url "https://${HOST_IP}:${GRAFANA_PORT}/"
 # Read-only MCP probe (tools/list); runs only for `make up_agentic MCP=true` deployments.
 check_mcp() {
   local url="https://${HOST_IP}:${GRAFANA_PORT}/mcp"
-  local body code i=0
+  local body code i=0 mcp_user mcp_password
+  mcp_user="$(read_env MCP_USERNAME)"
+  mcp_password="$(read_env MCP_PASSWORD)"
+  if [ -z "$mcp_user" ] || [ -z "$mcp_password" ]; then
+    echo "FAIL: MCP_USERNAME and MCP_PASSWORD must be set in .env for the MCP probe" >&2
+    return 1
+  fi
   body="$(mktemp)"
   while :; do
     code="$(curl -sk -o "$body" -w '%{http_code}' -X POST "$url" \
+      --user "${mcp_user}:${mcp_password}" \
       -H 'Content-Type: application/json' \
       -H 'Accept: application/json, text/event-stream' \
       -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' 2>/dev/null || true)"

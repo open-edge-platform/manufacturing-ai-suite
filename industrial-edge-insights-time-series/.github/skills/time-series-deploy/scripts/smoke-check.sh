@@ -4,14 +4,33 @@
 #
 # Smoke-check the Industrial Edge Insights - Time Series sample app (Docker Compose).
 #
-# Usage: smoke-check.sh
+# Usage: smoke-check.sh   (run from the app root, or set TIME_SERIES_APP_ROOT)
 #
 set -euo pipefail
 
 [ "$#" -eq 0 ] || { echo "Usage: $0" >&2; exit 2; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-APP_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
+
+# The skill may be installed outside the repo (for example via `npx skills add`),
+# so resolve the app root from TIME_SERIES_APP_ROOT, then the current directory,
+# then the in-repo location (.github/skills/time-series-deploy/scripts).
+is_app_root() {
+  [ -f "$1/Makefile" ] && [ -f "$1/generate-telegraf-config.py" ] && [ -d "$1/apps" ]
+}
+APP_ROOT=""
+for candidate in "${TIME_SERIES_APP_ROOT:-}" "$PWD" "$SCRIPT_DIR/../../../.."; do
+  if [ -n "$candidate" ] && is_app_root "$candidate"; then
+    APP_ROOT="$(cd "$candidate" && pwd)"
+    break
+  fi
+done
+if [ -z "$APP_ROOT" ]; then
+  echo "FAIL: industrial-edge-insights-time-series app root not found." >&2
+  echo "      Run from the app root or set TIME_SERIES_APP_ROOT=/path/to/industrial-edge-insights-time-series" >&2
+  echo "      To get a checkout, see 'Clone source code' in https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html" >&2
+  exit 1
+fi
 cd "$APP_ROOT"
 
 read_env() {
@@ -23,6 +42,7 @@ HOST_IP="$(read_env HOST_IP)"
 HOST_IP="${HOST_IP:-127.0.0.1}"
 GRAFANA_PORT="$(read_env GRAFANA_PORT)"
 GRAFANA_PORT="${GRAFANA_PORT:-3000}"
+MCP="${MCP:-false}"
 MAX_RETRIES=30
 SLEEP_SECS=5
 
@@ -47,8 +67,16 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 echo "-- Container status --"
-make status || true
+make status MCP="$MCP"
 echo "-- Endpoint check --"
 wait_for_url "https://${HOST_IP}:${GRAFANA_PORT}/"
+
+if [ "$MCP" = "true" ]; then
+  echo "-- MCP liveness --"
+  docker compose -f docker-compose.yml -f docker-compose-mcp.yml exec -T \
+    time-series-mcp-server python -c \
+    "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"
+  echo "OK: MCP liveness; use the authenticated example client to verify tools and task state."
+fi
 
 echo "Smoke check passed"

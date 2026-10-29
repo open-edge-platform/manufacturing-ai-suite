@@ -5,6 +5,7 @@
 #
 
 import os
+HOST_IP = os.getenv("HOST_IP", "127.0.0.1")
 
 # Centralized container definitions for all sample apps
 CONTAINERS = {
@@ -75,7 +76,7 @@ CONTAINERS = {
 
 TELEGRAF_MQTT_PLUGIN = "mqtt_consumer"
 TELEGRAF_OPCUA_PLUGIN = "opcua"
-OPCUA_SERVER_URL = f"opc.tcp://localhost:{CONTAINERS['opcua_server']['port']}"  # Update if needed
+OPCUA_SERVER_URL = f"opc.tcp://{HOST_IP}:{CONTAINERS['opcua_server']['port']}"  # Update if needed
 ALERT_NODE_ID = "ns=2;s=Alert"  # Replace with the actual node ID used for alerts
 UDF_DIR = "../../apps/wind-turbine-anomaly-detection/time-series-analytics-config/udfs/"
 MODEL_DIR = "../../apps/wind-turbine-anomaly-detection/time-series-analytics-config/models/"
@@ -312,12 +313,12 @@ MULTIMODAL_DOCKER_POST_TEARDOWN_WAIT = 10 # seconds to let containers stop
 MULTIMODAL_DOCKER_FUSION_READY_WAIT = 10  # seconds to ensure fusion logs propagate
 
 # MediaMTX streaming constants - access via nginx proxy
-MEDIAMTX_STREAM_URL = f"https://localhost:{CONTAINERS['nginx_proxy']['https_port']}/samplestream"
+MEDIAMTX_STREAM_URL = f"https://{HOST_IP}:{CONTAINERS['nginx_proxy']['https_port']}/samplestream"
 
 # Documented DL Streamer Pipeline Server API endpoints
-DOCKER_DSPS_API_BASE_URL = f"https://localhost:{CONTAINERS['nginx_proxy']['https_port']}/dsps-api"
+DOCKER_DSPS_API_BASE_URL = f"https://{HOST_IP}:{CONTAINERS['nginx_proxy']['https_port']}/dsps-api"
 
 # Documented Time Series Analytics Microservice API endpoints
-DOCKER_TSA_API_BASE_URL = f"https://localhost:{CONTAINERS['nginx_proxy']['https_port']}/ts-api"
+DOCKER_TSA_API_BASE_URL = f"https://{HOST_IP}:{CONTAINERS['nginx_proxy']['https_port']}/ts-api"
 
 OPCUA_SERVER_PORT = 30003

@@ -80,13 +80,13 @@ To apply changes to the UDF deployment package or `config.json`, update the file
 2. Upload the UDF deployment package to the Time Series Analytics Microservice:
 
    ```sh
-   curl -X POST https://localhost:3000/ts-api/udfs/package -F "file=@${SAMPLE_APP}.tar" -k
+   curl -X POST https://127.0.0.1:3000/ts-api/udfs/package -F "file=@${SAMPLE_APP}.tar" -k
    ```
 
 3. Upload the `config.json` to activate the custom UDF:
 
    ```sh
-   curl -s -X POST https://localhost:3000/ts-api/config \
+   curl -s -X POST https://127.0.0.1:3000/ts-api/config \
      -H 'accept: application/json' \
      -H 'Content-Type: application/json' \
      -d @config.json \
