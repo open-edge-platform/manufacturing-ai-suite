@@ -4,13 +4,12 @@
 
 **December 2026**
 
-This release introduces **an MCP server for agentic pipeline control**, **a unified insights UI**, and ,
-**persistent SeaweedFS storage**, along with updated model and platform support and various fixes and documentation improvements.
+This release adds **authentication for the SeaweedFS filer UI**, **AI agent skills for deploying the app and MCP server**, and **AI agent skills for building the multimodal sample app**. It also updates the agentic workflow's LLM for better results, preserves SeaweedFS data across restarts, and includes bug fixes and documentation improvements.
 
 **New**
 
 - **MCP server**: added agent tools to control pipelines, retrieve fusion data, and run agentic analyses.
-- **AI agent skills**: added cross-harness guidance, example prompts, and deployment and testing helpers.
+- **AI agent skills**: added cross-harness guidance to build a multimodal sample app from a business use case and help deploy the app and MCP server, with example prompts and testing helpers.
 
 **Improved**
 
@@ -18,8 +17,7 @@ This release introduces **an MCP server for agentic pipeline control**, **a unif
 - **Detection controls**: added label and confidence filters with parameterized queries.
 - **Classification model**: updated the weld-defect model to the Geti 3 version.
 - **Deployment**: removed Helm support; Docker Compose is now the supported deployment method.
-- **Runtime and validation**: updated Python base images to 3.14 and sample-app images to 2026.3.0; expanded platform and 
-  CPU/GPU/NPU deployment validation.
+- **Runtime and validation**: updated Python base images to 3.14 and sample-app images to 2026.3.0.
 - **Security**: added Basic Authentication to the SeaweedFS filer UI and restricted published ports to the configured host, defaulting to loopback.
 - **Documentation**: updated MCP, agentic-workflow, VLM fine-tuning, and platform guidance.
 

@@ -4,11 +4,11 @@
 
 **December 2026**
 
-This release introduces **cross-harness AI-agent guidance**, **Docker Compose-only deployment**, and **2026.3.0 service images**, along with updated platform validation, reliability fixes, and documentation improvements.
+This release introduces **AI agent skills for deploying the app and MCP server**, **AI agent skills for building the Time Series sample app**, **Docker Compose-only deployment**, and **2026.3.0 service images**, alongside reliability fixes and documentation improvements.
 
 **New**
 
-- **AI agent skills**: added cross-harness instructions, example prompts, and helpers for deployment and testing.
+- **AI agent skills**: added cross-harness instructions to build a Time Series sample app from a business use case, deploy the app and MCP server, and run tests, with example prompts and helpers.
 
 **Improved**
 
