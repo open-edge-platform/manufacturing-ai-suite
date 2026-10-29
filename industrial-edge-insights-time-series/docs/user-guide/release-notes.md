@@ -21,7 +21,7 @@ This release introduces **cross-harness AI-agent guidance**, **Docker Compose-on
 
 **Fixed**
 
-- **OPC UA command output**: corrected `make OPC-UA` so it no longer displays echoed Telegraf configuration.
+- **OPC UA command output**: corrected `make up_opcua_ingestion` so it no longer displays echoed Telegraf configuration.
 
 ---
 
