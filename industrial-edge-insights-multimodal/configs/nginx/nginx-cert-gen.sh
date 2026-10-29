@@ -1,9 +1,6 @@
 #!/bin/bash
-#
-# Apache v2 license
-# Copyright (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-#
 
 # Set working directory for SSL certificates
 SSL_DIR="/opt/nginx/certs"
@@ -149,7 +146,12 @@ SHA_ALGO="sha384"
 
 echo "Generating SSL certificates for Nginx..."
 
-envsubst '$MEDIAMTX_SERVER $WHIP_SERVER_PORT $NGINX_DEFAULT_TIMEOUT $NGINX_STREAM_TIMEOUT' < /tmp/default.conf.template > /etc/nginx/nginx.conf
+envsubst "\$MEDIAMTX_SERVER \$WHIP_SERVER_PORT \$NGINX_DEFAULT_TIMEOUT \$NGINX_STREAM_TIMEOUT" < /tmp/default.conf.template > /etc/nginx/nginx.conf
 
-openssl req -x509 -nodes -days ${DAYS} -${SHA_ALGO} -newkey rsa:${KEY_LENGTH} -keyout "$SSL_DIR/key.pem" -out "$SSL_DIR/cert.pem" -subj "/CN=localhost"
+openssl req -x509 -nodes -days "${DAYS}" -"${SHA_ALGO}" -newkey "rsa:${KEY_LENGTH}" \
+    -keyout "$SSL_DIR/key.pem" -out "$SSL_DIR/cert.pem" -subj "/CN=localhost" \
+    -addext "basicConstraints=critical,CA:TRUE" \
+    -addext "keyUsage=critical,digitalSignature,keyEncipherment,keyCertSign,cRLSign" \
+    -addext "extendedKeyUsage=serverAuth" \
+    -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 chmod 640 "$SSL_DIR/key.pem" "$SSL_DIR/cert.pem"

@@ -114,7 +114,7 @@ To trigger the UDF inference on `GPU` in Time Series Analytics Microservice, run
 ```sh
 cd industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config
 curl -k -X 'POST' \
- 'https://localhost:3000/ts-api/config' \
+ 'https://127.0.0.1:3000/ts-api/config' \
  -H 'accept: application/json' \
  -H 'Content-Type: application/json' \
  -d "$(sed 's/"device": "CPU"/"device": "GPU"/' config.json)"
@@ -193,6 +193,8 @@ docker logs -f <container_name> | grep -i error
 ```
 
 ## Advanced setup
+
+- [Use the MCP server](./how-to-guides/use-mcp-server.md): Deploy with `MCP=true` for authenticated pipeline control and anomaly queries.
 
 - [How to build from source and deploy](./get-started/build-from-source.md): Guide to build from source and docker compose deployment
 - [How to configure OPC-UA/MQTT alerts](./how-to-guides/configure-alerts.md): Guide for configuring the OPC-UA/MQTT alerts in the Time Series Analytics microservice

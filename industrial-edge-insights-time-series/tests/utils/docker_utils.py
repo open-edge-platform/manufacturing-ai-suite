@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-import subprocess
+import subprocess  # nosec B404 - commands use common_utils.exec_command with shell disabled
 import json
 import time
 import os
@@ -25,6 +25,7 @@ import paho.mqtt.client as mqtt
 sys.path.append(os.path.dirname(__file__))
 # Configure logger
 logger = logging.getLogger(__name__)
+_TEST_ENV_OVERRIDES: dict[str, str] = {}
 
 # Literal sklearnex success line: substring checks for 'gpu' can false-positive on config echoes/errors.
 SKLEARNEX_SUCCESS_TEMPLATE = "running accelerated version on {device}"
@@ -54,11 +55,11 @@ from common_utils import assert_condition
 try:
     import security_utils
     SECURITY_UTILS_AVAILABLE = True
-except ImportError:
+except ImportError as ex:
     SECURITY_UTILS_AVAILABLE = False
-    logger.warning("security_utils not available, some functions may be limited")
+    logger.warning("security_utils not available, some functions may be limited: %s", ex)
 
-HOST_IP = common_utils.get_system_ip()
+HOST_IP = constants.HOST_IP
 SEAWEEDFS_HTTP_STATUS_MARKER = "\n__SEAWEEDFS_HTTP_STATUS__:"
 
 def run_command(cmd, capture_output=False):
@@ -408,8 +409,8 @@ def count_running_containers_with_prefix(prefix):
         )
         names = [n for n in result.stdout.splitlines() if n.startswith(prefix)]
         return len(names)
-    except (OSError, subprocess.SubprocessError) as e:
-        logger.warning(f"count_running_containers_with_prefix({prefix}) failed: {e}")
+    except (OSError, subprocess.SubprocessError) as ex:
+        logger.warning("count_running_containers_with_prefix(%s) failed: %s", prefix, ex)
         return 0
 
 
@@ -477,7 +478,7 @@ def wait_until_service_ready(timeout=constants.WIND_TURBINE_CONTAINER_READY_TIME
         try:
             result = common_utils.exec_command(
                 ["curl", "-s", "-k", "-o", "/dev/null", "-w", "%{http_code}",
-                 "https://localhost:3000/ts-api/health"],
+                 f"https://{HOST_IP}:3000/ts-api/health"],
                 capture_output=True, text=True, timeout=constants.WIND_TURBINE_CURL_TIMEOUT
             )
             http_code = result.stdout.strip() if result.returncode == 0 else "000"
@@ -520,9 +521,8 @@ def get_credential_fields():
         "INFLUXDB_PASSWORD",
         "VISUALIZER_GRAFANA_USER",
         "VISUALIZER_GRAFANA_PASSWORD",
-        "MR_MINIO_ACCESS_KEY",
-        "MR_PSQL_PASSWORD",
-        "MR_MINIO_SECRET_KEY"
+        "MCP_USERNAME",
+        "MCP_PASSWORD"
     ]
 
 def generate_invalid_value(field_name):
@@ -538,7 +538,7 @@ def generate_invalid_value(field_name):
         "abcdefghij" if "PASSWORD" in field_name else "user@#$"  # no digits or special chars in username
     ]
 
-    return random.choice(invalid_patterns)
+    return random.choice(invalid_patterns)  # nosec B311 - test-only invalid credential values
 
 def generate_test_credentials(case_type="valid", invalid_field=None):
     """
@@ -561,9 +561,8 @@ def generate_test_credentials(case_type="valid", invalid_field=None):
             "INFLUXDB_PASSWORD": generate_password(10),
             "VISUALIZER_GRAFANA_USER": generate_username(5),
             "VISUALIZER_GRAFANA_PASSWORD": generate_password(10),
-            "MR_MINIO_ACCESS_KEY": generate_password(10),
-            "MR_PSQL_PASSWORD": generate_password(10),
-            "MR_MINIO_SECRET_KEY": generate_password(10),
+            "MCP_USERNAME": generate_username(5),
+            "MCP_PASSWORD": generate_password(10)
         }
 
     elif case_type == "invalid":
@@ -792,7 +791,7 @@ def invoke_make_check_env_variables():
 
 
 def update_env_file(file_path=None, values=None):
-    """Update existing .env file with specific environment variable values using sed."""
+    """Apply test settings to child processes without persisting credentials."""
 
     # Set default file path if not provided
     if file_path is None:
@@ -822,25 +821,13 @@ def update_env_file(file_path=None, values=None):
             return False
 
         for parameter_name, value in values.items():
-            # Check whether the key already exists in the file
-            grep_result = common_utils.exec_command(
-                ["grep", "-q", f"^{parameter_name}=", expanded_path],
-                capture_output=True
-            )
-            if grep_result.returncode == 0:
-                # Key exists — update it with sed
-                sed_result = common_utils.exec_command(
-                    ["sed", "-i", f"s|^{parameter_name}=.*|{parameter_name}={value}|g", expanded_path],
-                    capture_output=True, text=True
-                )
-                if sed_result.returncode != 0:
-                    logger.error(f"sed failed: {sed_result.stderr}")
-                    return False
-            else:
-                with open(expanded_path, "a", encoding="utf-8") as env_file:
-                    env_file.write(f"{parameter_name}={value}\n")
+            if not isinstance(parameter_name, str) or not isinstance(value, str):
+                logger.error("Environment variable names and values must be strings")
+                return False
+            os.environ[parameter_name] = value
+            _TEST_ENV_OVERRIDES[parameter_name] = value
 
-        logger.debug(f"Successfully updated .env file with {len(values)} environment variables")
+        logger.debug("Applied %d test environment variables without writing them to disk", len(values))
         return True
 
     except Exception as e:
@@ -1398,10 +1385,10 @@ def check_logs_for_pattern(container_name, pattern_type, timeout=300, interval=1
                 ["docker", "logs", "--since", f"{since_seconds}s", container_name],
                 capture_output=True, text=True, timeout=cli_timeout,
             )
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as ex:
             logger.warning(
                 f"docker logs for {container_name} did not return in {cli_timeout}s; "
-                f"will retry on next iteration"
+                f"will retry on next iteration: {ex}"
             )
             time.sleep(min(interval, max(0, remaining)))
             continue
@@ -1497,7 +1484,7 @@ def upload_udf_tar_package(sample_app=constants.WIND_SAMPLE_APP):
     Implements the documented workflow:
       cd apps/<sample_app>/time-series-analytics-config
       tar cf <sample_app>.tar models/ tick_scripts/ udfs/
-      curl -X POST https://localhost:3000/ts-api/udfs/package -F "file=@<sample_app>.tar" -k
+      curl -X POST https://{HOST_IP}:3000/ts-api/udfs/package -F "file=@<sample_app>.tar" -k
 
     Args:
         sample_app (str): Sample app name (e.g. constants.WIND_SAMPLE_APP).
@@ -1508,7 +1495,7 @@ def upload_udf_tar_package(sample_app=constants.WIND_SAMPLE_APP):
     import tarfile as _tarfile
     import tempfile as _tempfile
 
-    upload_endpoint = "https://localhost:3000/ts-api/udfs/package"
+    upload_endpoint = f"https://{HOST_IP}:3000/ts-api/udfs/package"
 
     success, original_dir = check_and_set_working_directory(return_original=True)
     if not success:
@@ -1639,7 +1626,7 @@ def update_config_file(ingestion_type="opcua"):
             try:
                 test_result = common_utils.exec_command(
                     ["curl", "-s", "-k", "-o", "/dev/null", "-w", "%{http_code}",
-                     "https://localhost:3000/ts-api/health"],
+                     f"https://{HOST_IP}:3000/ts-api/health"],
                     capture_output=True, text=True, timeout=10
                 )
                 status_code = test_result.stdout.strip() if test_result.returncode == 0 else "000"
@@ -1689,7 +1676,7 @@ def update_config_file(ingestion_type="opcua"):
         # Step 5: Send configuration update using curl to Docker-based service with retries
         if ingestion_type == "opcua":
             curl_command = [
-                "curl", "-X", "POST", "https://localhost:3000/ts-api/config",
+                "curl", "-X", "POST", f"https://{HOST_IP}:3000/ts-api/config",
                 "-k",
                 "-H", "accept: application/json",
                 "-H", "Content-Type: application/json",
@@ -1709,7 +1696,7 @@ def update_config_file(ingestion_type="opcua"):
             ]
         elif ingestion_type == "mqtt":
             curl_command = [
-                "curl", "-X", "POST", "https://localhost:3000/ts-api/config",
+                "curl", "-X", "POST", f"https://{HOST_IP}:3000/ts-api/config",
                 "-k",
                 "-H", "accept: application/json",
                 "-H", "Content-Type: application/json",
@@ -1819,7 +1806,7 @@ def execute_gpu_config_curl(device="gpu", sample_app=constants.WIND_SAMPLE_APP):
         # Post configuration to the time-series analytics API
         curl_command = [
             "curl", "-k", "-X", "POST",
-            "https://localhost:3000/ts-api/config",
+            f"https://{HOST_IP}:3000/ts-api/config",
             "-H", "accept: application/json",
             "-H", "Content-Type: application/json",
             "-d", gpu_config_json
@@ -1859,7 +1846,7 @@ def _kapacitor_task_alert_mode_matches(alert_mode):
     try:
         result = common_utils.exec_command(
             ["docker", "exec", tsam_name,
-             "curl", "-s", "http://localhost:9092/kapacitor/v1/tasks/windturbine_anomaly_detector"],
+             "curl", "-s", f"http://{HOST_IP}:9092/kapacitor/v1/tasks/windturbine_anomaly_detector"],
             capture_output=True, text=True, timeout=15,
         )
         if result.returncode != 0:
@@ -1868,8 +1855,8 @@ def _kapacitor_task_alert_mode_matches(alert_mode):
         if alert_mode == "mqtt":
             return ("my_mqtt_broker" in body) and ("opcua_alerts" not in body)
         return ("opcua_alerts" in body) and ("my_mqtt_broker" not in body)
-    except Exception as exc:
-        logger.warning(f"[reset_loaded_udf_to] Kapacitor introspection failed: {exc}")
+    except Exception as ex:
+        logger.warning("[reset_loaded_udf_to] Kapacitor introspection failed: %s", ex)
         return False
 
 
@@ -2024,6 +2011,9 @@ def get_influxdb_credentials():
             elif line.startswith('INFLUXDB_PASSWORD='):
                 influxdb_password = line.split('=', 1)[1]
 
+        influxdb_username = os.environ.get("INFLUXDB_USERNAME", influxdb_username)
+        influxdb_password = os.environ.get("INFLUXDB_PASSWORD", influxdb_password)
+
         # Note: Not logging credentials for security reasons
         logger.info("Successfully retrieved InfluxDB credentials from .env file")
 
@@ -2054,11 +2044,12 @@ def execute_influxdb_commands(container_name="ia-influxdb", measurement=None):
 
         # Step 3: Execute InfluxDB commands inside the container
         if measurement:
-            query_part = f"SELECT * FROM \"{measurement.replace('_', '-')}\" LIMIT 5"
-            verify_tables = [measurement.replace('_', '-')]
+            safe_measurement = common_utils.validate_influx_measurement(measurement.replace("_", "-"))
+            query_part = f"SELECT * FROM \"{safe_measurement}\" LIMIT 5"  # nosec B608 - measurement is validated
+            verify_tables = [safe_measurement]
         else:
             # Default wind turbine queries for backward compatibility
-            query_part = f"SELECT * FROM \"{constants.WIND_TURBINE_INGESTED_TOPIC}\" LIMIT 5; SELECT * FROM \"{constants.WIND_TURBINE_ANALYTICS_TOPIC}\" LIMIT 5"
+            query_part = f"SELECT * FROM \"{constants.WIND_TURBINE_INGESTED_TOPIC}\" LIMIT 5; SELECT * FROM \"{constants.WIND_TURBINE_ANALYTICS_TOPIC}\" LIMIT 5"  # nosec B608 - both measurements are constants
             verify_tables = [constants.WIND_TURBINE_INGESTED_TOPIC, constants.WIND_TURBINE_ANALYTICS_TOPIC]
         influx_execute = f"SHOW MEASUREMENTS; {query_part}"
 
@@ -2118,7 +2109,7 @@ def verify_influxdb_retention_docker(response=None, container_name=constants.CON
             return None, False
 
         # Step 3: Execute InfluxDB query to get the earliest time value
-        influx_execute = f"SELECT time, wind_speed FROM \"{constants.WIND_TURBINE_INGESTED_TOPIC}\" ORDER BY time ASC LIMIT 1"
+        influx_execute = f"SELECT time, wind_speed FROM \"{constants.WIND_TURBINE_INGESTED_TOPIC}\" ORDER BY time ASC LIMIT 1"  # nosec B608 - measurement is a constant
         exec_command = [
             "docker", "exec", container_name,
             "influx", "-username", influxdb_username, "-password", influxdb_password,
@@ -2423,8 +2414,8 @@ def _check_built_image_sizes(size_threshold):
             else:
                 logger.info(f"✓ Image {image} passed size check: {size_mb:.2f}MB <= {size_threshold}MB")
 
-        except subprocess.CalledProcessError as e:
-            logger.warning(f"Could not inspect image {image}: {e}")
+        except subprocess.CalledProcessError as ex:
+            logger.warning("Could not inspect image %s: %s", image, ex)
             continue
         except Exception as e:
             logger.error(f"Error checking size for image {image}: {e}")
@@ -2486,6 +2477,11 @@ def read_env_file(file_path=None):
             if '=' in line:
                 key, value = line.split('=', 1)
                 env_vars[key] = value
+
+        env_vars.update(_TEST_ENV_OVERRIDES)
+        for key in env_vars:
+            if key in os.environ:
+                env_vars[key] = os.environ[key]
 
         logger.info(f"Read {len(env_vars)} environment variables from {file_path}")
         return env_vars
@@ -2918,8 +2914,8 @@ def setup_mqtt_alerts_docker(sample_app=constants.WIND_SAMPLE_APP):
         # Always return to original directory
         try:
             os.chdir(original_dir)
-        except Exception:
-            pass
+        except Exception as ex:
+            logger.warning("Could not restore the original working directory: %s", ex)
 
 def invoke_make_up(measure_time=False):
     """
@@ -3061,13 +3057,15 @@ def generate_multimodal_test_credentials(case_type="valid", invalid_field=None):
     if case_type == "blank":
         multimodal_vars = {
             "MTX_WEBRTCICESERVERS2_0_USERNAME": "",
-            "MTX_WEBRTCICESERVERS2_0_PASSWORD": "",
+            "MTX_WEBRTCICESERVERS2_0_PASSWORD": "",  # nosec B105 - intentionally blank invalid-input fixture
             "HOST_IP": "",
             "RTSP_CAMERA_IP": "",
             "S3_STORAGE_USERNAME": "",
-            "S3_STORAGE_PASSWORD": "",
+            "S3_STORAGE_PASSWORD": "",  # nosec B105 - intentionally blank invalid-input fixture
             "SEAWEEDFS_WEB_AUTH_USER": "",
-            "SEAWEEDFS_WEB_AUTH_PASSWORD": ""
+            "SEAWEEDFS_WEB_AUTH_PASSWORD": "",
+            "MCP_USERNAME": "",
+            "MCP_PASSWORD": ""  # nosec B105 - intentionally blank invalid-input fixture
         }
     elif case_type == "valid":
         # Generate valid S3 credentials that meet Makefile requirements
@@ -3086,7 +3084,9 @@ def generate_multimodal_test_credentials(case_type="valid", invalid_field=None):
             "S3_STORAGE_USERNAME": s3_username,
             "S3_STORAGE_PASSWORD": s3_password,
             "SEAWEEDFS_WEB_AUTH_USER": generate_username(5),
-            "SEAWEEDFS_WEB_AUTH_PASSWORD": generate_password(10)
+            "SEAWEEDFS_WEB_AUTH_PASSWORD": generate_password(10),
+            "MCP_USERNAME": generate_username(5),
+            "MCP_PASSWORD": generate_password(10)
         }
 
         # Validate that S3 credentials are properly set
@@ -3103,7 +3103,9 @@ def generate_multimodal_test_credentials(case_type="valid", invalid_field=None):
             "S3_STORAGE_USERNAME": generate_username(2),  # Invalid: too short
             "S3_STORAGE_PASSWORD": generate_password(2),   # Invalid: too short
             "SEAWEEDFS_WEB_AUTH_USER": generate_username(4),
-            "SEAWEEDFS_WEB_AUTH_PASSWORD": generate_password(9)
+            "SEAWEEDFS_WEB_AUTH_PASSWORD": generate_password(9),
+            "MCP_USERNAME": generate_username(3),
+            "MCP_PASSWORD": generate_password(3)
         }
 
     else:
@@ -3256,8 +3258,8 @@ def parse_fusion_decision_logs(fusion_log_samples):
                         'fusion': fused_decision
                     })
 
-            except (IndexError, ValueError) as e:
-                logger.debug(f"Could not parse fusion log line: {line[:100]}... Error: {e}")
+            except (IndexError, ValueError) as ex:
+                logger.warning("Could not parse fusion log line: %s... Error: %s", line[:100], ex)
                 continue
 
     logger.info(f"Analyzed {len(decision_patterns)} fusion decisions from sample logs")
@@ -3739,8 +3741,9 @@ def check_multimodal_mqtt_topic_data(topic, broker_host="localhost", broker_port
                     if data.get("anomaly_status") == 1:
                         logger.info(f"Alert detected: {data}")
                         data_received.set()
-                except:
+                except (json.JSONDecodeError, UnicodeDecodeError) as ex:
                     # If not JSON, still count as data
+                    logger.warning("Non-JSON MQTT alert payload on %s; counting it as data: %s", topic, ex)
                     data_received.set()
             else:
                 # For other topics, any data counts
@@ -3790,12 +3793,12 @@ def check_multimodal_mqtt_topic_data(topic, broker_host="localhost", broker_port
         try:
             client.loop_stop()
             client.disconnect()
-        except:
-            pass
+        except Exception as ex:
+            logger.warning("Could not stop MQTT client after a failed check: %s", ex)
         return False
 
 
-def check_influxdb_data_with_auth(measurement, database="datain", container_name="ia-influxdb", username="", password="", timeout=30):
+def check_influxdb_data_with_auth(measurement, database="datain", container_name="ia-influxdb", username="", password="", timeout=30):  # nosec B107 - empty default requires callers to provide credentials
     """
     Check if data exists in InfluxDB measurement with authentication
 
@@ -3811,6 +3814,7 @@ def check_influxdb_data_with_auth(measurement, database="datain", container_name
         bool: True if data exists, False otherwise
     """
     try:
+        measurement = common_utils.validate_influx_measurement(measurement)
         # Check if container is running first
         if not container_is_running(container_name):
             logger.warning(f"Container {container_name} is not running")
@@ -3821,7 +3825,7 @@ def check_influxdb_data_with_auth(measurement, database="datain", container_name
             "docker", "exec", container_name,
             "influx", "-database", database,
             "-username", username, "-password", password,
-            "-execute", f"SELECT COUNT(*) FROM \"{measurement}\" LIMIT 1"
+            "-execute", f"SELECT COUNT(*) FROM \"{measurement}\" LIMIT 1"  # nosec B608 - measurement is validated
         ]
 
         result = common_utils.exec_command(
@@ -3858,7 +3862,7 @@ def query_influxdb_measurement_with_auth(
     database="datain",
     container_name="ia-influxdb",
     username="",
-    password="",
+    password="",  # nosec B107 - empty default requires callers to provide credentials
     limit=3,
     timeout=30,
     order_by_time_desc=False,
@@ -3872,13 +3876,16 @@ def query_influxdb_measurement_with_auth(
     }
 
     try:
+        measurement = common_utils.validate_influx_measurement(measurement)
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 1000:
+            raise ValueError("limit must be an integer between 1 and 1000")
         if not container_is_running(container_name):
             query_result["error"] = f"Container {container_name} is not running"
             logger.warning(query_result["error"])
             return query_result
 
         order_clause = " ORDER BY time DESC" if order_by_time_desc else ""
-        query = f'SELECT * FROM "{measurement}"{order_clause} LIMIT {limit}'
+        query = f'SELECT * FROM "{measurement}"{order_clause} LIMIT {limit}'  # nosec B608 - measurement and limit are validated
         cmd = [
             "docker", "exec", container_name,
             "influx",
@@ -4152,6 +4159,8 @@ def execute_multimodal_gpu_config_curl(config, device="gpu"):
         config (dict): Multimodal configuration dictionary
         device (str): Device to use for configuration ('gpu', 'cpu', etc.)
 
+    The endpoint is resolved from the deployment environment at request time.
+
     Returns:
         bool: True if curl command was successful, False otherwise
     """
@@ -4167,9 +4176,10 @@ def execute_multimodal_gpu_config_curl(config, device="gpu"):
 
         # Construct curl command for multimodal deployment using external API endpoint
         # as documented in get-started.md
+        endpoint_url = f"https://{HOST_IP}:3000/ts-api/config"
         curl_command = [
             "curl", "-k", "-X", "POST",
-            f"{constants.DOCKER_TSA_API_BASE_URL}/config",
+            endpoint_url,
             "-H", "accept: application/json",
             "-H", "Content-Type: application/json",
             "-d", gpu_config_json,
@@ -4219,8 +4229,8 @@ def check_system_gpu_devices():
                 if any("intel" in line.lower() for line in vga_lines):
                     gpu_devices.append("Intel iGPU")
                     logger.info("Intel iGPU detected via lspci")
-        except:
-            pass
+        except (OSError, subprocess.SubprocessError) as ex:
+            logger.warning("Could not detect GPU with lspci: %s", ex)
 
         # Method 2: Check /dev/dri devices
         try:
@@ -4229,8 +4239,8 @@ def check_system_gpu_devices():
                 if dri_devices:
                     gpu_devices.append(f"DRM devices: {dri_devices}")
                     logger.info(f"DRM GPU devices found: {dri_devices}")
-        except:
-            pass
+        except OSError as ex:
+            logger.warning("Could not inspect /dev/dri: %s", ex)
 
         # Method 3: Check for GPU in Docker containers
         try:
@@ -4243,8 +4253,8 @@ def check_system_gpu_devices():
             if result.returncode == 0:
                 gpu_devices.append("Docker GPU access available")
                 logger.info("Docker GPU device access confirmed")
-        except:
-            pass
+        except (OSError, subprocess.SubprocessError) as ex:
+            logger.warning("Could not verify Docker GPU access: %s", ex)
 
         return gpu_devices
 
@@ -4291,8 +4301,8 @@ def monitor_gpu_utilization(duration=30):
                     "monitoring_duration": duration,
                     "tool": "intel_gpu_top"
                 }
-        except:
-            pass
+        except Exception as ex:
+            logger.warning("intel_gpu_top is unavailable: %s", ex)
 
         # Fallback: Check container resource usage
         try:
@@ -4303,8 +4313,8 @@ def monitor_gpu_utilization(duration=30):
                     "monitoring_duration": duration,
                     "tool": "container_stats"
                 }
-        except:
-            pass
+        except Exception as ex:
+            logger.warning("Could not read fallback container GPU statistics: %s", ex)
 
         logger.warning("GPU monitoring tools not available")
         return None
@@ -4706,7 +4716,7 @@ def test_nginx_proxy_endpoint(container_name, endpoint_url, timeout=30):
 
     Args:
         container_name (str): Name of the nginx container
-        endpoint_url (str): URL to test (e.g., "https://localhost:15443/")
+        endpoint_url (str): URL to test (e.g., "https://{HOST_IP}:15443/")
         timeout (int): Timeout for the request
 
     Returns:
@@ -4777,7 +4787,7 @@ def test_service_direct_access(container_name, service_url, timeout=30):
 
     Args:
         container_name (str): Name of the service container
-        service_url (str): URL to test (e.g., "http://localhost:3000/")
+        service_url (str): URL to test (e.g., "http://127.0.0.1:3000/")
         timeout (int): Timeout for the request
 
     Returns:
@@ -4793,7 +4803,7 @@ def test_service_direct_access(container_name, service_url, timeout=30):
 
         # Special handling for Grafana - test login endpoint instead of root
         if container_name == "ia-grafana":
-            test_url = f"http://localhost:3000/login"
+            test_url = f"https://{HOST_IP}:3000/login"
         else:
             test_url = service_url
 
@@ -4871,13 +4881,16 @@ def verify_critical_user_endpoints(endpoint_containers):
 
             # Test endpoint based on container type
             if container == "ia-grafana":
-                result = test_service_direct_access(container, f"http://localhost:{port}/", constants.TEST_CURL_TIMEOUT)
+                logging.info(f"Testing Grafana endpoint inside the container at http://{HOST_IP}:{port}/")
+                result = test_service_direct_access(container, f"http://{HOST_IP}:{port}/", constants.TEST_CURL_TIMEOUT)
             elif container == "dlstreamer-pipeline-server":
-                result = test_service_direct_access(container, f"http://localhost:{port}/", constants.TEST_CURL_TIMEOUT)
+                logging.info(f"Testing DL Streamer endpoint inside the container at http://{HOST_IP}:{port}/")
+                result = test_service_direct_access(container, f"http://{HOST_IP}:{port}/", constants.TEST_CURL_TIMEOUT)
             elif container == "nginx_proxy":
-                result = test_nginx_proxy_endpoint(container, f"https://localhost:{port}/", constants.TEST_CURL_TIMEOUT)
+                logging.info(f"Testing Nginx Proxy endpoint on the test host at https://{HOST_IP}:{port}/")  
+                result = test_nginx_proxy_endpoint(container, f"https://{HOST_IP}:{port}/", constants.TEST_CURL_TIMEOUT)
             else:
-                result = test_service_direct_access(container, f"http://localhost:{port}/", constants.TEST_CURL_TIMEOUT)
+                result = test_service_direct_access(container, f"http://{HOST_IP}:{port}/", constants.TEST_CURL_TIMEOUT)
 
             if result["success"]:
                 endpoint_results["accessible_endpoints"][container] = f"Port {port} accessible"
@@ -5105,8 +5118,9 @@ def extract_img_handles_from_influxdb(measurement, database, container_name, use
     Extract img_handle values from InfluxDB vision metadata
     """
     try:
+        measurement = common_utils.validate_influx_measurement(measurement)
         # Query to extract img_handle values from vision metadata
-        query = f'SELECT img_handle FROM "{measurement}" WHERE time > now() - 1h'
+        query = f'SELECT img_handle FROM "{measurement}" WHERE time > now() - 1h'  # nosec B608 - measurement is validated
 
         # Execute InfluxDB query with authentication
         cmd = [
@@ -5216,7 +5230,7 @@ def get_vision_img_handles_from_influxdb(credentials, database="datain", measure
         }
 
     # Select random img_handle for testing
-    selected_handle = random.choice(img_handles)
+    selected_handle = random.choice(img_handles)  # nosec B311 - random sample selection in a test helper
 
     return {
         "success": True,
@@ -5319,8 +5333,8 @@ def check_s3_image_file_size(img_filename, bucket_path=None):
                     size_str = line.split(':')[1].strip().replace('\r', '')
                     content_length = int(size_str)
                     break
-                except (IndexError, ValueError) as e:
-                    logger.warning(f"Could not parse content-length from line: {line} - {e}")
+                except (IndexError, ValueError) as ex:
+                    logger.warning("Could not parse content-length from line: %s - %s", line, ex)
 
         is_empty = content_length <= 0
 
@@ -5570,7 +5584,7 @@ def execute_dlstreamer_pipeline_activation(device="GPU",
     Sends a POST request to the dlstreamer-pipeline-server REST API using the external
     endpoint as documented in get-started.md:
 
-        curl -k https://localhost:3000/dsps-api/pipelines/user_defined_pipelines/weld_defect_classification \
+        curl -k f"{constants.DOCKER_DSPS_API_BASE_URL}/pipelines/user_defined_pipelines/weld_defect_classification \
              -X POST -H 'Content-Type: application/json' \
              -d "$(sed 's/"device": "CPU"/"device": "GPU"/' pipeline-request-cpu.json)"
 
@@ -5614,7 +5628,7 @@ def execute_dlstreamer_pipeline_activation(device="GPU",
         # Use external API endpoint as documented in get-started.md
         curl_command = [
             "curl", "-k",
-            f"{constants.DOCKER_DSPS_API_BASE_URL}/pipelines/user_defined_pipelines/{pipeline_name}",
+            f"https://{HOST_IP}:3000/dsps-api/pipelines/user_defined_pipelines/{pipeline_name}",
             "-X", "POST",
             "-H", "Content-Type: application/json",
             "-d", payload_json
@@ -5670,6 +5684,8 @@ def execute_influxdb_commands_multimodal(container_name="ia-influxdb", database=
     """
     logger.info(f"Executing multimodal InfluxDB commands in container '{container_name}'...")
     try:
+        if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= 1000:
+            raise ValueError("limit must be an integer between 1 and 1000")
         if not container_exists(container_name):
             logger.info(f"{container_name} container does not exist")
             return None
@@ -5687,9 +5703,9 @@ def execute_influxdb_commands_multimodal(container_name="ia-influxdb", database=
                     elif line.startswith("INFLUXDB_PASSWORD="):
                         influxdb_password = line.split("=", 1)[1]
             logger.info(f"Loaded InfluxDB credentials from multimodal .env: {multimodal_env_path}")
-        except FileNotFoundError:
+        except FileNotFoundError as ex:
             logger.warning(f"Multimodal .env not found at {multimodal_env_path}; "
-                           f"falling back to time-series .env")
+                           f"falling back to time-series .env: {ex}")
 
         if not influxdb_username or not influxdb_password:
             influxdb_username, influxdb_password = get_influxdb_credentials()
@@ -5712,12 +5728,14 @@ def execute_influxdb_commands_multimodal(container_name="ia-influxdb", database=
                                            constants.SAMPLE_APPS_CONFIG.get("multimodal-weld-detection", {}).get("analytics_topic"))
             vision_measurement = constants.SAMPLE_APPS_CONFIG.get("multimodal-weld-detection", {}).get("vision_measurement")
 
+        analytics_measurement = common_utils.validate_influx_measurement(analytics_measurement)
+        vision_measurement = common_utils.validate_influx_measurement(vision_measurement)
         verify_tables = [analytics_measurement, vision_measurement]
 
         influx_execute = (
             f'SHOW MEASUREMENTS; '
-            f'SELECT * FROM "{analytics_measurement}" LIMIT {limit}; '
-            f'SELECT * FROM "{vision_measurement}" LIMIT {limit}'
+            f'SELECT * FROM "{analytics_measurement}" LIMIT {limit}; '  # nosec B608 - measurement and limit are validated
+            f'SELECT * FROM "{vision_measurement}" LIMIT {limit}'  # nosec B608 - measurement and limit are validated
         )
 
         exec_command = [

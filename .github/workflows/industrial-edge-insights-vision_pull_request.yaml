@@ -1,0 +1,434 @@
+name: "[industrial-edge-insights-vision] PR workflow"
+run-name: "[industrial-edge-insights-vision] PR  workflow (by @${{ github.actor }} via ${{ github.event_name }})"
+on:
+  push:
+    paths:
+      - 'industrial-edge-insights-vision/**'
+  pull_request:
+    paths:
+      - 'industrial-edge-insights-vision/**'
+  
+  workflow_dispatch:    
+      
+  workflow_call:
+permissions: {}
+
+jobs:          
+  virus-scan:
+    name: Run Virus Scan
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+    steps:
+    - name: Check out edge-ai-suites repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.1
+      with:
+        persist-credentials: false
+        path: manufacturing-ai-suite-repo
+    - name: Run Virus Scan
+      run: |
+        mkdir -p reports
+        docker pull clamav/clamav
+        docker run --rm -v "${{ github.workspace }}:/src" clamav/clamav clamscan -r  /src/manufacturing-ai-suite/industrial-edge-insights-vision/ > ./reports/clamav-report.txt || true
+        infected_count=$(awk '/ FOUND$/ { count++ } END { print count + 0 }' reports/clamav-report.txt)
+        {
+          echo "### Virus Scan Results"
+          echo "| Metric | Count |"
+          echo "|--------|------:|"
+          echo "| Infected files | $infected_count |"
+          echo ""
+          if [ "$infected_count" -gt 0 ]; then
+            echo "| File | Detection |"
+            echo "|------|-----------|"
+            awk '/ FOUND$/ { line = $0; sub(/ FOUND$/, "", line); file = line; sub(/: [^:]*$/, "", file); detection = line; sub(/^.*: /, "", detection); printf "| %s | %s |\n", file, detection }' reports/clamav-report.txt
+          else
+            echo "No infected files found."
+          fi
+          echo ""
+          echo "Full report: clamav-report.txt"
+        } >> "$GITHUB_STEP_SUMMARY"
+    - name: Upload Scan Reports
+      if: always()
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v6.0.0
+      with:
+        name: virus-report
+        path: reports/
+    
+  shellcheck:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out manufacturing-ai-suite repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.1
+        with:
+          persist-credentials: false
+          path: manufacturing-ai-suite-repo
+
+      - name: Install ShellCheck
+        run:  sudo apt-get update &&  sudo apt-get install -y shellcheck
+
+      - name: Run ShellCheck
+        run: |
+          cd manufacturing-ai-suite-repo/industrial-edge-insights-vision/
+          echo "Scanning for .sh files and running ShellCheck..."
+          find . -type f -name "*.sh" | tee shell_files.txt | xargs -r shellcheck -S error -f gcc > shellcheck_report.txt || scan_status=$?
+          issue_count=$(wc -l < shellcheck_report.txt)
+          {
+            echo "### ShellCheck Results"
+            echo "| File | Line | Column | Severity | Code | Finding |"
+            echo "|------|-----:|-------:|----------|------|---------|"
+            if [ "$issue_count" -gt 0 ]; then
+              while IFS=: read -r file line column diagnostic; do
+                severity="${diagnostic# }"
+                severity="${severity%%:*}"
+                finding="${diagnostic#*: }"
+                code="${finding##* \[}"
+                code="${code%\]}"
+                finding="${finding% \[*}"
+                file=$(printf '%s' "$file" | sed 's/|/\\|/g')
+                finding=$(printf '%s' "$finding" | sed 's/|/\\|/g')
+                printf '| %s | %s | %s | %s | %s | %s |\n' "$file" "$line" "$column" "$severity" "$code" "$finding"
+              done < shellcheck_report.txt
+            else
+              echo "| - | - | - | - | - | No errors found |"
+            fi
+            echo ""
+            echo "Error-level findings: $issue_count"
+            echo "Full report: shellcheck_report.txt"
+          } >> "$GITHUB_STEP_SUMMARY"
+          cp shellcheck_report.txt ${{ github.workspace }}
+          exit "${scan_status:-0}"
+
+      - name: Upload ShellCheck report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v6.0.0
+        with:
+          name: shellcheck-report
+          path: shellcheck_report.txt
+
+  bandit:
+    name: Bandit
+    outputs:
+      high_findings: ${{ steps.collect-bandit-high.outputs.has_high }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install Bandit
+        run: |
+          python3 -m venv bandit_venv
+          bandit_venv/bin/pip install bandit==1.8.6
+
+      - name: Run Bandit
+        id: run_bandit
+        run: |
+          bandit_exit=0
+          bandit_venv/bin/bandit -r industrial-edge-insights-vision/win-vision-ai \
+            -x industrial-edge-insights-vision/win-vision-ai/tests \
+            -f json -o bandit_report.json || bandit_exit=$?
+          echo "exit_code=$bandit_exit" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Summarize Bandit findings
+        if: always()
+        run: |
+          echo "## Bandit Scan Results" >> "$GITHUB_STEP_SUMMARY"
+          if [ ! -f bandit_report.json ]; then
+            echo "Bandit report was not generated." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          jq -r '"| Severity | Findings |\n|----------|----------|\n| HIGH | \([.results[] | select(.issue_severity == "HIGH")] | length) |\n| MEDIUM | \([.results[] | select(.issue_severity == "MEDIUM")] | length) |\n| LOW | \([.results[] | select(.issue_severity == "LOW")] | length) |"' bandit_report.json >> "$GITHUB_STEP_SUMMARY"
+          if jq -e '.results | length > 0' bandit_report.json > /dev/null; then
+            echo "Bandit found security issues; see the uploaded report for details." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Enforce Bandit result
+        if: always()
+        run: |
+          case "${{ steps.run_bandit.outputs.exit_code }}" in
+            0) exit 0 ;;
+            1)
+              high_count=$(jq -r '[.results[] | select(.issue_severity == "HIGH")] | length' bandit_report.json)
+              if [ "$high_count" -gt 0 ]; then
+                echo "::error title=Bandit Findings::Bandit found $high_count HIGH severity issue(s). See bandit_report.json for details."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::error title=Bandit Execution Failed::Bandit exited with code ${{ steps.run_bandit.outputs.exit_code }}."
+              exit "${{ steps.run_bandit.outputs.exit_code }}"
+              ;;
+          esac
+
+      - name: Collect Bandit HIGH findings
+        id: collect-bandit-high
+        if: always()
+        run: |
+          high_count=0
+          if [ -s bandit_report.json ]; then
+            high_count=$(jq '[.results[]? | select(.issue_severity == "HIGH")] | length' bandit_report.json)
+          fi
+          if [ "$high_count" -gt 0 ]; then
+            echo "has_high=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_high=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Bandit HIGH findings: $high_count"
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v6.0.0
+        with:
+          name: bandit-report
+          path: bandit_report.json
+
+  trivy-config-helm-scan:
+    outputs:
+      high_findings: ${{ steps.collect-trivy-high.outputs.has_high }}
+    permissions:
+      contents: read
+      packages: read          # needed for actions/checkout
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.1
+        with:
+          persist-credentials: false  
+      - name: Install Trivy from Aqua Security APT repo
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnupg lsb-release wget apt-transport-https curl jq
+          curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo gpg --dearmor -o /usr/share/keyrings/trivy.gpg
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -cs) main" | \
+          sudo tee /etc/apt/sources.list.d/trivy.list > /dev/null
+          sudo apt-get update
+          sudo apt-get install -y trivy
+      - name: Download Trivy Vulnerability DB and Report Format
+        continue-on-error: true
+        shell: bash
+        run: |
+          pwd
+          cd industrial-edge-insights-vision/
+          trivy --version
+          which trivy
+          trivy image --download-db-only
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/html.tpl -o trivy-html.tpl
+          cat << 'EOF' > csv.tpl
+          {{ range . }}
+          Trivy Vulnerability Scan Results ({{- .Target -}})
+          VulnerabilityID,Severity,CVSS Score,Title,Library,Vulnerable Version,Fixed Version,Information URL,Triage Information
+          {{ range .Vulnerabilities }}
+              {{- .VulnerabilityID }},
+              {{- .Severity }},
+              {{- range $key, $value := .CVSS }}
+                  {{- if (eq $key "nvd") }}
+                      {{- .V3Score -}}
+                  {{- end }}
+              {{- end }},
+              {{- quote .Title }},
+              {{- quote .PkgName }},
+              {{- quote .InstalledVersion }},
+              {{- quote .FixedVersion }},
+              {{- .PrimaryURL }}
+          {{ else -}}
+              No vulnerabilities found at this time.
+          {{ end }}
+          Trivy Dependency Scan Results ({{ .Target }})
+          ID,Name,Version,Notes
+          {{ range .Packages -}}
+              {{- quote .ID }},
+              {{- quote .Name }},
+              {{- quote .Version }}
+          {{ else -}}
+              No dependencies found at this time.
+          {{ end }}
+          {{ end }}
+          EOF
+
+      - name: Trivy config scan for helm charts 
+        run: |
+          cd industrial-edge-insights-vision/helm
+          ignore_file=$(mktemp)
+          trap 'rm -f "$ignore_file"' EXIT
+          printf '%s\n' AVD-KSV-0014 AVD-KSV-0118 > "$ignore_file"
+          trivy config --ignorefile "$ignore_file" \
+          --helm-set-string webrtcturnserver.username=user,webrtcturnserver.password=password \
+          --severity HIGH,CRITICAL --exit-code 1 \
+          --format json --output trivy-Spineapp-helm.json .
+
+      - name: Summarize Trivy config findings
+        if: always()
+        run: |
+          report="industrial-edge-insights-vision/helm/trivy-Spineapp-helm.json"
+          table="industrial-edge-insights-vision/helm/trivy-Spineapp-helm.txt"
+          echo "## Trivy Helm Config Findings" >> "$GITHUB_STEP_SUMMARY"
+          if [ ! -s "$report" ]; then
+            echo "Trivy JSON report was not generated." | tee "$table" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          high_count=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' "$report")
+          critical_count=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL")] | length' "$report")
+          {
+            echo "| File | Line | Severity | Rule | Finding | Resolution |"
+            echo "|------|-----:|----------|------|---------|------------|"
+            jq -r '.Results[]? as $result | $result.Misconfigurations[]? | "| \($result.Target | gsub("\\|"; "\\\\|") | gsub("[\\r\\n]+"; " ")) | \(.CauseMetadata.StartLine // "N/A") | \(.Severity) | \(.ID) | \(.Title | gsub("\\|"; "\\\\|") | gsub("[\\r\\n]+"; " ")) | \(.Resolution // "" | gsub("\\|"; "\\\\|") | gsub("[\\r\\n]+"; " ")) |"' "$report"
+            if [ "$high_count" -eq 0 ] && [ "$critical_count" -eq 0 ]; then
+              echo "| - | - | - | - | No HIGH or CRITICAL findings | - |"
+            fi
+          } > "$table"
+          cat "$table" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "HIGH: $high_count | CRITICAL: $critical_count" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Collect Trivy HIGH findings
+        id: collect-trivy-high
+        if: always()
+        run: |
+          report="industrial-edge-insights-vision/helm/trivy-Spineapp-helm.json"
+          high_count=0
+          if [ -s "$report" ]; then
+            high_count=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' "$report")
+          fi
+          if [ "$high_count" -gt 0 ]; then
+            echo "has_high=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_high=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Trivy HIGH findings: $high_count"
+          
+      - name: Upload Scan artifact to Github
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v6.0.0
+        with:
+          name: Trivy Report - Config scan for Helm
+          path: |
+            industrial-edge-insights-vision/helm/trivy-Spineapp-helm.json
+            industrial-edge-insights-vision/helm/trivy-Spineapp-helm.txt
+       
+  sanity:
+    uses: ./.github/workflows/industrial-edge-insights-vision_sanity.yaml
+    with:
+      branch:  ${{ github.head_ref }}
+    permissions:
+      contents: read           
+      packages: write
+
+  verify-scan-status:
+    name: Verify Scan Status
+    runs-on: ubuntu-24.04
+    if: always()
+    needs: [virus-scan, shellcheck, bandit, trivy-config-helm-scan, sanity]
+    steps:
+      - name: Generate scan status
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          COMMIT_SHA: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          names=("virus-scan" "shellcheck" "bandit" "trivy-config-helm-scan" "sanity")
+          statuses=("${{ needs.virus-scan.result }}" "${{ needs.shellcheck.result }}" "${{ needs.bandit.result }}" "${{ needs.trivy-config-helm-scan.result }}" "${{ needs.sanity.result }}")
+          passed=0
+          failed=0
+          skipped=0
+          failed_names=()
+          {
+            echo "## Security Scan Summary"
+            echo ""
+            echo "| Scan Job | Status |"
+            echo "|----------|--------|"
+            for index in "${!names[@]}"; do
+              case "${statuses[index]}" in
+                success)
+                  label="Passed"
+                  passed=$((passed + 1))
+                  ;;
+                failure)
+                  label="Failed"
+                  failed=$((failed + 1))
+                  failed_names+=("${names[index]}")
+                  ;;
+                skipped|cancelled)
+                  label="${statuses[index]}"
+                  skipped=$((skipped + 1))
+                  ;;
+                *) label="Unknown" ;;
+              esac
+              echo "| ${names[index]} | $label |"
+            done
+            echo ""
+            echo "### Overall Results"
+            echo "| Metric | Count |"
+            echo "|--------|-------|"
+            echo "| Total Jobs | ${#names[@]} |"
+            echo "| Passed | $passed |"
+            echo "| Failed | $failed |"
+            echo "| Skipped/Cancelled | $skipped |"
+            echo ""
+            if [ "$failed" -gt 0 ]; then
+              echo "**Status: FAILED** - ${failed_names[*]}"
+            elif [ "$passed" -eq "${#names[@]}" ]; then
+              echo "**Status: PASSED** - All jobs completed successfully"
+            elif [ "$skipped" -eq "${#names[@]}" ]; then
+              echo "**Status: SKIPPED** - All jobs were skipped or cancelled"
+            else
+              echo "**Status: PARTIAL** - $passed/${#names[@]} jobs passed"
+            fi
+            echo ""
+            echo "### Trigger Information"
+            echo "| Property | Value |"
+            echo "|----------|-------|"
+            echo "| Event | $EVENT_NAME |"
+            echo "| Branch | $REF_NAME |"
+            echo "| Commit | [$COMMIT_SHA](https://github.com/$REPOSITORY/commit/$COMMIT_SHA) |"
+            if [ "$EVENT_NAME" = "pull_request" ]; then
+              echo "| PR | [#$PR_NUMBER]($PR_URL) |"
+            fi
+            echo ""
+            echo "Completed at $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$failed" -gt 0 ]; then
+            echo "::error title=Security Scan Failed::Failed jobs: ${failed_names[*]}"
+            exit 1
+          fi
+
+  comment-high-findings:
+    name: Comment on HIGH findings
+    runs-on: ubuntu-24.04
+    needs: [bandit, trivy-config-helm-scan]
+    if: always() && github.event_name == 'pull_request' && (needs.bandit.outputs.high_findings == 'true' || needs.trivy-config-helm-scan.outputs.high_findings == 'true')
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - name: Create or update HIGH findings comment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BANDIT_HIGH: ${{ needs.bandit.outputs.high_findings }}
+          TRIVY_HIGH: ${{ needs.trivy-config-helm-scan.outputs.high_findings }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          marker="<!-- spineapp-high-security-findings -->"
+          body="$marker"$'\n\n'"## HIGH severity security findings"$'\n'"HIGH-severity findings were detected. Review the scan job(s) below:"
+          if [ "$BANDIT_HIGH" = "true" ]; then
+            bandit_job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --paginate --jq '.jobs[] | select(.name == "Bandit") | .html_url' | head -n 1)
+            bandit_job=${bandit_job:-$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID}
+            body+=$'\n'"| Bandit scan | [Open job]($bandit_job) |"
+          fi
+          if [ "$TRIVY_HIGH" = "true" ]; then
+            trivy_job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --paginate --jq '.jobs[] | select(.name | contains("trivy-config-helm-scan")) | .html_url' | head -n 1)
+            trivy_job=${trivy_job:-$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID}
+            body+=$'\n'"| Trivy Helm config scan | [Open job]($trivy_job) |"
+          fi
+          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate --jq '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | contains("<!-- spineapp-high-security-findings -->"))) | .id' | tail -n 1)
+          if [ -n "$comment_id" ]; then
+            gh api "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" --method PATCH --field body="$body" > /dev/null
+          else
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --method POST --field body="$body" > /dev/null
+          fi
+  

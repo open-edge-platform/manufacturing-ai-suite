@@ -23,11 +23,12 @@ from urllib.parse import urlsplit
 import httpx
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
-from fastmcp.server.dependencies import get_http_headers
-from fastmcp.server.middleware import Middleware, MiddlewareContext
 from pydantic import BaseModel, ConfigDict, ValidationError
+from starlette.datastructures import Headers
+from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 PIPELINE_API_URL = os.getenv("DLSPS_API_URL", "http://dlstreamer-pipeline-server:8080").rstrip("/")
 EXPLAIN_API_URL = os.getenv("EXPLAIN_API_URL", "http://multimodal-agentic-ui:5003").rstrip("/")
@@ -95,16 +96,20 @@ def _authorized_control(authorization: str | None) -> bool:
     return valid_username and valid_password
 
 
-class ControlAuthMiddleware(Middleware):
-    async def on_call_tool(self, context: MiddlewareContext, call_next):
-        if context.message.name in {"start_pipeline", "stop_pipeline"}:
-            headers = get_http_headers(include={"authorization"})
-            if not _authorized_control(headers.get("authorization")):
-                raise ToolError("Authentication required")
-        return await call_next(context)
+class AuthMiddleware:
+    """Require Basic authentication on every HTTP request, including MCP initialization and discovery."""
 
+    def __init__(self, app: ASGIApp):
+        self.app = app
 
-mcp.add_middleware(ControlAuthMiddleware())
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] == "http" and not _authorized_control(Headers(scope=scope).get("authorization")):
+            await JSONResponse(
+                {"error": "Authentication required"}, status_code=401,
+                headers={"WWW-Authenticate": 'Basic realm="weld-mcp", charset="UTF-8"'},
+            )(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
 
 
 async def _request(method: str, url: str, *, allow_redirect: bool = False, **kwargs: Any) -> httpx.Response:
@@ -321,14 +326,8 @@ async def _http_tool(
     schema: type[BaseModel],
     action: Callable[..., Awaitable[dict[str, Any]]],
     *,
-    require_auth: bool = False,
     allow_empty_body: bool = False,
 ) -> JSONResponse:
-    if require_auth and not _authorized_control(request.headers.get("authorization")):
-        return JSONResponse(
-            {"error": "Authentication required"}, status_code=401,
-            headers={"WWW-Authenticate": 'Basic realm="weld-mcp", charset="UTF-8"'},
-        )
     try:
         payload = schema.model_validate(
             {} if allow_empty_body and not await request.body() else await request.json()
@@ -352,12 +351,12 @@ async def _http_tool(
 
 @mcp.custom_route("/start_pipeline", methods=["POST"])
 async def http_start_pipeline(request: Request) -> JSONResponse:
-    return await _http_tool(request, StartRequest, start_pipeline, require_auth=True)
+    return await _http_tool(request, StartRequest, start_pipeline)
 
 
 @mcp.custom_route("/stop_pipeline", methods=["POST"])
 async def http_stop_pipeline(request: Request) -> JSONResponse:
-    return await _http_tool(request, StopRequest, stop_pipeline, require_auth=True, allow_empty_body=True)
+    return await _http_tool(request, StopRequest, stop_pipeline, allow_empty_body=True)
 
 
 @mcp.custom_route("/explain", methods=["POST"])
@@ -366,4 +365,10 @@ async def http_explain(request: Request) -> JSONResponse:
 
 
 if __name__ == "__main__":
-    mcp.run(transport="http", host="0.0.0.0", port=8000, stateless_http=True)
+    mcp.run(
+        transport="http",
+        host="0.0.0.0",  # nosec B104 - required for other Compose services to reach the container listener
+        port=8000,
+        stateless_http=True,
+        middleware=[Middleware(AuthMiddleware)],
+    )

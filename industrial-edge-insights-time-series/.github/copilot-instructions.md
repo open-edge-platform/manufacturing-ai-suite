@@ -31,6 +31,7 @@ support additional sample apps under `apps/` in the future (today only
 | OPC-UA ingestion | `make up_opcua_ingestion app=<name>` | `TELEGRAF_INPUT_PLUGIN=opcua`; scales `ia-opcua-server` to `num_of_streams` |
 | Batch | append `batch` goal, e.g. `make up_mqtt_ingestion batch app=<name>` | Uses `config-batch.json` instead of `config.json` for the Time-Series Analytics Microservice |
 | Validation | add `INCLUDE=validation`, e.g. `make up_mqtt_ingestion INCLUDE=validation` | Adds `docker-compose-validation.override.yml` (system-metrics dashboard + extra Telegraf inputs); ignores `num_of_streams` instance scaling |
+| MCP control | add `MCP=true` to either ingestion target | Adds `docker-compose-mcp.yml`; analytics waits for authenticated `start_pipeline`. Supports batch and validation overlays |
 
 `app` defaults to `wind-turbine-anomaly-detection` (must match
 `SAMPLE_APP_LIST` in the `Makefile`). Both `up_*` targets run
@@ -48,6 +49,7 @@ raw commands ad hoc.
 | `Makefile` | All lifecycle targets (build, up_mqtt_ingestion/up_opcua_ingestion, down, status, push_images) |
 | `docker-compose.yml` | Stack: Time-Series Analytics Microservice, InfluxDB, Grafana, MQTT broker, Telegraf, MQTT publisher, OPC-UA server, nginx |
 | `docker-compose-validation.override.yml` | CI/validation overlay (`INCLUDE=validation`): system-metrics Grafana dashboard + host-metric Telegraf inputs |
+| `docker-compose-mcp.yml`, `mcp-server/` | Optional authenticated FastMCP server, example client, and locked Python dependencies |
 | `.env` | Runtime configuration (credentials, `HOST_IP`, `GRAFANA_PORT`) — never commit real secrets |
 | `configs/` | Per-service config: `grafana/`, `influxdb/`, `mqtt-broker/`, `nginx/`, `telegraf/` |
 | `apps/<app>/` | Per-sample-app assets: `grafana-dashboard.json`, `time-series-analytics-config/`, `telegraf-config/`, `training/`, `simulation-data/` |
@@ -64,6 +66,13 @@ raw commands ad hoc.
 - `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD` — validated
   by `make check_env_variables` (length/charset rules)
 - `DOCKER_REGISTRY`, `IMAGE_SUFFIX`, `WEEKLY_BUILD_DATE` — push/versioning
+- `MCP_USERNAME`, `MCP_PASSWORD` — required in `.env` with `MCP=true`; validated
+  by `make check_env_variables` (username: letters only, 5+ characters; password:
+  alphanumeric, 10+ characters, at least one letter and one digit).
+- `TIME_SERIES_MCP_IMAGE` — optional MCP image repository, default
+  `industrial-edge-insights-time-series-mcp`; tag `2026.1.0`.
+- MCP backend settings are supplied by the overlay. Native Kapacitor task APIs
+  support status/stop on images without microservice control endpoints.
 
 ## Useful Commands
 
@@ -75,7 +84,14 @@ make status                          # Container status + recent error-log scan
 make down                            # Stop and remove containers + volumes
 make push_images                     # Build then push to DOCKER_REGISTRY
 make help                            # Full command list from the Makefile
+make build MCP=true                  # Also build the MCP image
+make up_mqtt_ingestion MCP=true       # Deploy with analytics controlled by MCP
+make down MCP=true                   # Remove an MCP deployment
 ```
+
+For MCP setup, verified TLS, tool contracts, and lifecycle warnings, read
+[`docs/user-guide/how-to-guides/use-mcp-server.md`](../docs/user-guide/how-to-guides/use-mcp-server.md).
+Focused MCP tests live in `tests/mcp/`; use their instructions in `tests/README.md`.
 
 See
 [`.github/skills/time-series-deploy/references/command-reference.md`](skills/time-series-deploy/references/command-reference.md)

@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s', for
 
 # Setup paths and host IP
 current_dir = os.path.dirname(os.path.abspath(__file__))
-repo_path = os.path.abspath(os.path.join(current_dir, '../../../../'))
+repo_path = os.path.abspath(os.path.join(current_dir, '../../../'))
 sys.path.extend([current_dir, repo_path, os.path.abspath(os.path.join(current_dir, '../configs/dlsps'))])
 
 hostIP = subprocess.check_output("ip route get 1 | awk '{print $7}'|head -1", shell=True).decode('utf-8').strip()
@@ -21,7 +21,7 @@ class utils:
     def __init__(self):
         """Initialize the utils class with the base path."""
         self.path = repo_path
-        self.base_dir = f"{self.path}/manufacturing-ai-suite/industrial-edge-insights-vision"
+        self.base_dir = f"{self.path}/industrial-edge-insights-vision"
 
     def json_reader(self, tc, JSON_PATH):
         """
@@ -112,7 +112,7 @@ class utils:
             Exception: If pipeline listing fails or validation errors occur
         """
         logging.info('\n\n**********List pipelines sample_list.sh**********')
-        os.chdir('{}'.format(self.path + "/manufacturing-ai-suite/industrial-edge-insights-vision"))
+        os.chdir(self.base_dir)
         
         try:
             # For Helm deployment, check if pods are running first
@@ -133,7 +133,7 @@ class utils:
                 "pdd": "helm/apps/pallet-defect-detection/pipeline-server-config.json",
                 "pcb": "helm/apps/pcb-anomaly-detection/pipeline-server-config.json"
             }
-            config_path = os.path.join(self.path, "manufacturing-ai-suite/industrial-edge-insights-vision",  helm_config_paths.get(value.get("app"), helm_config_paths["pdd"]) if deployment_type == "helm" else config_paths.get(value.get("app"), config_paths["pdd"]))
+            config_path = os.path.join(self.base_dir, helm_config_paths.get(value.get("app"), helm_config_paths["pdd"]) if deployment_type == "helm" else config_paths.get(value.get("app"), config_paths["pdd"]))
 
             with open(config_path, 'r') as f:
                 config_data = json.load(f)
@@ -381,7 +381,7 @@ class utils:
             print(docker_ps_output)
             lines = docker_ps_output.strip().split('\n')[1:]
             running_containers = []
-            project_containers = ['dlstreamer-pipeline-server', 'prometheus', 'coturn', 'otel-collector', 'mediamtx-server', 'seaweedfs-master', 'seaweedfs-volume', 'seaweedfs-filer', 'seaweedfs-s3', 'industrial-edge-insights-vision_vol_seaweed_master_data', 'industrial-edge-insights-vision_vol_seaweed_volume_data', 'industrial-edge-insights-vision_vol_seaweed_filer_data', 'industrial-edge-insights-vision_vol_pipeline_root']
+            project_containers = ['dlstreamer-pipeline-server', 'prometheus', 'coturn', 'otel-collector', 'mediamtx-server', 'seaweedfs-master', 'seaweedfs-volume', 'seaweedfs-filer', 'seaweedfs-s3']
                 
             for line in lines:
                 if line.strip():
@@ -466,7 +466,7 @@ class utils:
         """
         logging.info('Deploying Helm application')        
         try:
-            os.chdir(os.path.join(self.path, "manufacturing-ai-suite/industrial-edge-insights-vision"))
+            os.chdir(self.base_dir)
             logging.info('Installing Helm chart: app-deploy...')
             subprocess.check_output("helm install app-deploy helm -n apps --create-namespace", shell=True, executable='/bin/bash')
             logging.info('Helm application deployed successfully')
@@ -522,7 +522,7 @@ class utils:
         """
         logging.info('Copying resources to dlstreamer-pipeline-server pod')
         try:
-            os.chdir(os.path.join(self.path, "manufacturing-ai-suite/industrial-edge-insights-vision/"))
+            os.chdir(self.base_dir)
             pod_cmd = "kubectl get pods -n apps -o jsonpath='{.items[*].metadata.name}' | tr ' ' '\\n' | grep deployment-dlstreamer-pipeline-server | head -n 1"
             pod_name = subprocess.check_output(pod_cmd, shell=True, executable='/bin/bash').decode('utf-8').strip()
             if not pod_name:
@@ -679,7 +679,7 @@ class utils:
         """
         logging.info('Uninstalling Helm application')        
         try:
-            os.chdir(os.path.join(self.path, "manufacturing-ai-suite/industrial-edge-insights-vision"))
+            os.chdir(self.base_dir)
             logging.info('Uninstalling Helm chart: app-deploy...')
             subprocess.check_output("helm uninstall app-deploy -n apps", shell=True, executable='/bin/bash')
             logging.info('Helm application uninstalled successfully')

@@ -31,8 +31,10 @@ the data flow of the selected app before proceeding with the following steps.
     cd manufacturing-ai-suite/industrial-edge-insights-time-series
 
     # build
-    make build # builds only data simulator (OPC-UA server and MQTT publisher) docker images
+    make build # builds all the docker images
     ```
+
+    To deploy the optional MCP server, see [Use the MCP server](../how-to-guides/use-mcp-server.md).
 
     > [!NOTE]
     > To include copyleft licensed sources when building the Docker images, use the below command:

@@ -34,7 +34,7 @@ optional `references/` (deep docs loaded only when needed), `scripts/`
 
 | Skill | Use it when the user wants to… | Backed by |
 |---|---|---|
-| [`time-series-deploy`](./time-series-deploy/SKILL.md) | build / deploy / smoke-test / functionally test the app via Docker Compose (MQTT or OPC-UA ingestion) | `Makefile` + `scripts/smoke-check.sh` + `scripts/run-functional-tests.sh` |
+| [`time-series-deploy`](./time-series-deploy/SKILL.md) | build / deploy / smoke-test / functionally test the app via Docker Compose (MQTT or OPC-UA ingestion), including building the Time Series Analytics microservice from source when explicitly asked | `Makefile` + `scripts/build-time-series-analytics.sh` + `scripts/smoke-check.sh` + `scripts/run-functional-tests.sh` |
 
 ## Conventions
 

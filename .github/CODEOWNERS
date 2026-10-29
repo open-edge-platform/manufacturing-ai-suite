@@ -8,6 +8,9 @@
 /hmi-augmented-worker/docs/                     @hteeyeoh @madhuri-rai07 @bharagha @xwu2intel  @open-edge-platform/open-edge-platform-docs-write
 /hmi-augmented-worker/README.md                 @hteeyeoh @madhuri-rai07 @bharagha @xwu2intel  @open-edge-platform/open-edge-platform-docs-write
 
+/factory-defects-inspector-agent/               @vkb1 @sathyendranv @pooja-intel @xwu2intel @SudarshanaPanda @rashmihe @tanvidhola-ux
+/factory-defects-inspector-agent/docs/          @vkb1 @sathyendranv @pooja-intel @xwu2intel @SudarshanaPanda @rashmihe @tanvidhola-ux @open-edge-platform/open-edge-platform-docs-write
+/factory-defects-inspector-agent/README.md     @vkb1 @sathyendranv @pooja-intel @xwu2intel @SudarshanaPanda @rashmihe @tanvidhola-ux @open-edge-platform/open-edge-platform-docs-write
 /.github/workflows/industrial-edge-insights-time-series*.yml           @vkb1 @sathyendranv @pooja-intel @xwu2intel @SudarshanaPanda @rashmihe @tanvidhola-ux
 /industrial-edge-insights-multimodal/            @vkb1 @sathyendranv @pooja-intel @xwu2intel @SudarshanaPanda @rashmihe @tanvidhola-ux
 /industrial-edge-insights-multimodal/docs/       @vkb1 @sathyendranv @pooja-intel @xwu2intel @SudarshanaPanda @rashmihe @tanvidhola-ux @open-edge-platform/open-edge-platform-docs-write

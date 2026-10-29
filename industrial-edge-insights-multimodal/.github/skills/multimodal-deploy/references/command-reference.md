@@ -7,6 +7,12 @@ Source of truth: `Makefile` in the component root. Re-derive this table from
 the live file if it ever disagrees. Helm/Kubernetes deployment is not
 supported; there are no Helm targets.
 
+This file only catalogues Make targets. For system requirements,
+prerequisites (including how to stage the vLLM models), and step-by-step
+deployment procedures, use the app's published user guide at
+<https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/index.html>
+(see "Normative references" in `SKILL.md`).
+
 ## The `MCP` flag
 
 `MCP` is a Make variable (default `false`). With `MCP=true`:
@@ -23,7 +29,7 @@ supported; there are no Helm targets.
 
 | Target | Effect |
 |---|---|
-| `make build` | `docker compose -f docker-compose.yml -f docker-compose-vllm.yml -f docker-compose-agentic.yml [-f docker-compose-mcp.yml] build --pull` (MCP overlay only with `MCP=true`) |
+| `make build` | `docker compose -f docker-compose.yml -f docker-compose-vllm.yml -f docker-compose-agentic.yml [-f docker-compose-mcp.yml] build --pull` (MCP overlay only with `MCP=true`). Builds app images only. It does not build the Time Series Analytics microservice; run `scripts/build-time-series-analytics.sh` first only when the request explicitly asks to build that microservice (SKILL.md Step 2a) |
 | `make build_copyleft_sources` | Same compose file set as `build`, with `--build-arg COPYLEFT_SOURCES=true --pull` |
 
 ## Prerequisite / validation targets (auto-invoked by `up*`)
@@ -33,7 +39,7 @@ supported; there are no Helm targets.
 | `check_env_variables` | Validates `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD`, `MTX_WEBRTCICESERVERS2_0_USERNAME/PASSWORD`, `S3_STORAGE_USERNAME/PASSWORD`, `SEAWEEDFS_WEB_AUTH_USER/PASSWORD` in `.env`, plus `MCP_USERNAME/PASSWORD` when `MCP=true`. Usernames: letters only, at least 5 characters (`INFLUXDB_USERNAME` must not be `admin`). Passwords: alphanumeric, at least 10 characters, with at least one letter and one digit |
 | `validate_host_ip` | Ensures `HOST_IP` in `.env` is set and is a valid IPv4 address (`localhost` is rejected; use `127.0.0.1` for local-only access) |
 | `check_hardware` | Requires Intel Panther Lake (Family 6, Model 204) / Core Ultra 3xx CPU unless `PLATFORM_CHECK=false` (in `.env` or on the `make` command line; CI/validation only) |
-| `check_models` | Requires non-empty `configs/vllm/models` and `configs/vllm/huggingface` directories |
+| `check_models` | Requires non-empty `configs/vllm/models` and `configs/vllm/huggingface` directories. Populate them with **Download Models** in [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html); `make download_model` does not fill these directories |
 
 ## Deploy (Docker Compose)
 
@@ -50,7 +56,7 @@ supported; there are no Helm targets.
 
 | Target | Effect |
 |---|---|
-| `make download_model` | Starts the `model-download` service, polls `http://${HOST_IP}:8200/api/v1/models/results` until ready, requests download/conversion of `LLM_MODEL_NAME` (`LLM_DEVICE`, `LLM_WEIGHT_FORMAT`), then polls the job until completed (up to 600 × 5s) |
+| `make download_model` | Gives the downloader container's user (UID 1000) ownership of `configs/agentic/models` via a short-lived root container (no `sudo`), starts the `model-download` service, polls `http://${HOST_IP}:8200/api/v1/models/results` until ready, requests download/conversion of `LLM_MODEL_NAME` (`LLM_DEVICE`, `LLM_WEIGHT_FORMAT`), then polls the job until completed (up to 600 × 5s) |
 | `make wait_for_tsam` | Polls `https://${HOST_IP}:3000/ts-api/health` (port `3000` is hard-coded, not `GRAFANA_PORT`) until the Time-Series Analytics microservice responds |
 | `make upload_tar_file` | Builds `configs/time-series-analytics-microservice/weld_anomaly_detector.tar` and uploads it to `https://${HOST_IP}:${GRAFANA_PORT}/ts-api/udfs/package`, then runs `post_config` |
 | `make post_config` | Posts `configs/time-series-analytics-microservice/config.json` to `https://${HOST_IP}:${GRAFANA_PORT}/ts-api/config` |
@@ -68,19 +74,19 @@ supported; there are no Helm targets.
 - External endpoint: `https://${HOST_IP}:${GRAFANA_PORT}/mcp` via nginx
   (`location = /mcp`, self-signed certificate, no nginx-level auth).
 - HTTP Basic auth (`MCP_USERNAME`/`MCP_PASSWORD`) is enforced by the server
-  only for `start_pipeline` and `stop_pipeline`.
-- The server also exposes `POST /start_pipeline`, `/stop_pipeline` (Basic
-  auth) and `/explain` (no auth) on port 8000; nginx does not proxy them.
+  for every request, including MCP initialization and `tools/list`.
+- The server also exposes `POST /start_pipeline`, `/stop_pipeline` and
+  `/explain` (all Basic auth) on port 8000; nginx does not proxy them.
 
 | Tool | Auth | Effect |
 |---|---|---|
 | `start_pipeline(vision_inf_device=CPU\|GPU\|NPU, time_series_inf_device=CPU\|GPU)` | Basic | Uploads the UDF package, posts the Time-Series Analytics config, waits up to 120 s for the `weld_anomaly_detector` task, then starts the `weld_defect_classification` DL Streamer pipeline |
 | `stop_pipeline()` | Basic | Stops all `QUEUED`/`RUNNING` DL Streamer instances and the time-series task |
-| `explain(selected_time)` | — | Explains one fused detection (ISO-8601 timestamp) via `multimodal-agentic-ui` |
-| `list_insights_data(page, page_size)` | — | Paginated fusion results |
-| `run_agent(time_range=30s\|1m\|5m\|10m\|30m)` | — | Starts an agentic analysis run; returns `run_id` |
-| `get_run_results(run_id)` | — | Agent run status/result (`reasoning`, `completed`, `error`) |
-| `describe()` | — | Server purpose, tool list, input schemas |
+| `explain(selected_time)` | Basic | Explains one fused detection (ISO-8601 timestamp) via `multimodal-agentic-ui` |
+| `list_insights_data(page, page_size)` | Basic | Paginated fusion results |
+| `run_agent(time_range=30s\|1m\|5m\|10m\|30m)` | Basic | Starts an agentic analysis run; returns `run_id` |
+| `get_run_results(run_id)` | Basic | Agent run status/result (`reasoning`, `completed`, `error`) |
+| `describe()` | Basic | Server purpose, tool list, input schemas |
 
 Example client: `mcp-server/example/example_client.py` (see
 `mcp-server/example/README.md`).
