@@ -4,7 +4,7 @@ Begin after the administrator has deployed the applications, verified MCP regist
 
 ## Open the WebUI
 
-On the central host, open <http://127.0.0.1:8787/> and log in with the WebUI password supplied securely by the administrator.
+On the central host, open <http://127.0.0.1:8787/> and log in with the WebUI password supplied securely by the administrator. Administrators bring the WebUI up as part of [Install Hermes, Set the Persona, and Bring Up the WebUI](../get-started/install-hermes.md).
 
 Keep that SSH session open, then visit <http://127.0.0.1:8787/> on your workstation. If local port `8787` is occupied, use a different local port, for example `-L 8788:127.0.0.1:8787`, and open <http://127.0.0.1:8788/> instead. This browser-access tunnel is separate from the administrator-managed MCP tunnels to the edge nodes.
 
