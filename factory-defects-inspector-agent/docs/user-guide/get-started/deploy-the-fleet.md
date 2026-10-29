@@ -33,7 +33,7 @@ Check the displayed node names, recipes, profiles, hosts, local ports, and skill
 Run the installer from the `factory-defects-inspector-agent` directory in an interactive terminal, as the same user who installed and configured Hermes:
 
 ```bash
-bash ./fleet-setup.sh
+./fleet-setup.sh
 ```
 
 The installer uses `hosts.yaml` by default. It validates the inventory, checks the central host, and then prepares each configured deployment. Depending on the node's state, it may:
@@ -48,13 +48,13 @@ Keep the terminal open to answer SSH, `sudo`, or approval prompts. The installer
 To use another inventory, pass its path:
 
 ```bash
-bash ./fleet-setup.sh --hosts /path/to/hosts.yaml
+./fleet-setup.sh --hosts /path/to/hosts.yaml
 ```
 
 To work through a single deployment with an interactive Hermes session, select its node. The following uses `node1`, which has one deployment in the checked-in inventory:
 
 ```bash
-bash ./fleet-setup.sh --node node1 --interactive
+./fleet-setup.sh --node node1 --interactive
 ```
 
 If a node has multiple deployments, also pass `--recipe` with the recipe identifier from your inventory to select a single assignment.
@@ -90,4 +90,4 @@ hermes chat --oneshot -q \
   "Call mcp__node1__describe and mcp__node2__describe and summarize each result."
 ```
 
-The tunnel and MCP server must be available for the test to pass. The installer pins the retrieved TLS certificate; do not disable certificate verification to work around a TLS error. If the app is already running with a regenerated certificate, use `bash ./fleet-setup.sh --no-deploy` to refresh the pin and registration without redeploying the app. This still performs node and profile preparation; it is not a read-only check.
+The tunnel and MCP server must be available for the test to pass. The installer pins the retrieved TLS certificate; do not disable certificate verification to work around a TLS error. If the app is already running with a regenerated certificate, use `./fleet-setup.sh --no-deploy` to refresh the pin and registration without redeploying the app. This still performs node and profile preparation; it is not a read-only check.
