@@ -7,6 +7,7 @@ The Factory Defects Inspector Agent is a [Hermes Agent](https://github.com/NousR
 The full documentation is in [docs/user-guide](./docs/user-guide/index.md):
 
 - [Overview](./docs/user-guide/index.md): What the agent and the installer do, and who the guides are for.
+- [How It Works](./docs/user-guide/how-it-works.md): High-level admin/operator flows and the deployment and MCP-registration architecture.
 - [Get Started](./docs/user-guide/get-started.md) (administrator):
   - [System Requirements](./docs/user-guide/get-started/system-requirements.md)
   - [Install Hermes, Set the Persona, and Bring Up the WebUI](./docs/user-guide/get-started/install-hermes.md)
