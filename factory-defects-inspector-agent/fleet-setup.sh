@@ -44,8 +44,8 @@ if [[ ${FLEET_RECIPE_MODE:-} == 1 ]]; then
   [[ -n ${PASS_KEYS[0]:-} ]] || PASS_KEYS=()
   MCP_TOOLS=${MCP_TOOLS_JSON:-'[]'}
 fi
-DEPLOY_PROMPT=${DEPLOY_PROMPT:-"In ~/$APP_REL, Meet prerequisites (ignore accepting licenses for downloading models from HF), build time series analytics microservice, build and deploy (pull latest weekly tags of intel/ images) the agentic variant with the MCP server (make up_agentic MCP=true), then run the smoke check. Do not edit .env; if a required credential is missing, stop and name it. Do not start or stop pipelines."}
-SMART_POLICY=${SMART_POLICY:-"APPROVE make build, make up_agentic, make down and make status (with or without MCP=true) and .github/skills/multimodal-deploy/scripts/smoke-check.sh when run from ~/$APP_REL. ESCALATE anything that edits .env, uses sudo, or touches paths outside that directory."}
+DEPLOY_PROMPT=${DEPLOY_PROMPT:-"In ~/$APP_REL, Meet prerequisites (ignore accepting licenses for downloading models from HF), build time series analytics microservice, build and deploy the agentic variant with the MCP server (make up_agentic MCP=true), then run the smoke check. Do not edit .env; if a required credential is missing, stop and name it. Do not start or stop pipelines. Use the edge-ai-libraries sparse checkout exactly as the skill's build script creates it; do not initialize or update git submodules, which the build does not need."}
+SMART_POLICY=${SMART_POLICY:-"APPROVE make build, make up_agentic, make down and make status (with or without MCP=true) and .github/skills/multimodal-deploy/scripts/smoke-check.sh when run from ~/$APP_REL. ESCALATE anything that edits .env, uses sudo, runs git submodule commands, or touches paths outside that directory."}
 
 RUN_STARTED=$SECONDS
 log() { printf '[%(%Y-%m-%dT%H:%M:%S%z)T] [+%ss] %s\n' -1 "$((SECONDS - RUN_STARTED))" "$*" >&2; }
