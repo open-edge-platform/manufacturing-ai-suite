@@ -63,21 +63,13 @@ When the integration issues are resolved, configure Hermes with the Inference Ro
 
 `SOUL.md` is a reusable Hermes persona template for this agent. It defines the assistant's purpose, evidence-based reporting, administrator/operator workflows, and confirmation boundaries for operational changes. It deliberately contains no node addresses, credentials, or fixed model selections; those remain in inventory, provider configuration, and live tool results.
 
-Review the template before applying it. From the `factory-defects-inspector-agent` directory, as the central Hermes user:
+Review the template before applying it. Then, from the `factory-defects-inspector-agent` directory, as the central Hermes user:
 
 ```bash
-hermes_home="${HERMES_HOME:-$HOME/.hermes}"
-install -d -m 0700 "$hermes_home"
-if [ -f "$hermes_home/SOUL.md" ]; then
-  cp -i "$hermes_home/SOUL.md" "$hermes_home/SOUL.md.backup"
-fi
-cp -i ./SOUL.md "$hermes_home/SOUL.md"
-chmod 600 "$hermes_home/SOUL.md"
+./hermes-webui.sh persona
 ```
 
-The copy commands prompt before overwriting existing files. If the active persona contains customizations you need, merge the reviewed template into it instead of replacing it. Keep the backup until you have verified the new behavior.
-
-To automate this step, run `./hermes-webui.sh persona` instead: it is a no-op when the installed persona already matches the template, and otherwise backs up the existing persona to `SOUL.md.backup.<timestamp>` before replacing it. `./hermes-webui.sh setup` combines persona installation with the optional WebUI bring-up described below.
+The command installs `SOUL.md` into the Hermes home (default `~/.hermes`, or the configured `HERMES_HOME`) with owner-only permissions. It is a no-op when the installed persona already matches the template; otherwise it backs up the existing persona to `SOUL.md.backup.<timestamp>` before replacing it. If the active persona contains customizations you need, merge the reviewed template into the installed file afterward, and keep the backup until you have verified the new behavior. `./hermes-webui.sh setup` combines persona installation with the optional WebUI bring-up described below.
 
 Start a new default-profile Hermes chat (in the CLI, or in the WebUI if you have set it up — see the next section), and ask it to explain its role and how it handles a request to stop a pipeline. Confirm that it identifies the target and seeks approval rather than making a change.
 
