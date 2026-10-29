@@ -22,4 +22,5 @@ The full documentation is in [docs/user-guide](./docs/user-guide/index.md):
 - [`SOUL.md`](SOUL.md) — reusable Factory Defects Inspector Agent persona for the central Hermes assistant.
 - [`fleet-setup.sh`](fleet-setup.sh) — installer entry point.
 - [`fleet_inventory.py`](fleet_inventory.py) — recipe inventory validation and deployment planning.
-- [`hermes-webui.sh`](hermes-webui.sh) — optional Hermes WebUI installer.
+- [`agents/hermes.sh`](agents/hermes.sh) — Hermes agent-harness adapter (selected via `HARNESS_AGENT`; documents the adapter contract for other harnesses).
+- [`hermes-webui.sh`](hermes-webui.sh) — optional Hermes WebUI installer and `SOUL.md` persona setup (`setup`/`persona` commands).

@@ -12,7 +12,7 @@ Edit `hosts.yaml` before deploying:
 
 Do not put passwords, tokens, or other secrets in the inventory. The installer creates missing application credentials and transfers them using files over SSH. It prompts for an SSH password only if it needs to install a key.
 
-The normal recipe deployment removes and recreates its managed checkout. Back up any local files or manually supplied credentials in that checkout before redeploying. `--no-deploy` prepares nodes and profiles and connects to an application that is already running, without deleting or redeploying its checkout.
+The normal recipe deployment removes and recreates its managed checkout. Back up any local files or manually supplied credentials in that checkout before redeploying. `--no-deploy` prepares nodes and profiles and connects to an application that is already running, without deleting or redeploying its checkout. Profile preparation recreates each node profile from the current default profile on every run, so configure the central model/provider settings (see [Install Hermes](install-hermes.md)) before running the installer; node chat history in those profiles is not preserved across runs.
 
 ## Preflight validation
 
@@ -71,6 +71,8 @@ Other useful options:
 | `--skip-platform-check` | Skip the hardware check for CI or validation only; do not use this to bypass production hardware requirements |
 
 Node and recipe selectors can be repeated. If none are provided, the installer processes every assignment in the inventory.
+
+The agent-specific steps (per-node profiles, skills, deploy chats, and MCP registration) run through an adapter selected by the `HARNESS_AGENT` environment variable (`agents/<name>.sh` next to the installer). Hermes (`hermes`, the default) is the only adapter provided today; the adapter contract is documented in `agents/hermes.sh` for anyone adding support for another agent harness. Agentic deployment requires an adapter that declares the `deploy` capability; an adapter without it (any MCP-capable harness with only the baseline functions) can still run the `--no-deploy` flow — node preparation, tunnels, and MCP registration for an already-deployed fleet.
 
 ## Verify MCP registration
 

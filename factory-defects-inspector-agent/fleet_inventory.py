@@ -264,10 +264,10 @@ def build_plan(doc, selected_nodes=(), selected_recipes=(), user="", skip=False)
             profile = f"weld-node-{match[1]}" if match else server.replace("_", "-")
             if profile == "default":
                 raise ValueError(
-                    "deployment.name 'default' is reserved for Hermes' central profile"
+                    "deployment.name 'default' is reserved for the agent's central profile"
                 )
             if profile in profiles:
-                raise ValueError(f"duplicate Hermes profile: {profile}")
+                raise ValueError(f"duplicate agent profile: {profile}")
             profiles.add(profile)
             lp = port(d.get("local_port"), "deployment.local_port", 1024)
             config = dict(configs[recipe])
@@ -417,7 +417,7 @@ def main():
             file=sys.stderr,
         )
         return 2
-    # Serialize shared Hermes state changes, not the remote deployment work.
+    # Serialize shared agent-harness state changes, not the remote deployment work.
     groups = {}
     for name, recipe, node, settings in plan:
         groups[(recipe, node["name"])] = ([name], [node], settings)

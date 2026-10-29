@@ -77,6 +77,8 @@ chmod 600 "$hermes_home/SOUL.md"
 
 The copy commands prompt before overwriting existing files. If the active persona contains customizations you need, merge the reviewed template into it instead of replacing it. Keep the backup until you have verified the new behavior.
 
+To automate this step, run `./hermes-webui.sh persona` instead: it is a no-op when the installed persona already matches the template, and otherwise backs up the existing persona to `SOUL.md.backup.<timestamp>` before replacing it. `./hermes-webui.sh setup` combines persona installation with the optional WebUI bring-up (see [Bring Up Hermes WebUI](../how-to-guides/bring-up-hermes-webui.md)).
+
 Start a new default-profile Hermes chat, including in the WebUI, and ask it to explain its role and how it handles a request to stop a pipeline. Confirm that it identifies the target and seeks approval rather than making a change. Review any profile-specific persona separately; these instructions do not install the template into node profiles.
 
 This is behavioral guidance, not an access-control mechanism. The fleet installer does not automatically install or overwrite the persona, and changing this template alone does not change an existing Hermes installation.
