@@ -2,6 +2,46 @@
 
 All notable changes to this project are documented in this file.
 
+## [2026.3] - December 2026
+
+### Added
+- Added cross-harness AI-agent instructions, skill catalogs, and deployment and test helpers for the Time Series sample apps. ([#17])
+
+### Changed
+- Updated sample app images to `2026.3.0` and Python base images to 3.14. ([#4432]) ([#4440])
+- Updated OPC UA simulator dependencies for compatibility with Python 3.14. ([#4475])
+- Improved GPU/NPU functional tests to verify accelerated classifier execution and deployment readiness. ([#4376])
+- Added validated platform guidance and updated deployment documentation. ([#4530]) ([#4456])
+
+### Removed
+- Removed Helm charts, Helm deployment documentation, and Helm-specific test and CI support; Docker Compose remains the supported deployment method. ([#22])
+
+### Security
+- Restricted published service ports to the configured host IP, defaulting to loopback, and hardened shell operations. ([#4520]) ([#4436])
+
+### Fixed
+- Fixed the `make OPC-UA` output to suppress echoed Telegraf configuration. ([#4503])
+- Updated the MQTT publisher restart policy so it recovers after host or container restarts. ([#4484])
+
+### Documentation
+- Added cross-harness deployment and testing guidance and updated release, platform, and reference-script documentation. ([#17]) ([#4530]) ([#4456])
+
+---
+[#4530]: https://github.com/open-edge-platform/edge-ai-suites/pull/4530
+[#4520]: https://github.com/open-edge-platform/edge-ai-suites/pull/4520
+[#4456]: https://github.com/open-edge-platform/edge-ai-suites/pull/4456
+[#4440]: https://github.com/open-edge-platform/edge-ai-suites/pull/4440
+[#4436]: https://github.com/open-edge-platform/edge-ai-suites/pull/4436
+[#4432]: https://github.com/open-edge-platform/edge-ai-suites/pull/4432
+[#4376]: https://github.com/open-edge-platform/edge-ai-suites/pull/4376
+[#4503]: https://github.com/open-edge-platform/edge-ai-suites/pull/4503
+[#4484]: https://github.com/open-edge-platform/edge-ai-suites/pull/4484
+[#4475]: https://github.com/open-edge-platform/edge-ai-suites/pull/4475
+[#17]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/17
+[#22]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/22
+
+---
+
 ## [2026.2] - September 2026
 
 ### Added

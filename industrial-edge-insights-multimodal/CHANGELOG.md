@@ -2,6 +2,51 @@
 
 All notable changes to this project are documented in this file.
 
+## [2026.3] - December 2026
+
+### Added
+- Added an MCP server for pipeline control, fusion-data access, and agentic analysis workflows. ([#15])
+- Added cross-harness AI-agent guidance, skill catalogs, and deployment and test helpers. ([#17])
+- Added label and confidence filters with parameterized queries to the insights UI. ([#13])
+
+### Changed
+- Consolidated the Insights Workbench into the multimodal UI service and retired its standalone container. ([#4494])
+- Updated the weld-defect classification model to the Geti 3 version. ([#18])
+- Removed Helm as a supported deployment option, leaving Docker Compose as the supported method. ([#22])
+- Updated Python base images to 3.14 and multimodal images to version `2026.3.0`. ([#4440]) ([#4432])
+- Expanded CPU, GPU, NPU, vLLM, and agentic deployment validation in functional tests and CI. ([#4376]) ([#4500])
+- Updated deployment and user documentation for MCP, agentic workflows, VLM fine-tuning, and validated platforms. ([#28]) ([#33]) ([#4521]) ([#4530])
+
+### Security
+- Added Basic Authentication to the SeaweedFS filer UI and restricted published ports to the configured host IP, defaulting to loopback. ([#4516]) ([#4520])
+- Addressed code-scanning and ShellCheck findings in the UI and deployment scripts. ([#30]) ([#4436])
+
+### Fixed
+- Fixed long-running SeaweedFS data loss by persisting storage to disk and restarting services after failures. ([#4506])
+
+---
+[#4530]: https://github.com/open-edge-platform/edge-ai-suites/pull/4530
+[#4521]: https://github.com/open-edge-platform/edge-ai-suites/pull/4521
+[#4520]: https://github.com/open-edge-platform/edge-ai-suites/pull/4520
+[#4516]: https://github.com/open-edge-platform/edge-ai-suites/pull/4516
+[#4506]: https://github.com/open-edge-platform/edge-ai-suites/pull/4506
+[#4500]: https://github.com/open-edge-platform/edge-ai-suites/pull/4500
+[#4494]: https://github.com/open-edge-platform/edge-ai-suites/pull/4494
+[#4440]: https://github.com/open-edge-platform/edge-ai-suites/pull/4440
+[#4436]: https://github.com/open-edge-platform/edge-ai-suites/pull/4436
+[#4432]: https://github.com/open-edge-platform/edge-ai-suites/pull/4432
+[#4376]: https://github.com/open-edge-platform/edge-ai-suites/pull/4376
+[#33]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/33
+[#30]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/30
+[#28]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/28
+[#22]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/22
+[#18]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/18
+[#17]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/17
+[#15]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/15
+[#13]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/13
+
+---
+
 ## [2026.2] - September 2026
 
 ### Added
