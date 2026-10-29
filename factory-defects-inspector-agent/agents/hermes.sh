@@ -74,8 +74,12 @@ agent_context_recreate() {
     # Recreate rather than reuse: --clone snapshots the default profile only at
     # creation time, so a reused profile would silently keep the model/provider
     # configuration of an older default (e.g. from before a backend change).
+    # -y skips the interactive confirmation. Hermes tracks profiles in a
+    # registry, so only the CLI can delete one; removing the profile home
+    # by hand desyncs the registry and breaks the create below.
     log "[$name] Removing existing $AGENT_LABEL profile (it is recreated from the current default profile)"
-    hermes profile delete "$name" </dev/null >/dev/null 2>&1 || rm -rf "$AGENT_STATE_DIR/profiles/${name:?}"
+    hermes profile delete -y "$name" >/dev/null \
+      || die "[$name] could not delete the existing $AGENT_LABEL profile; inspect with 'hermes profile show $name', resolve, and re-run"
   fi
   log "[$name] Creating $AGENT_LABEL profile from the current default profile"
   hermes profile create "$name" --clone --description "$description"
