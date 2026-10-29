@@ -260,11 +260,11 @@ make status                # containers + recent error-log scan
   user before calling them.
 - The MCP endpoint is `https://${HOST_IP}:${GRAFANA_PORT}/mcp` (Streamable
   HTTP, stateless, behind nginx with the self-signed certificate). nginx does
-  not add authentication to `/mcp`; the server requires HTTP Basic auth
-  (`MCP_USERNAME`/`MCP_PASSWORD`) only for `start_pipeline` and
-  `stop_pipeline`. The read-only tools (`describe`, `get_pipeline_status`,
-  `list_insights_data`, `explain`, `get_run_results`) and `run_agent` do not require credentials,
-  so do not expose the gateway beyond a trusted network.
+  not add authentication to `/mcp`. The server requires HTTP Basic auth
+  (`MCP_USERNAME`/`MCP_PASSWORD`) for every HTTP request, including MCP
+  initialization, discovery, and all tools. Supply credentials for read-only
+  tools and `run_agent` as well as `start_pipeline` and `stop_pipeline`.
+  Do not expose the gateway beyond a trusted network.
 - The server also has plain-HTTP routes `/start_pipeline`, `/stop_pipeline`,
   and `/explain` on port 8000, but nginx proxies only `/mcp`; those routes
   are reachable only from the Docker network.

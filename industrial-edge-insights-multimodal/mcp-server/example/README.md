@@ -4,6 +4,8 @@ Follow [Use the multimodal MCP server](../../docs/user-guide/how-to-guides/use-m
 
 This example calls one tool at a time on the deployed MCP server. Deploy the stack with `make up_agentic MCP=true` first. The client reads `MCP_USERNAME`, `MCP_PASSWORD`, `HOST_IP`, and `GRAFANA_PORT` from the project root `.env` and connects to `https://HOST_IP:GRAFANA_PORT/mcp` by default.
 
+All MCP requests, including initialization and read-only tools such as `describe`, require these Basic-auth credentials.
+
 From the project root, set up a Python environment for the example:
 
 ```sh
