@@ -55,7 +55,7 @@ agent_capabilities() { printf 'deploy\n'; }
 
 agent_init() { install -d -m 0700 "$AGENT_STATE_DIR"; }
 
-agent_log_dir() { printf '%s/logs/weld-fleet' "$AGENT_STATE_DIR"; }
+agent_log_dir() { printf '%s/logs/fleet' "$AGENT_STATE_DIR"; }
 
 agent_cert_dir() { printf '%s/certs' "$AGENT_STATE_DIR"; }
 

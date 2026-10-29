@@ -126,7 +126,7 @@ recipes:
 defaults:
   user: deploy                              # same deployment account on every node (see the guide)
   port: 22                                  # SSH port
-  identity_file: ~/.ssh/weld_fleet_ed25519 # created if missing; omit to use your default SSH key
+  identity_file: ~/.ssh/fleet_ed25519      # created if missing; omit to use your default SSH key
 nodes:
   - name: node1
     host: node1.example.invalid             # replace with this node's IPv4 address or hostname

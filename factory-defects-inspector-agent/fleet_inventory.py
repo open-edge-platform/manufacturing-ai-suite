@@ -260,8 +260,7 @@ def build_plan(doc, selected_nodes=(), selected_recipes=(), user="", skip=False)
             if recipe not in configs:
                 raise ValueError(f"{name}: unknown recipe {recipe!r}")
             server = text(d.get("name", f"{name}_{recipe}"), "deployment.name", NAME)
-            match = re.fullmatch(r"weld_node([0-9]+)", server)
-            profile = f"weld-node-{match[1]}" if match else server.replace("_", "-")
+            profile = server.replace("_", "-")
             if profile == "default":
                 raise ValueError(
                     "deployment.name 'default' is reserved for the agent's central profile"

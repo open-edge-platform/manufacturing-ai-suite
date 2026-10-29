@@ -129,7 +129,7 @@ fi
 [[ $REPO_URL =~ ^https://[A-Za-z0-9./_-]+$ ]] || die "invalid REPO_URL: $REPO_URL"
 [[ $REPO_BRANCH =~ ^[A-Za-z0-9._/-]+$ ]] || die "invalid REPO_BRANCH: $REPO_BRANCH"
 
-# Per-node settings by position (0-based). Node N (1-based) defaults to name weld_nodeN and local port BASE_PORT+N.
+# Per-node settings by position (0-based). Node N (1-based) defaults to name fleet_nodeN and local port BASE_PORT+N.
 NAME=() HOST=() NUSER=() SSH_PORT=() KEY=() LPORT=() SKIP=()
 
 # Prints one tab-separated line per node: name host user port identity_file local_port skip_platform_check.
@@ -172,7 +172,7 @@ for i, node in enumerate(nodes, 1):
         fail(f"node {i}: unknown keys {sorted(set(node) - NODE_KEYS)}")
     if "host" not in node:
         fail(f"node {i}: 'host' is required")
-    v = {"name": f"weld_node{i}", "user": cli_user, "port": 22, "identity_file": "", "local_port": 0,
+    v = {"name": f"fleet_node{i}", "user": cli_user, "port": 22, "identity_file": "", "local_port": 0,
          "skip_platform_check": cli_skip, **defaults, **node}
     if not v["user"]:
         fail(f"node {i}: 'user' is required (set it under 'defaults' or on the node, or pass --user)")
@@ -203,7 +203,7 @@ valid_host() {
 if [[ $# -ge 1 ]]; then
   [[ -n $SSH_USER ]] || die "--user is required when node IPs are given on the command line"
   for ip in "$@"; do
-    NAME+=("weld_node$((${#NAME[@]} + 1))") HOST+=("$ip") NUSER+=("$SSH_USER") SSH_PORT+=(22) KEY+=("")
+    NAME+=("fleet_node$((${#NAME[@]} + 1))") HOST+=("$ip") NUSER+=("$SSH_USER") SSH_PORT+=(22) KEY+=("")
     LPORT+=(0) SKIP+=("$SKIP_PLATFORM_CHECK")
   done
 else
@@ -242,9 +242,9 @@ for i in "${!NAME[@]}"; do
   seen_name[$n]=1 seen_port[${LPORT[i]}]=$n
 done
 
-# Agent context/profile per node: weld_nodeN -> weld-node-N (as in the manual sections); other names: _ -> -.
+# Agent context/profile per node: underscores in the node name map to hyphens.
 profile_of() {
-  if [[ $1 =~ ^weld_node([0-9]+)$ ]]; then printf 'weld-node-%s' "${BASH_REMATCH[1]}"; else printf '%s' "${1//_/-}"; fi
+  printf '%s' "${1//_/-}"
 }
 
 # ssh and scp with the node's port and key; the first argument is the node index.
@@ -293,7 +293,7 @@ if [[ $FLEET_STAGE != all ]]; then
     || die "staged execution requires a recipe inventory and state directory"
 fi
 
-rand_user() { printf 'weld%s' "$(openssl rand -base64 48 | tr -dc 'a-z' | cut -c1-8)"; }
+rand_user() { printf 'fdi%s' "$(openssl rand -base64 48 | tr -dc 'a-z' | cut -c1-8)"; }
 rand_pass() { printf '%sa7' "$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | cut -c1-22)"; }
 
 write_helpers() {
@@ -423,14 +423,23 @@ REMOTE
 }
 
 write_tunnel_unit() {
-  install -d "$HOME/.config/systemd/user" "$HOME/.config/weld-tunnels"
-  cat > "$HOME/.config/systemd/user/weld-tunnel@.service" <<'UNIT'
+  install -d "$HOME/.config/systemd/user" "$HOME/.config/fleet-tunnels"
+  # One-time migration: earlier releases named these units weld-tunnel@. Stop
+  # and remove them so they don't hold the local ports the renamed units reuse.
+  if [[ -f "$HOME/.config/systemd/user/weld-tunnel@.service" ]]; then
+    log "Removing legacy weld-tunnel units (renamed to fleet-tunnel)"
+    systemctl --user stop 'weld-tunnel@*' 2>/dev/null || true
+    rm -f "$HOME/.config/systemd/user/weld-tunnel@.service" \
+          "$HOME"/.config/systemd/user/default.target.wants/weld-tunnel@*.service
+    rm -rf "$HOME/.config/weld-tunnels"
+  fi
+  cat > "$HOME/.config/systemd/user/fleet-tunnel@.service" <<'UNIT'
 [Unit]
-Description=SSH tunnel to multimodal nginx (%i)
+Description=SSH tunnel to a node's MCP endpoint (%i)
 After=network-online.target
 
 [Service]
-EnvironmentFile=%h/.config/weld-tunnels/%i.env
+EnvironmentFile=%h/.config/fleet-tunnels/%i.env
 ExecStart=/usr/bin/ssh -N -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 $SSH_OPTS -L ${LOCAL_PORT}:127.0.0.1:${REMOTE_PORT} ${NODE}
 Restart=always
 RestartSec=5
@@ -588,10 +597,10 @@ connect_node() {
   node_opts "$i" -p
   # systemd splits $SSH_OPTS on spaces; all values were validated to contain none.
   printf 'LOCAL_PORT=%s\nREMOTE_PORT=%s\nNODE=%s\nSSH_OPTS=%s\n' "$port" "$REMOTE_PORT" "$target" "${NODE_OPTS[*]}" \
-    > "$HOME/.config/weld-tunnels/$name.env"
+    > "$HOME/.config/fleet-tunnels/$name.env"
   log "[$name] Starting SSH tunnel on local port $port"
-  systemctl --user enable -q "weld-tunnel@$name"
-  systemctl --user restart "weld-tunnel@$name"
+  systemctl --user enable -q "fleet-tunnel@$name"
+  systemctl --user restart "fleet-tunnel@$name"
 
   # Refresh the pin over authenticated SSH, because app certificates may change on redeploy.
   install -d -m 0700 "$(agent_cert_dir)"
@@ -671,7 +680,7 @@ for i in "${!KEY[@]}"; do
   if [[ ! -e $k ]]; then
     log "[${NAME[i]}] Creating configured SSH key (private key contents will not be logged)"
     install -d -m 0700 "$(dirname "$k")"
-    ssh-keygen -q -t ed25519 -N '' -C "weld-fleet@$(hostname)" -f "$k"
+    ssh-keygen -q -t ed25519 -N '' -C "fleet-setup@$(hostname)" -f "$k"
   fi
   [[ -f $k.pub ]] || die "[${NAME[i]}] public key $k.pub not found"
 done
@@ -681,7 +690,7 @@ if agent_supports deploy; then
 stage_started=$SECONDS
 log "START: Acquire $SKILL_NAME skill"
 if [[ -z ${SKILL_SRC:-} ]]; then
-  cache="$HOME/.cache/weld-fleet/${REMOTE_ROOT}-${SKILL_NAME}"
+  cache="$HOME/.cache/fleet-setup/${REMOTE_ROOT}-${SKILL_NAME}"
   if [[ -d $cache/.git ]]; then
     log "Updating cached skill checkout"
     git -C "$cache" fetch -q "$SKILL_REPO_URL" "$SKILL_REPO_REF"
