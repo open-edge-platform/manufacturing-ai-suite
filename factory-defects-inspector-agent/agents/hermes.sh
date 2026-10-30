@@ -14,16 +14,19 @@
 #                                     agentic deployment (the agent_context_*,
 #                                     agent_skill_install, and agent_task_run*
 #                                     functions below). Adapters without it
-#                                     can only serve the --no-deploy flow:
-#                                     node preparation, tunnels, and MCP
-#                                     registration for an already-deployed
-#                                     fleet, which need just the baseline
-#                                     functions (init, dirs, env, MCP).
+#                                     can still serve --prepare-only (node
+#                                     preparation) and --no-deploy (tunnels
+#                                     and MCP registration for applications
+#                                     deployed by other means), which need
+#                                     just the baseline functions (init,
+#                                     dirs, env, MCP).
 #   agent_required_commands           Prints required binaries, one per line
 #   agent_init                        Creates the harness state directory
 #   agent_log_dir                     Prints the fleet deployment log directory
 #   agent_cert_dir                    Prints the pinned-certificate directory
 #   agent_env_set KEY VALUE           Stores a secret for config references
+#   agent_env_has KEY                 Succeeds when a secret is already stored
+#                                     (used by --no-deploy to reuse credentials)
 #   agent_context_recreate NAME DESC  (Re)creates an isolated context cloned
 #                                     from the central/default configuration
 #   agent_context_set_ssh NAME HOST USER PORT [KEY]
@@ -66,6 +69,8 @@ agent_env_set() {
   { grep -v "^$1=" "$f" 2>/dev/null || true; printf '%s=%s\n' "$1" "$2"; } > "$tmp"
   mv "$tmp" "$f"
 }
+
+agent_env_has() { grep -q "^$1=." "$AGENT_STATE_DIR/.env" 2>/dev/null; }
 
 agent_context_recreate() {
   local name=$1 description=$2 profiles

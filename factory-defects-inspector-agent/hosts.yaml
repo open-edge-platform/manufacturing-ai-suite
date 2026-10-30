@@ -140,6 +140,8 @@ nodes:
       - recipe: weld
         name: node1                         # stable MCP server/profile identity
         local_port: 13001
+        # app_path: apps/weld               # optional: an application you deployed yourself, relative to the node
+        #                                   # user's home; it is only connected (./fleet-setup.sh --no-deploy)
   - name: node2
     host: node2.example.invalid             # replace with this node's IPv4 address or hostname
     deployments:

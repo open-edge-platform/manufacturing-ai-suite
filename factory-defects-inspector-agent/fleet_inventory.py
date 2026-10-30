@@ -255,7 +255,11 @@ def build_plan(doc, selected_nodes=(), selected_recipes=(), user="", skip=False)
         if not isinstance(deployments, list) or not deployments:
             raise ValueError(f"{name}: deployments must be a non-empty list")
         for entry in deployments:
-            d = mapping(entry, {"recipe", "name", "local_port"}, f"{name}.deployment")
+            d = mapping(
+                entry,
+                {"recipe", "name", "local_port", "app_path"},
+                f"{name}.deployment",
+            )
             recipe = text(d.get("recipe"), "deployment.recipe", NAME)
             if recipe not in configs:
                 raise ValueError(f"{name}: unknown recipe {recipe!r}")
@@ -270,6 +274,11 @@ def build_plan(doc, selected_nodes=(), selected_recipes=(), user="", skip=False)
             profiles.add(profile)
             lp = port(d.get("local_port"), "deployment.local_port", 1024)
             config = dict(configs[recipe])
+            if "app_path" in d:
+                # An application deployed outside this installer; it is only connected (--no-deploy).
+                config["FLEET_APP_PATH"] = relative(
+                    d["app_path"], f"{name}.deployment.app_path"
+                )
             original_root = config["REMOTE_ROOT"]
             config["REMOTE_ROOT"] = f"fleet-deployments/{server}/checkout"
             config["FLEET_CLEAN_CHECKOUT"] = "true"
@@ -385,9 +394,12 @@ def main():
     parser.add_argument("--recipe", action="append", default=[])
     parser.add_argument("--user", default="")
     parser.add_argument("--skip-platform-check", action="store_true")
-    for option in ("list", "no-deploy", "interactive"):
+    for option in ("list", "no-deploy", "prepare-only", "interactive"):
         parser.add_argument(f"--{option}", action="store_true")
     args = parser.parse_args()
+    if args.no_deploy and args.prepare_only:
+        print("ERROR: --no-deploy and --prepare-only cannot be combined", file=sys.stderr)
+        return 2
     try:
         with open(args.hosts) as stream:
             doc = yaml.safe_load(stream)
@@ -416,6 +428,16 @@ def main():
             file=sys.stderr,
         )
         return 2
+    external = sorted(
+        node["name"] for _, _, node, settings in plan if settings.get("FLEET_APP_PATH")
+    )
+    if external and not args.no_deploy:
+        print(
+            "ERROR: deployments with app_path are managed outside this installer and can only be "
+            f"connected: run with --no-deploy ({', '.join(external)})",
+            file=sys.stderr,
+        )
+        return 2
     # Serialize shared agent-harness state changes, not the remote deployment work.
     groups = {}
     for name, recipe, node, settings in plan:
@@ -430,8 +452,25 @@ def main():
             inventory.write_text(yaml.safe_dump({"nodes": nodes}))
             inventory.chmod(0o600)
             env = {**os.environ, **settings}
+            for variable in ("FLEET_STAGE", "SKILL_SRC"):
+                env.pop(variable, None)
+            if "FLEET_APP_PATH" not in settings:
+                env.pop("FLEET_APP_PATH", None)
+            state = Path(directory) / f"state-{index}"
+            state.mkdir(mode=0o700)
+            env["FLEET_STATE_DIR"] = str(state)
+            command = ["bash", args.script, "--hosts", str(inventory)]
             if args.no_deploy:
-                env["FLEET_CLEAN_CHECKOUT"] = "false"
+                # Connect-only: the applications are already running, so no source is fetched or delivered.
+                command.append("--no-deploy")
+                print(
+                    f"Connecting recipe {recipe} on {name} "
+                    f"(servers {', '.join(node['name'] for node in nodes)})",
+                    flush=True,
+                )
+                result = subprocess.run(command, env=env, check=False)
+                results.append((name, recipe, result.returncode))
+                continue
             try:
                 env.update(prepare_source(settings, directory, sources))
             except (OSError, ValueError, subprocess.CalledProcessError) as error:
@@ -441,13 +480,6 @@ def main():
                 )
                 results.append((name, recipe, 1))
                 continue
-            env.pop("SKILL_SRC", None)
-            state = Path(directory) / f"state-{index}"
-            state.mkdir(mode=0o700)
-            env["FLEET_STATE_DIR"] = str(state)
-            command = ["bash", args.script, "--hosts", str(inventory)]
-            if args.no_deploy:
-                command.append("--no-deploy")
             if args.interactive:
                 command.append("--interactive")
             print(
@@ -462,6 +494,9 @@ def main():
                 results.append((name, recipe, result.returncode))
                 continue
             prepared.append((name, recipe, command, env))
+        if args.prepare_only:
+            results.extend((name, recipe, 0) for name, recipe, _, _ in prepared)
+            prepared = []
         running = []
         try:
             for name, recipe, command, env in prepared:

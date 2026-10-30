@@ -9,6 +9,7 @@ set -euo pipefail
 SSH_USER=
 SKIP_PLATFORM_CHECK=false
 DEPLOY=true
+PREPARE_ONLY=false
 INTERACTIVE=false
 HOSTS_FILE=
 LIST_ONLY=false
@@ -44,6 +45,13 @@ if [[ ${FLEET_RECIPE_MODE:-} == 1 ]]; then
   [[ -n ${PASS_KEYS[0]:-} ]] || PASS_KEYS=()
   MCP_TOOLS=${MCP_TOOLS_JSON:-'[]'}
 fi
+# An application deployed outside this installer lives at FLEET_APP_PATH (relative to the node user's home);
+# it is only connected (--no-deploy), never prepared or deployed.
+if [[ -n ${FLEET_APP_PATH:-} ]]; then
+  [[ $FLEET_APP_PATH =~ ^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$ && $FLEET_APP_PATH != *..* ]] \
+    || { echo "ERROR: invalid app_path: $FLEET_APP_PATH" >&2; exit 2; }
+  APP_REL=$FLEET_APP_PATH
+fi
 DEPLOY_PROMPT=${DEPLOY_PROMPT:-"In ~/$APP_REL, Meet prerequisites (ignore accepting licenses for downloading models from HF), build time series analytics microservice, build and deploy the agentic variant with the MCP server (make up_agentic MCP=true), then run the smoke check. Do not edit .env; if a required credential is missing, stop and name it. Do not start or stop pipelines. Use the edge-ai-libraries sparse checkout exactly as the skill's build script creates it; do not initialize or update git submodules, which the build does not need."}
 SMART_POLICY=${SMART_POLICY:-"APPROVE make build, make up_agentic, make down and make status (with or without MCP=true) and .github/skills/multimodal-deploy/scripts/smoke-check.sh when run from ~/$APP_REL. ESCALATE anything that edits .env, uses sudo, runs git submodule commands, or touches paths outside that directory."}
 
@@ -78,10 +86,15 @@ source "$AGENT_LIB"
 agent_supports() { agent_capabilities 2>/dev/null | grep -qx "$1"; }
 usage() {
   cat >&2 <<EOF
-usage: $0 [--hosts FILE] [--list] [--user NAME] [--interactive] [--no-deploy] [--skip-platform-check]
-       $0 [--list] [--user NAME] [--interactive] [--no-deploy] [--skip-platform-check] <node-ip> [<node-ip> ...]
+usage: $0 [--hosts FILE] [--list] [--user NAME] [--interactive] [--no-deploy | --prepare-only] [--skip-platform-check]
+       $0 [--list] [--user NAME] [--interactive] [--no-deploy | --prepare-only] [--skip-platform-check] <node-ip> [<node-ip> ...]
 Without node IPs, nodes are read from FILE (default: hosts.yaml next to this script).
 --list prints the resolved nodes and exits without changing anything.
+--no-deploy connects the MCP servers of applications that are already running: it checks SSH access,
+  starts the tunnels, and registers and tests the servers. It does not prepare nodes, copy source,
+  change the applications' .env files, or create node profiles.
+--prepare-only prepares the nodes (packages, checkout, credentials, node profiles) and stops, so that
+  you can deploy the applications yourself and then connect them with --no-deploy.
 --node NAME and --recipe NAME select deployments from a recipe inventory (repeatable).
 EOF
   exit 2
@@ -95,11 +108,13 @@ while [[ $# -gt 0 ]]; do
     --user) [[ $# -ge 2 ]] || usage; SSH_USER=$2; shift 2 ;;
     --interactive) INTERACTIVE=true; shift ;;
     --no-deploy) DEPLOY=false; shift ;;
+    --prepare-only) PREPARE_ONLY=true; shift ;;
     --skip-platform-check) SKIP_PLATFORM_CHECK=true; shift ;;
     -h|--help|-*) usage ;;
     *) break ;;
   esac
 done
+if $PREPARE_ONLY && ! $DEPLOY; then die "--prepare-only and --no-deploy cannot be combined"; fi
 if [[ $# == 0 && ${FLEET_RECIPE_MODE:-} != 1 ]]; then
   HOSTS_FILE=${HOSTS_FILE:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hosts.yaml"}
   command -v python3 >/dev/null || die "python3 is required for YAML inventories"
@@ -119,6 +134,7 @@ PY
     $LIST_ONLY && inventory_args+=(--list)
     $INTERACTIVE && inventory_args+=(--interactive)
     $DEPLOY || inventory_args+=(--no-deploy)
+    $PREPARE_ONLY && inventory_args+=(--prepare-only)
     $SKIP_PLATFORM_CHECK && inventory_args+=(--skip-platform-check)
     exec python3 "$(dirname "${BASH_SOURCE[0]}")/fleet_inventory.py" "${inventory_args[@]}"
   fi
@@ -277,8 +293,11 @@ finish() {
 }
 trap finish EXIT
 log "Inventory validated: ${#NAME[@]} node(s); deploy=$DEPLOY; interactive=$INTERACTIVE"
-if $DEPLOY && ! agent_supports deploy; then
-  die "the '$HARNESS_AGENT' adapter does not support agentic deployment; use --no-deploy to prepare nodes and register MCP servers for an already-deployed fleet"
+if $DEPLOY && ! $PREPARE_ONLY && ! agent_supports deploy; then
+  die "the '$HARNESS_AGENT' adapter does not support agentic deployment; use --prepare-only and deploy the applications yourself, then --no-deploy to connect their MCP servers"
+fi
+if [[ -n ${FLEET_APP_PATH:-} ]] && $DEPLOY; then
+  die "this deployment uses app_path (an application managed outside this installer); run it with --no-deploy"
 fi
 if $INTERACTIVE && $DEPLOY && (( ${#NAME[@]} > 1 )); then
   die "Parallel deployments cannot share an interactive terminal; omit --interactive or select a single node"
@@ -463,8 +482,8 @@ setup_profile() {
   agent_skill_install "$p" "$SKILL_NAME" "$SKILL_SRC"
 }
 
-prepare_node() {
-  local i=$1 ip=${HOST[$1]} name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}" rtmp upd creds mcp_user mcp_pass
+ensure_node_ssh() {
+  local i=$1 name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}"
   local copy_id=(-p "${SSH_PORT[$1]}" -o StrictHostKeyChecking=accept-new)
   if [[ -n ${KEY[i]} ]]; then copy_id+=(-i "${KEY[i]}.pub"); fi
   log "[$name] Checking key-based SSH connectivity"
@@ -472,6 +491,59 @@ prepare_node() {
     log "[$name] SSH check failed; installing public key (enter the node password in the terminal)"
     run_stage "[$name] Install SSH public key" ssh-copy-id "${copy_id[@]}" "$target"
   fi
+}
+
+# Stores the node app's MCP credentials on the central host for the agent's config references. Sources, in
+# order: the app's .env on the node (the source of truth), credentials already stored on this host, and, for a
+# terminal session only, a hidden prompt. Values are never logged or passed as command-line arguments.
+save_mcp_credentials() {
+  local i=$1 name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}" creds mcp_user="" mcp_pass=""
+  local var="${name^^}_MCP_BASIC"
+  [[ $MCP_AUTH_TYPE != none ]] || return 0
+  [[ $MCP_AUTH_TYPE == basic ]] || var="${name^^}_MCP_TOKEN"
+  log "[$name] Retrieving MCP authentication from ~/$APP_REL/.env on the node (values will not be logged)"
+  if [[ $MCP_AUTH_TYPE == basic ]]; then
+    creds=$(nssh "$i" -n "$target" grep -E "'^($MCP_USER_KEY|$MCP_PASS_KEY)='" "$APP_REL/.env" 2>/dev/null || true)
+    mcp_user=$(sed -n "s/^$MCP_USER_KEY=//p" <<<"$creds" | tail -n 1)
+    mcp_pass=$(sed -n "s/^$MCP_PASS_KEY=//p" <<<"$creds" | tail -n 1)
+  else
+    creds=$(nssh "$i" -n "$target" grep -E "'^$MCP_TOKEN_KEY='" "$APP_REL/.env" 2>/dev/null || true)
+    mcp_pass=$(sed -n "s/^$MCP_TOKEN_KEY=//p" <<<"$creds" | tail -n 1)
+  fi
+  if [[ $MCP_AUTH_TYPE == basic && -n $mcp_user && -n $mcp_pass ]]; then
+    agent_env_set "$var" "$(printf '%s:%s' "$mcp_user" "$mcp_pass" | base64 -w0)"
+    return 0
+  elif [[ $MCP_AUTH_TYPE == bearer && -n $mcp_pass ]]; then
+    [[ $mcp_pass =~ ^[A-Za-z0-9._~+/-]+=*$ ]] || die "[$name] MCP bearer token has an unsupported format"
+    agent_env_set "$var" "$mcp_pass"
+    return 0
+  fi
+  if agent_env_has "$var"; then
+    log "[$name] MCP authentication not found in the node's .env; using the credentials already stored on this host"
+    return 0
+  fi
+  if [[ -t 0 ]]; then
+    log "[$name] MCP authentication not found in ~/$APP_REL/.env on the node; enter it now (input is hidden)"
+    if [[ $MCP_AUTH_TYPE == basic ]]; then
+      read -r -p "[$name] MCP username: " mcp_user
+      read -r -s -p "[$name] MCP password: " mcp_pass
+      echo >&2
+      [[ -n $mcp_user && -n $mcp_pass && $mcp_user != *:* ]] || die "[$name] invalid MCP username or password"
+      agent_env_set "$var" "$(printf '%s:%s' "$mcp_user" "$mcp_pass" | base64 -w0)"
+    else
+      read -r -s -p "[$name] MCP bearer token: " mcp_pass
+      echo >&2
+      [[ $mcp_pass =~ ^[A-Za-z0-9._~+/-]+=*$ ]] || die "[$name] MCP bearer token is empty or has an unsupported format"
+      agent_env_set "$var" "$mcp_pass"
+    fi
+    return 0
+  fi
+  die "[$name] MCP authentication not found in ~/$APP_REL/.env on the node and none is stored as $var; set app_path in the inventory if the application is deployed elsewhere, or run from a terminal to enter it"
+}
+
+prepare_node() {
+  local i=$1 ip=${HOST[$1]} name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}" rtmp upd
+  ensure_node_ssh "$i"
   log "[$name] SSH ready; creating remote workspace and uploading helpers"
 
   rtmp=$(nssh "$i" "$target" mktemp -d)
@@ -511,21 +583,7 @@ PY
   log "[$name] Removing remote temporary files"
   nssh "$i" "$target" rm -rf "$rtmp"
 
-  if [[ $MCP_AUTH_TYPE == basic ]]; then
-    log "[$name] Saving MCP authentication on central host (values will not be logged)"
-    creds=$(nssh "$i" "$target" grep -E "'^($MCP_USER_KEY|$MCP_PASS_KEY)='" "$APP_REL/.env")
-    mcp_user=$(sed -n "s/^$MCP_USER_KEY=//p" <<<"$creds" | tail -n 1)
-    mcp_pass=$(sed -n "s/^$MCP_PASS_KEY=//p" <<<"$creds" | tail -n 1)
-    [[ -n $mcp_user && -n $mcp_pass ]] || die "[$name] MCP credentials missing in the node's .env"
-    agent_env_set "${name^^}_MCP_BASIC" "$(printf '%s:%s' "$mcp_user" "$mcp_pass" | base64 -w0)"
-  elif [[ $MCP_AUTH_TYPE == bearer ]]; then
-    log "[$name] Saving MCP token on central host (value will not be logged)"
-    creds=$(nssh "$i" "$target" grep -E "'^$MCP_TOKEN_KEY='" "$APP_REL/.env")
-    mcp_pass=$(sed -n "s/^$MCP_TOKEN_KEY=//p" <<<"$creds" | tail -n 1)
-    [[ -n $mcp_pass ]] || die "[$name] MCP token missing in the node's .env"
-    [[ $mcp_pass =~ ^[A-Za-z0-9._~+/-]+=*$ ]] || die "[$name] MCP bearer token has an unsupported format"
-    agent_env_set "${name^^}_MCP_TOKEN" "$mcp_pass"
-  fi
+  save_mcp_credentials "$i"
 }
 
 deploy_node() {
@@ -686,6 +744,9 @@ for i in "${!KEY[@]}"; do
 done
 log "DONE: Central host prerequisites and SSH keys (elapsed=$((SECONDS - stage_started))s)"
 
+# Preparing nodes (skill, packages, source, app environment, node profiles) is only for runs that deploy or
+# prepare. A --no-deploy run connects applications that are already running and touches none of it.
+if $DEPLOY; then
 if agent_supports deploy; then
 stage_started=$SECONDS
 log "START: Acquire $SKILL_NAME skill"
@@ -725,20 +786,32 @@ else
 fi
 
 run_stage "Write remote helper scripts" write_helpers
+fi
 run_stage "Install SSH tunnel service template" write_tunnel_unit
 
+if $DEPLOY; then
 # Contexts first, so they don't clone MCP credentials stored for other nodes.
 if agent_supports deploy; then
   for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Configure $AGENT_LABEL context" setup_profile "$i"; done
 fi
 for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Prepare node" prepare_node "$i"; done
+else
+  # Connect-only: just SSH access and the MCP credentials. Credentials are retrieved in the foreground so
+  # that a hidden prompt, if ever needed, can use the terminal.
+  for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Check SSH access" ensure_node_ssh "$i"; done
+  for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Retrieve MCP credentials" save_mcp_credentials "$i"; done
+fi
 fi
 [[ $FLEET_STAGE != prepare ]] || exit 0
+if $PREPARE_ONLY; then
+  log "DONE: Nodes prepared (--prepare-only). Deploy the applications yourself, then run with --no-deploy to connect their MCP servers"
+  exit 0
+fi
 if [[ $FLEET_STAGE == all || $FLEET_STAGE == deploy ]]; then
 if $DEPLOY; then
   run_stage "Deploy apps across fleet" deploy_all
 else
-  log "SKIP: App deployment (--no-deploy); checking existing MCP servers"
+  log "SKIP: App deployment (--no-deploy); connecting the MCP servers of the running applications"
 fi
 fi
 [[ $FLEET_STAGE != deploy ]] || exit 0
