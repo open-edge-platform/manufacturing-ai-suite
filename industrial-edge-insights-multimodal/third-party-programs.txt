@@ -223,6 +223,40 @@ python-dotenv==1.2.2
 --------------------------------------------------------------------------------------------------------------------------------
 
 
+VLM fine-tuning and inference tools:
+====================================
+
+The standalone VLM fine-tuning scripts use the following Python packages.
+Versions are omitted because this workflow has no checked-in requirements file.
+
+License-Identifier: Apache-2.0
+accelerate
+datasets
+peft
+pyarrow
+transformers
+trl
+unsloth (core package)
+----------------------------------------------------------------------
+
+License-Identifier: LGPL-3.0-or-later
+unsloth_zoo
+----------------------------------------------------------------------
+
+License-Identifier: BSD-3-Clause
+pandas
+----------------------------------------------------------------------
+
+License-Identifier: MIT-CMU
+Pillow
+----------------------------------------------------------------------
+
+License-Identifier: Apache-2.0 AND Apache-2.0 WITH LLVM-exception AND BSD-2-Clause AND BSD-3-Clause AND BSL-1.0 AND ISC AND MIT AND Zlib
+torch
+
+---------------------------------------------------------------------------------------------------------------------------
+
+
 Dataset:
 ========
 
