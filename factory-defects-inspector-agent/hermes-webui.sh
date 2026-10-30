@@ -93,7 +93,9 @@ persona_install() {
     return 0
   fi
   if [[ -f $dest ]]; then
-    backup="$dest.backup.$(date +%Y%m%dT%H%M%S)"
+    # mktemp reserves a unique name, so updates within the same second
+    # cannot overwrite an earlier backup.
+    backup=$(mktemp "$dest.backup.$(date +%Y%m%dT%H%M%S).XXXXXX")
     cp -p "$dest" "$backup"
     echo "Backed up existing persona to $backup; merge any customizations you need from it"
   fi
