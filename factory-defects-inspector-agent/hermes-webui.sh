@@ -6,16 +6,21 @@
 # against the local Hermes Agent (~/.hermes). Password login is always on. By default it
 # listens on 127.0.0.1 only.
 #
-# Usage: ./hermes-webui.sh [install|start|stop|restart|status|logs]   (default: start)
+# Usage: ./hermes-webui.sh [--host ADDR] [setup|install|persona|start|stop|restart|status|logs]
+#   (default: start)
+#   setup    install if needed, install the SOUL.md persona, then start the daemon
 #   install  clone or update the pinned release and create .env (asks for a password, or generates
 #            one when there is no terminal)
+#   persona  copy this directory's SOUL.md into the Hermes home (an existing persona is backed up
+#            to SOUL.md.backup.<timestamp> first; merge manual customizations from the backup)
 #   start    install if needed, then start the daemon
 #   Others pass through to the WebUI's ctl.sh.
+#   --host ADDR  bind address: 127.0.0.1 (default), 0.0.0.0 (all interfaces), or one of this
+#            host's IPv4 addresses; saved in .env and kept until set again. Equivalent to the
+#            HERMES_WEBUI_HOST environment variable.
 #
 # Environment: HERMES_WEBUI_DIR (default ~/hermes-webui), HERMES_WEBUI_VERSION (default v0.52.492),
-#              HERMES_WEBUI_PORT (default 8787),
-#              HERMES_WEBUI_HOST: 127.0.0.1 (default), 0.0.0.0 (all interfaces), or one of this host's
-#              IPv4 addresses. The choice is saved in .env and kept until you set it again.
+#              HERMES_WEBUI_PORT (default 8787), HERMES_WEBUI_HOST (see --host above).
 set -euo pipefail
 
 REPO_URL="https://github.com/nesquena/hermes-webui.git"
@@ -24,6 +29,7 @@ DIR="${HERMES_WEBUI_DIR:-$HOME/hermes-webui}"
 PORT="${HERMES_WEBUI_PORT:-8787}"
 REQ_HOST="${HERMES_WEBUI_HOST:-}"
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIND_CHANGED=0
 
 die() { echo "error: $*" >&2; exit 1; }
@@ -72,6 +78,30 @@ install() {
     echo "Saved settings to $env_file (mode 600)"
   fi
   chmod 600 "$env_file"
+}
+
+# Install the Factory Defects Inspector persona into the Hermes home. Never
+# discards an existing persona: identical copies are a no-op, anything else is
+# backed up with a timestamp so manual customizations can be merged back.
+persona_install() {
+  local src="$SCRIPT_DIR/SOUL.md" dest="$HERMES_HOME/SOUL.md" backup
+  [[ -f $src ]] || die "persona template not found: $src"
+  # "command": the external install(1), not this script's install() function.
+  command install -d -m 0700 "$HERMES_HOME"
+  if [[ -f $dest ]] && cmp -s "$src" "$dest"; then
+    echo "Persona already up to date: $dest"
+    return 0
+  fi
+  if [[ -f $dest ]]; then
+    # mktemp reserves a unique name, so updates within the same second
+    # cannot overwrite an earlier backup.
+    backup=$(mktemp "$dest.backup.$(date +%Y%m%dT%H%M%S).XXXXXX")
+    cp -p "$dest" "$backup"
+    echo "Backed up existing persona to $backup; merge any customizations you need from it"
+  fi
+  cp "$src" "$dest"
+  chmod 600 "$dest"
+  echo "Installed the Factory Defects Inspector persona at $dest (applies to new default-profile chats)"
 }
 
 env_value() { sed -n "s/^$1=//p" "$DIR/.env" | tail -1; }
@@ -138,18 +168,37 @@ wait_healthy() {
   die "WebUI did not become healthy on port $port"
 }
 
+start_webui() {
+  configure_bind
+  if (( BIND_CHANGED )); then
+    "$DIR/ctl.sh" restart   # apply the new bind address to a running instance
+  else
+    "$DIR/ctl.sh" start     # no-op if already running
+  fi
+  wait_healthy
+}
+
+ARGS=()
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --host) [[ $# -ge 2 ]] || die "--host needs an address"; REQ_HOST=$2; shift 2 ;;
+    *) ARGS+=("$1"); shift ;;
+  esac
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+
 cmd="${1:-start}"
 case "$cmd" in
+  setup)
+    install
+    persona_install
+    start_webui
+    ;;
   install) install ;;
+  persona) persona_install ;;
   start)
     [[ -d $DIR/.git && -f $DIR/.env ]] || install
-    configure_bind
-    if (( BIND_CHANGED )); then
-      "$DIR/ctl.sh" restart   # apply the new bind address to a running instance
-    else
-      "$DIR/ctl.sh" start     # no-op if already running
-    fi
-    wait_healthy
+    start_webui
     ;;
   restart)
     [[ -x $DIR/ctl.sh && -f $DIR/.env ]] || die "not installed; run '$0 install'"
@@ -162,5 +211,5 @@ case "$cmd" in
     shift || true
     "$DIR/ctl.sh" "$cmd" "$@"
     ;;
-  *) sed -n '5,18p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  *) sed -n '5,23p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac

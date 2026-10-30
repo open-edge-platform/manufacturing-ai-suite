@@ -24,12 +24,15 @@ recipes:
       microservice, build and deploy (pull latest weekly tags of intel/ images) the agentic
       variant with the MCP server (make up_agentic MCP=true), then run the smoke check.
       Do not edit .env; if a required credential is missing, stop and name it.
-      Do not start or stop pipelines.
+      Do not start or stop pipelines. Use the edge-ai-libraries sparse checkout exactly as the
+      skill's build script creates it; do not initialize or update git submodules, which the
+      build does not need.
     approval_policy: >-
       APPROVE make build, make up_agentic, make down and make status (with or without MCP=true)
       and .github/skills/multimodal-deploy/scripts/smoke-check.sh when run from
       ~/manufacturing-ai-suite/industrial-edge-insights-multimodal.
-      ESCALATE anything that edits .env, uses sudo, or touches paths outside that directory.
+      ESCALATE anything that edits .env, uses sudo, runs git submodule commands, or touches
+      paths outside that directory.
     environment:
       generate_users:
         - INFLUXDB_USERNAME
@@ -84,13 +87,16 @@ recipes:
       ingestion and MCP (make up_mqtt_ingestion app=wind-turbine-anomaly-detection
       MCP=true), then run the skill smoke check with MCP=true. Do not edit .env;
       if a required credential or configuration is missing, stop and report it.
-      Do not start or stop the analytics pipeline.
+      Do not start or stop the analytics pipeline. Use the edge-ai-libraries sparse
+      checkout exactly as the skill's build script creates it; do not initialize or
+      update git submodules, which the build does not need.
     approval_policy: >-
       APPROVE make build MCP=true, make status MCP=true and
       .github/skills/time-series-deploy/scripts/smoke-check.sh (with MCP=true)
       only in ~/manufacturing-ai-suite/industrial-edge-insights-time-series.
       ESCALATE make up_mqtt_ingestion, make down, any .env edits, analytics
-      pipeline start/stop operations, sudo, and all commands outside that directory.
+      pipeline start/stop operations, sudo, git submodule commands, and all commands
+      outside that directory.
     environment:
       generate_users:
         - INFLUXDB_USERNAME
@@ -126,7 +132,7 @@ recipes:
 defaults:
   user: deploy                              # same deployment account on every node (see the guide)
   port: 22                                  # SSH port
-  identity_file: ~/.ssh/weld_fleet_ed25519 # created if missing; omit to use your default SSH key
+  identity_file: ~/.ssh/fleet_ed25519      # created if missing; omit to use your default SSH key
 nodes:
   - name: node1
     host: node1.example.invalid             # replace with this node's IPv4 address or hostname
@@ -134,6 +140,8 @@ nodes:
       - recipe: weld
         name: node1                         # stable MCP server/profile identity
         local_port: 13001
+        # app_path: apps/weld               # optional: an application you deployed yourself, relative to the node
+        #                                   # user's home; it is only connected (./fleet-setup.sh --no-deploy)
   - name: node2
     host: node2.example.invalid             # replace with this node's IPv4 address or hostname
     deployments:
