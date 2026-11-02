@@ -92,16 +92,14 @@ services:
       - model-download
     command: ["--plugins", "huggingface"]
     environment:
-      http_proxy: ${http_proxy:-}
-      https_proxy: ${https_proxy:-}
-      no_proxy: ${no_proxy:-}
+      no_proxy: "${no_proxy:-},localhost,127.0.0.1"
       HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN:-}
       HF_HUB_ENABLE_HF_TRANSFER: 1
       MODEL_PATH: /opt/models
     volumes:
       - ./configs/vllm:/opt/models
     ports:
-      - "${HOST_IP:-127.0.0.1}:${VLLM_MODEL_DOWNLOAD_PORT:-8201}:8000"
+      - "127.0.0.1:${VLLM_MODEL_DOWNLOAD_PORT:-8200}:8000"
     networks:
       - timeseries_network
     restart: unless-stopped

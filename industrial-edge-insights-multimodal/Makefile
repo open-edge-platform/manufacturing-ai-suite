@@ -376,18 +376,38 @@ download_model:
 
 # Downloads the vLLM base model and LoRA adapter via the model-download microservice.
 .PHONY: model_download
-model_download: validate_host_ip
+model_download:
 	@echo "Starting Model Download Service for the vLLM models..."; \
-	mkdir -p configs/vllm; \
+	mkdir -p configs/vllm || exit 1; \
+	staging_dir=$$(mktemp -d configs/vllm/.download.XXXXXX) || exit 1; \
+	staging_name=$${staging_dir##*/}; \
+	echo "Staging downloads in $$staging_dir (retained on failure)."; \
 	docker run --rm --user 0:0 --entrypoint sh \
 		-v "$$PWD/configs/vllm:/opt/models" \
 		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
-		-c 'rm -rf /opt/models/huggingface /opt/models/models && mkdir -p /opt/models/huggingface /opt/models/models && chown -R "$$(stat -c %u:%g /opt)" /opt/models' || exit 1; \
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) --profile model-download up -d model-download-vllm || exit 1; \
-	echo "Waiting for model-download-vllm service to become healthy on port 8201..."; \
+		-c 'chown "$$(stat -c %u:%g /opt)" "/opt/models/$$1"' sh "$$staging_name" || exit 1; \
+	resp_file=$$(mktemp) || exit 1; \
+	cleanup_download() { \
+		original_status=$$?; \
+		trap - 0; \
+		trap '' HUP INT TERM; \
+		if [ "$$original_status" -ne 0 ]; then \
+			(umask 077; docker logs vllm-model-download >"$$staging_dir.log" 2>&1); \
+			echo "Downloader failure logs saved to $$staging_dir.log" >&2; \
+		fi; \
+		docker rm -f vllm-model-download >/dev/null || echo "WARNING: Downloader cleanup failed." >&2; \
+		rm -f "$$resp_file"; \
+		exit "$$original_status"; \
+	}; \
+	trap cleanup_download 0; \
+	trap 'exit 129' HUP; \
+	trap 'exit 130' INT; \
+	trap 'exit 143' TERM; \
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) --profile model-download up -d model-download-vllm || exit $$?; \
+	echo "Waiting for model-download-vllm service to become healthy on port $${VLLM_MODEL_DOWNLOAD_PORT:-8200}..."; \
 	i=0; \
 	while [ $$i -lt 60 ]; do \
-		if curl -sf "http://${HOST_IP}:8201/api/v1/models/results" >/dev/null 2>&1; then \
+		if curl -sf "http://127.0.0.1:$${VLLM_MODEL_DOWNLOAD_PORT:-8200}/api/v1/models/results" >/dev/null 2>&1; then \
 			break; \
 		fi; \
 		if [ "$$i" -eq 59 ]; then \
@@ -399,9 +419,7 @@ model_download: validate_host_ip
 	done; \
 	echo "Requesting download of '${VLLM_MODEL_REPO_ID}' and '${VLLM_ADAPTER_REPO_ID}' from HuggingFace..."; \
 	payload='{"models":[{"name":"${VLLM_MODEL_REPO_ID}","hub":"huggingface","type":"llm","is_ovms":false},{"name":"${VLLM_ADAPTER_REPO_ID}","hub":"huggingface","type":"llm","is_ovms":false}],"parallel_downloads":false}'; \
-	resp_file=$$(mktemp) || exit 1; \
-	trap 'rm -f "$$resp_file"' EXIT; \
-	http_code=$$(curl -w "%{http_code}" -s -o "$$resp_file" -X POST "http://${HOST_IP}:8201/api/v1/models/download?download_path=." \
+	http_code=$$(curl -w "%{http_code}" -s -o "$$resp_file" -X POST "http://127.0.0.1:$${VLLM_MODEL_DOWNLOAD_PORT:-8200}/api/v1/models/download?download_path=$$staging_name" \
 		-H "Content-Type: application/json" \
 		-d "$$payload"); \
 	response=$$(cat "$$resp_file"); \
@@ -411,7 +429,7 @@ model_download: validate_host_ip
 		echo "ERROR: Unexpected HTTP status $$http_code from model-download"; \
 		exit 1; \
 	fi; \
-	job_ids=$$(echo "$$response" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)['job_ids']))" 2>/dev/null) || { \
+	job_ids=$$(echo "$$response" | python3 -c "import sys, json; jobs = json.load(sys.stdin)['job_ids']; assert len(jobs) == 2 and all(isinstance(job, str) and job for job in jobs) and jobs[0] != jobs[1]; print(' '.join(jobs))" 2>/dev/null) || { \
 		echo "ERROR: Failed to extract job_ids from response"; \
 		exit 1; \
 	}; \
@@ -419,7 +437,7 @@ model_download: validate_host_ip
 	for job_id in $$job_ids; do \
 		i=0; \
 		while [ $$i -lt 600 ]; do \
-			job=$$(curl -sf "http://${HOST_IP}:8201/api/v1/jobs/$$job_id" 2>/dev/null || echo '{}'); \
+			job=$$(curl -sf "http://127.0.0.1:$${VLLM_MODEL_DOWNLOAD_PORT:-8200}/api/v1/jobs/$$job_id" 2>/dev/null || echo '{}'); \
 			status=$$(echo "$$job" | python3 -c "import sys, json; print(json.load(sys.stdin).get('status', 'unknown'))" 2>/dev/null); \
 			if [ "$$status" = "completed" ]; then \
 				echo "Download job $$job_id complete."; \
@@ -446,10 +464,15 @@ model_download: validate_host_ip
 	docker run --rm --user 0:0 --entrypoint sh \
 		-v "$$PWD/configs/vllm:/opt/models" \
 		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
-		-c "set -e; \
-			if [ \"$$model_src\" != \"$$model_dst\" ]; then mv /opt/models/huggingface/$$model_src /opt/models/huggingface/$$model_dst; fi; \
-			mv /opt/models/huggingface/$$adapter_src /opt/models/models/$$adapter_dst" || exit 1; \
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) --profile model-download rm -sf model-download-vllm; \
+		-c 'set -e; \
+			staging="/opt/models/$$1"; \
+			test -s "$$staging/huggingface/$$2/config.json"; \
+			test -s "$$staging/huggingface/$$4/adapter_config.json"; \
+			mkdir -p /opt/models/huggingface /opt/models/models; \
+			rm -rf "/opt/models/huggingface/$$3" "/opt/models/models/$$5"; \
+			mv "$$staging/huggingface/$$2" "/opt/models/huggingface/$$3"; \
+			mv "$$staging/huggingface/$$4" "/opt/models/models/$$5"; \
+			rm -rf "$$staging"' sh "$$staging_name" "$$model_src" "$$model_dst" "$$adapter_src" "$$adapter_dst" || exit $$?; \
 	echo "vLLM model download completed successfully:"; \
 	echo "  configs/vllm/huggingface/$$model_dst"; \
 	echo "  configs/vllm/models/$$adapter_dst"
@@ -546,6 +569,7 @@ help:
 	@echo "      Optional: PLATFORM_CHECK=false skips the check (CI/validation use only)"
 	@echo "  make download_model               - Download the agentic models"
 	@echo "  make model_download               - Download the vLLM base model and LoRA adapter via the model-download microservice"
+	@echo "      Stages both downloads before replacing requested artifacts; preserves unrelated models"
 	@echo "  make upload_tar_file              - Upload the weld anomaly detection UDF package to the Time-Series Analytics microservice"
 	@echo "  make post_config                  - Post the weld anomaly detection config to the Time-Series Analytics microservice"
 	@echo "  make push_images                  - Build and push all images, including the MCP server, to the docker registry"
