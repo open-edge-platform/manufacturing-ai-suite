@@ -30,33 +30,10 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
    - `S3_STORAGE_USERNAME`, `S3_STORAGE_PASSWORD`
    - `SEAWEEDFS_WEB_AUTH_USER`, `SEAWEEDFS_WEB_AUTH_PASSWORD`
 
-## Download Models
-
-This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Qwen3.5-2B fine-tuned LoRA` adapter.
-
-1. Review and accept the [Unsloth Qwen3.5-2B license](https://huggingface.co/unsloth/Qwen3.5-2B/blob/main/LICENSE) before downloading.
+2. Review and accept the [Unsloth Qwen3.5-2B license](https://huggingface.co/unsloth/Qwen3.5-2B/blob/main/LICENSE) before deploying.
 
    > [!NOTE]
    > The [Low-Rank Adaptation (LoRA) adapter](https://huggingface.co/Intel/qwen3.5-2b-vlm-weld-explainability-lora) was specifically trained on a subset of the [Intel Robotic Welding Multimodal Dataset](https://huggingface.co/datasets/IntelLabs/Intel_Robotic_Welding_Multimodal_Dataset) and may not generalize to generic weld datasets.
-
-2. Go to the root folder of the multimodal sample app:
-
-   ```bash
-   cd industrial-edge-insights-multimodal
-   ```
-
-3. Download the model and adapter using the model-download microservice:
-
-   ```bash
-   make model_download
-   ```
-
-   > [!NOTE]
-   > The `model_download` target starts the `model-download` microservice, requests both
-   > HuggingFace repositories through its REST API, waits for the download jobs to complete,
-   > and places the files in `configs/vllm/huggingface/Qwen3.5-2B` (base model) and
-   > `configs/vllm/models/qwen3.5-2b-vlm-weld-explainability-lora` (LoRA adapter). The
-   > service is stopped automatically once the download finishes.
 
 ## Deploy the vLLM Service
 
@@ -72,6 +49,13 @@ This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Q
    cd industrial-edge-insights-multimodal
    make up_vllm
    ```
+
+   > [!NOTE]
+   > On the first run, `make up_vllm` automatically downloads the `Unsloth Qwen3.5-2B` model and
+   > the fine-tuned LoRA adapter through the model-download microservice into
+   > `configs/vllm/huggingface/Qwen3.5-2B` and
+   > `configs/vllm/models/qwen3.5-2b-vlm-weld-explainability-lora`. To re-download the models,
+   > run `make model_download`.
 
 2. (Optional) To build from source instead of deploying the pre-built artifacts, run the
    following for a fresh build before deployment:

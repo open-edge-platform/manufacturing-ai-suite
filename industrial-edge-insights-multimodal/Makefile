@@ -290,8 +290,13 @@ check_hardware:
 	echo "Hardware check passed: $$cpu_model (Panther Lake)."
 
 .PHONY: up_vllm
-up_vllm: check_hardware check_models check_env_variables validate_host_ip down
-	@export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
+up_vllm: check_hardware check_env_variables validate_host_ip down
+	@if ! $(MAKE) check_models >/dev/null 2>&1; then \
+		echo "vLLM models not found under configs/vllm. Downloading..."; \
+		$(MAKE) model_download || exit 1; \
+	fi; \
+	$(MAKE) check_models || exit 1; \
+	export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
 	export NGINX_PROFILE=vllm; \
 	export AGENTIC_UI_ENABLED=false MQTT_DISABLED=true; \
 	echo "Starting Docker containers..."; \
@@ -524,7 +529,7 @@ help:
 	@echo "  make build_copyleft_sources       - Build all Docker images including copyleft licensed sources"
 	@echo "  make up                           - Start the base application (MQTT ingestion)"
 	@echo "  make up_vllm                      - Start the application and the vLLM stack"
-	@echo "      Requires: models under configs/vllm (see check_models) and a supported platform (see check_hardware)"
+	@echo "      Requires a supported platform (see check_hardware); downloads the vLLM models first if missing (see model_download)"
 	@echo "  make up_agentic                   - Start the application and the agentic stack including vLLM"
 	@echo "      Requires: supported platform (see check_hardware); downloads the agentic models first"
 	@echo "  make up_agentic MCP=true          - Also start the authenticated MCP server"
