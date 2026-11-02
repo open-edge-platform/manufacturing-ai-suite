@@ -30,6 +30,8 @@ $(shell chmod 600 .env)
 KEY_LENGTH=3072
 DAYS=365
 SHA_ALGO="sha384"
+VLLM_MODEL_REPO_ID := $(VLLM_SERVED_MODEL_NAME)
+VLLM_ADAPTER_REPO_ID := Intel/$(notdir $(patsubst %/,%,$(VLLM_ADAPTER_DIR)))
 LLM_DEVICE_LOWER := $(shell printf '%s' "$(LLM_DEVICE)" | tr '[:upper:]' '[:lower:]')
 LLM_WEIGHT_FORMAT_LOWER := $(shell printf '%s' "$(LLM_WEIGHT_FORMAT)" | tr '[:upper:]' '[:lower:]')
 MODEL_PATH ?= /model/llm_model_agentic/openvino_models/$(LLM_DEVICE_LOWER)/$(LLM_WEIGHT_FORMAT_LOWER)/$(LLM_MODEL_NAME)
