@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Reviewed SkillSpector false positives for this skill. Picked up automatically
+# by the Skill Scanner workflow (any *baseline.yaml in the skill directory).
+version: 2
+rules:
+  - id: "PE3"
+    path: "references/INSTALL.md"
+    message: "*.env*"
+    reason: >-
+      Reviewed: .env is the generated stack's own Docker Compose/Makefile
+      configuration file, listed in the stack layout tree and documented in
+      the .env sections. Secrets in it are generated locally by install.sh,
+      kept chmod 600 and git-ignored, never requested in chat and never
+      printed (see "Secrets in .env"). The skill reads no credential files
+      outside the stack (no SSH keys, cloud or other projects' credentials).
+  - id: "PE3"
+    path: "references/*.md"
+    message: "*.env*"
+    reason: >-
+      Reviewed: reference docs name the stack's own .env only to describe
+      which Compose variables to set (topics, image tags, model names,
+      HOST_IP). No external credential paths are read.
+  - id: "PE3"
+    path: "SKILL.md"
+    message: "*.env*"
+    reason: >-
+      Reviewed: SKILL.md refers to the stack's own .env for configuration and
+      states the secret-handling guardrail (generated locally, never asked for
+      in chat, never printed). No external credential paths are read.
+  - id: "PE3"
+    path: "scripts/*.py"
+    message: "*.env*"
+    reason: >-
+      Reviewed: scaffold_stack.py writes the generated stack's own .env
+      (generated secrets, chmod 600, values never printed); verify_stack.py
+      reads only HOST_IP, GRAFANA_PORT and the InfluxDB credentials from that
+      same .env to run local checks, never printing them. No external
+      credential files are read.
