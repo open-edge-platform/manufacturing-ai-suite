@@ -45,23 +45,18 @@ This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Q
    cd industrial-edge-insights-multimodal
    ```
 
-3. Download the model and adapter:
+3. Download the model and adapter using the model-download microservice:
 
    ```bash
-   mkdir -p configs/vllm/huggingface configs/vllm/models && \
-   cd configs/vllm/ && \
-   rm -rf .modelenv && \
-   python3 -m venv .modelenv && \
-   source .modelenv/bin/activate && \
-   pip3 install huggingface_hub==1.23.0 && \
-   rm -rf huggingface models && \
-   hf download unsloth/Qwen3.5-2B \
-       --local-dir ./huggingface/Qwen3.5-2B && \
-   hf download Intel/qwen3.5-2b-vlm-weld-explainability-lora \
-       --local-dir ./models/qwen3.5-2b-vlm-weld-explainability-lora && \
-   deactivate && \
-   cd ../..
+   make model_download
    ```
+
+   > [!NOTE]
+   > The `model_download` target starts the `model-download` microservice, requests both
+   > HuggingFace repositories through its REST API, waits for the download jobs to complete,
+   > and places the files in `configs/vllm/huggingface/Qwen3.5-2B` (base model) and
+   > `configs/vllm/models/qwen3.5-2b-vlm-weld-explainability-lora` (LoRA adapter). The
+   > service is stopped automatically once the download finishes.
 
 ## Deploy the vLLM Service
 
@@ -149,10 +144,15 @@ make down
   This is expected as the model initializes and loads into memory.
 
 - `Error: configs/vllm/models directory does not exist.`
-  Create the directory and place the required model artifacts in it.
+  Run `make model_download` to download the model and adapter into the expected directories.
 
 - `Error: configs/vllm/models directory is empty.`
-  Add model files and checkpoints before running `make up_vllm`.
+  Run `make model_download` before running `make up_vllm`.
+
+- `ERROR: model-download-vllm service did not become ready in time` or a failed download job
+  Inspect the service logs with `docker logs vllm-model-download`. If you are behind a proxy,
+  ensure `http_proxy`/`https_proxy` are set in your environment before running
+  `make model_download`.
 
 - `HOST_IP is not set` or `HOST_IP is not a valid IPv4 address format.`
   Update `HOST_IP` in `.env` with a valid IPv4 address.

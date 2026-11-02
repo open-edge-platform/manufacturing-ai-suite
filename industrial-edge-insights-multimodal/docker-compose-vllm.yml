@@ -82,7 +82,38 @@ services:
       - TRITON_ATTN
     networks:
       - timeseries_network
-      
+
+  model-download-vllm:
+    image: ${DOCKER_REGISTRY}${MODEL_DOWLOADER_IMAGE}:${DEPS_IMAGE_SUFFIX:-2026.2.0}
+    container_name: vllm-model-download
+    hostname: model-download-vllm
+    # Only started by the `make model_download` target; the profile keeps it out of `make up_vllm`.
+    profiles:
+      - model-download
+    command: ["--plugins", "huggingface"]
+    environment:
+      http_proxy: ${http_proxy:-}
+      https_proxy: ${https_proxy:-}
+      no_proxy: ${no_proxy:-}
+      HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN:-}
+      HF_HUB_ENABLE_HF_TRANSFER: 1
+      MODEL_PATH: /opt/models
+    volumes:
+      - ./configs/vllm:/opt/models
+    ports:
+      - "${HOST_IP:-127.0.0.1}:${VLLM_MODEL_DOWNLOAD_PORT:-8201}:8000"
+    networks:
+      - timeseries_network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
   multimodal-agentic-ui:
     container_name: multimodal-agentic-ui
     hostname: multimodal-agentic-ui

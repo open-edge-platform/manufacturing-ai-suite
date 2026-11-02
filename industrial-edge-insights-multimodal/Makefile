@@ -367,6 +367,86 @@ download_model:
 	fi; \
 	echo "Model download completed successfully"
 
+# Downloads the vLLM base model and LoRA adapter via the model-download microservice.
+.PHONY: model_download
+model_download: validate_host_ip
+	@echo "Starting Model Download Service for the vLLM models..."; \
+	mkdir -p configs/vllm; \
+	docker run --rm --user 0:0 --entrypoint sh \
+		-v "$$PWD/configs/vllm:/opt/models" \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
+		-c 'rm -rf /opt/models/huggingface /opt/models/models && mkdir -p /opt/models/huggingface /opt/models/models && chown -R "$$(stat -c %u:%g /opt)" /opt/models' || exit 1; \
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) --profile model-download up -d model-download-vllm || exit 1; \
+	echo "Waiting for model-download-vllm service to become healthy on port 8201..."; \
+	i=0; \
+	while [ $$i -lt 60 ]; do \
+		if curl -sf "http://${HOST_IP}:8201/api/v1/models/results" >/dev/null 2>&1; then \
+			break; \
+		fi; \
+		if [ "$$i" -eq 59 ]; then \
+			echo "ERROR: model-download-vllm service did not become ready in time"; \
+			exit 1; \
+		fi; \
+		sleep 2; \
+		i=$$(($$i + 1)); \
+	done; \
+	echo "Requesting download of '${VLLM_MODEL_REPO_ID}' and '${VLLM_ADAPTER_REPO_ID}' from HuggingFace..."; \
+	payload='{"models":[{"name":"${VLLM_MODEL_REPO_ID}","hub":"huggingface","type":"llm","is_ovms":false},{"name":"${VLLM_ADAPTER_REPO_ID}","hub":"huggingface","type":"llm","is_ovms":false}],"parallel_downloads":false}'; \
+	resp_file=$$(mktemp) || exit 1; \
+	trap 'rm -f "$$resp_file"' EXIT; \
+	http_code=$$(curl -w "%{http_code}" -s -o "$$resp_file" -X POST "http://${HOST_IP}:8201/api/v1/models/download?download_path=." \
+		-H "Content-Type: application/json" \
+		-d "$$payload"); \
+	response=$$(cat "$$resp_file"); \
+	echo "  HTTP Status: $$http_code"; \
+	echo "  Response: $$response"; \
+	if [ "$$http_code" != "200" ]; then \
+		echo "ERROR: Unexpected HTTP status $$http_code from model-download"; \
+		exit 1; \
+	fi; \
+	job_ids=$$(echo "$$response" | python3 -c "import sys, json; print(' '.join(json.load(sys.stdin)['job_ids']))" 2>/dev/null) || { \
+		echo "ERROR: Failed to extract job_ids from response"; \
+		exit 1; \
+	}; \
+	echo "Download jobs submitted (job_ids=$$job_ids). Waiting for completion..."; \
+	for job_id in $$job_ids; do \
+		i=0; \
+		while [ $$i -lt 600 ]; do \
+			job=$$(curl -sf "http://${HOST_IP}:8201/api/v1/jobs/$$job_id" 2>/dev/null || echo '{}'); \
+			status=$$(echo "$$job" | python3 -c "import sys, json; print(json.load(sys.stdin).get('status', 'unknown'))" 2>/dev/null); \
+			if [ "$$status" = "completed" ]; then \
+				echo "Download job $$job_id complete."; \
+				break; \
+			fi; \
+			if [ "$$status" = "failed" ]; then \
+				echo "ERROR: Download job $$job_id failed"; \
+				exit 1; \
+			fi; \
+			echo "  [$$i/600] Job $$job_id status: $$status"; \
+			i=$$(($$i + 1)); \
+			sleep 5; \
+		done; \
+		if [ $$i -ge 600 ]; then \
+			echo "ERROR: Download timeout for job $$job_id (600 attempts exhausted)"; \
+			exit 1; \
+		fi; \
+	done; \
+	echo "Moving the models into the layout expected by docker-compose-vllm.yml..."; \
+	model_src=$$(printf '%s' "${VLLM_MODEL_REPO_ID}" | tr '/' '_'); \
+	model_dst=$$(basename "${VLLM_MODEL_REPO_ID}"); \
+	adapter_src=$$(printf '%s' "${VLLM_ADAPTER_REPO_ID}" | tr '/' '_'); \
+	adapter_dst=$$(basename "${VLLM_ADAPTER_REPO_ID}"); \
+	docker run --rm --user 0:0 --entrypoint sh \
+		-v "$$PWD/configs/vllm:/opt/models" \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
+		-c "set -e; \
+			if [ \"$$model_src\" != \"$$model_dst\" ]; then mv /opt/models/huggingface/$$model_src /opt/models/huggingface/$$model_dst; fi; \
+			mv /opt/models/huggingface/$$adapter_src /opt/models/models/$$adapter_dst" || exit 1; \
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) --profile model-download rm -sf model-download-vllm; \
+	echo "vLLM model download completed successfully:"; \
+	echo "  configs/vllm/huggingface/$$model_dst"; \
+	echo "  configs/vllm/models/$$adapter_dst"
+
 
 .PHONY: up_agentic
 up_agentic: check_hardware check_models check_env_variables validate_host_ip down
@@ -458,6 +538,7 @@ help:
 	@echo "  make check_hardware               - Check the platform for the vLLM/agentic stacks"
 	@echo "      Optional: PLATFORM_CHECK=false skips the check (CI/validation use only)"
 	@echo "  make download_model               - Download the agentic models"
+	@echo "  make model_download               - Download the vLLM base model and LoRA adapter via the model-download microservice"
 	@echo "  make upload_tar_file              - Upload the weld anomaly detection UDF package to the Time-Series Analytics microservice"
 	@echo "  make post_config                  - Post the weld anomaly detection config to the Time-Series Analytics microservice"
 	@echo "  make push_images                  - Build and push all images, including the MCP server, to the docker registry"
