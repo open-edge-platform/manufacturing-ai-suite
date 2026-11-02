@@ -26,6 +26,8 @@ services:
       INFLUXDB_URL: http://ia-influxdb:8086
       INFLUXDB_USERNAME: ${INFLUXDB_USERNAME}
       INFLUXDB_PASSWORD: ${INFLUXDB_PASSWORD}
+      no_proxy: "ia-time-series-analytics-microservice,127.0.0.1,localhost,${no_proxy}"
+      NO_PROXY: "ia-time-series-analytics-microservice,,127.0.0.1,localhost,${no_proxy}"
     volumes:
       - ./apps/${SAMPLE_APP}/time-series-analytics-config:/app/config:ro
     networks:
