@@ -36,14 +36,14 @@ License-Identifier: BSD-2-Clause
 ----------------------------------------------------------------------
 
 License-Identifier: Apache-2.0
-- intel/dlstreamer-pipeline-server:2026.3.0-20261027-weekly-ubuntu24
+- intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24
 - chrislusf/seaweedfs:4.42
 - intel/vllm:0.21.0-ubuntu24.04
 - openvino/model_server:2026.4.1-gpu
 - prom/prometheus:v2.53.4
-- intel/agent-quality-handler:2026.3-ww41rc
-- intel/model-download:2026.3.0-20261027-weekly
-- intel/metrics-manager:2026.3.0-20261027-weekly
+- intel/agent-quality-handler:2026.3
+- intel/model-download:2026.3.0
+- intel/metrics-manager:2026.3.0
 - intel/ia-multimodal-fusion-analytics:2026.3.0
 - intel/ia-weld-data-simulator:2026.3.0
 - intel/multimodal-agentic-ui:2026.3.0
