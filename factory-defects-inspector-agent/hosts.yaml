@@ -21,9 +21,8 @@ recipes:
     prompt: >-
       In ~/manufacturing-ai-suite/industrial-edge-insights-multimodal, Meet prerequisites
       (ignore accepting licenses check for downloading models from HF), build time series analytics
-      microservice, build and deploy (pull latest weekly tags of intel/ images) the agentic
-      variant with the MCP server (make up_agentic MCP=true), then run the smoke check.
-      Do not edit .env; if a required credential is missing, stop and name it.
+      microservice, build and deploy the agentic variant with the MCP server (make up_agentic MCP=true), 
+      then run the smoke check. Do not edit .env; if a required credential is missing, stop and name it.
       Do not start or stop pipelines. Use the edge-ai-libraries sparse checkout exactly as the
       skill's build script creates it; do not initialize or update git submodules, which the
       build does not need.

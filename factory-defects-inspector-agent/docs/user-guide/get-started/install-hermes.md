@@ -15,48 +15,33 @@ Install Hermes using the selected OVMS image and model:
 
 ```bash
 HARNESS_OVMS_IMAGE=openvino/model_server:2026.4.1-gpu \
-./install.sh --harness hermes --model OpenVINO/Qwen3.6-35B-A3B-int4-ov --model-hub huggingface
+./install.sh --harness hermes --model OpenVINO/Qwen3.5-9B-int8-ov
 ```
 
-The harness installer prepares host dependencies, starts OVMS and the Inference Router, downloads the model, and installs Hermes. The `huggingface` hub downloads the published model without converting it; it can be served only if the downloaded repository includes the OVMS `graph.pbtxt` configuration. Check the install output for successful model registration, not just a completed download. Supply any required model access credentials through environment variables, never in the command or inventory.
+The harness installer prepares host dependencies, starts OVMS and the Inference Router, downloads the model, and installs Hermes. `OpenVINO/*` models are pre-converted, so the default `openvino` model hub only downloads them; the model is served only if the downloaded repository includes the OVMS `graph.pbtxt` configuration. Check the install output for successful model registration, not just a completed download. Supply any required model access credentials through environment variables, never in the command or inventory.
 
 Configure any required proxy in the installer environment before running it. Its startup step may configure Docker's daemon proxy and restart Docker when those settings change; schedule this on a host where a restart will not interrupt other workloads.
 
-**Temporary model choice:** the Hermes -> Inference Router -> OVMS configuration currently has known integration issues and still requires full end-to-end validation. The installation command above provisions the local backend, but does not establish that Hermes can successfully use it. For now, select the `nous` provider and `upstage/solar-mini4:free` model during Hermes onboarding rather than configuring Hermes to use the local router endpoint.
+The harness installer prints the Inference Router endpoint and the served model name, and where to point a provider in `~/.hermes/config.yaml`, but it does not configure or smoke-test Hermes. Configure Hermes to use that local model, `OpenVINO/Qwen3.5-9B-int8-ov`, through the Inference Router, not the OVMS endpoint directly.
 
-The harness installer prints the Inference Router endpoint and configuration guidance, but does not automatically configure and smoke-test Hermes. After installation, run:
+Note these values from the installer output:
 
-```bash
-hermes setup model
-```
+- The Inference Router's OpenAI-compatible base URL (loopback by default, ending in `/v1`).
+- The served model name.
+- The router API key, only if the installer reports that one is required.
 
-In the provider/model selection flow:
 
-1. Choose the Nous provider (`nous`).
-2. Complete the provider's authentication flow if prompted.
-3. Select `upstage/solar-mini4:free` as the default model. Use the full model identifier, including the `upstage/` prefix.
-
-These selections match the provider and default model in the current central-host Hermes configuration. After setup, confirm that the `model` section in `~/.hermes/config.yaml` contains:
-
-```yaml
-model:
-  provider: nous
-  default: upstage/solar-mini4:free
-```
-
-This is only the relevant configuration fragment, not a replacement for the complete file. Preserve all other settings. If the provider or model is unavailable to your account, stop and confirm an approved alternative with the administrator rather than assuming the local backend is ready. Keep credentials out of commands, the inventory, and chat.
-
-This temporary choice does not validate the local inference path. If the selected provider is hosted externally, prompts and tool results may leave the central host; use it only with data approved for that provider.
-
-Start a test chat to confirm the selected model responds:
+Start a test chat to confirm the local model responds:
 
 ```bash
 hermes
 ```
 
-Ask a simple question and verify that it receives a response. Only then return to this repository's `factory-defects-inspector-agent` directory and continue with node preparation and fleet deployment.
+Ask a simple question and verify that it receives a response. If the installer did not report successful model registration, or Hermes cannot reach the router, resolve that first (`./install.sh status` in the installer checkout shows OVMS, router, and agent health, and `./install.sh models list` shows whether the model is served). Do not continue until the local model responds. Only then return to this repository's `factory-defects-inspector-agent` directory and continue with node preparation and fleet deployment.
 
-When the integration issues are resolved, configure Hermes with the Inference Router's OpenAI-compatible endpoint and served model reported by the installer, not the OVMS endpoint directly. Keep the local backend bound to loopback and validate both inference and the fleet's MCP tool calls before replacing the temporary model configuration.
+The fleet installer clones each node profile from the default profile, so the local model configuration is inherited when node profiles are created. After changing the default model, re-run `fleet-setup.sh` to recreate the node profiles. Validate the fleet's MCP tool calls with this model after deployment, since tool-calling behavior depends on the model.
+
+If you prefer a hosted provider instead, select it in `hermes setup model` and confirm an approved provider and model with the administrator. Prompts and tool results may leave the central host with a hosted provider; use it only with data approved for that provider.
 
 
 ## Set the Factory Defects Inspector Agent persona
