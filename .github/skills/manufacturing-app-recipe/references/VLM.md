@@ -109,10 +109,22 @@ render `group_add`, and `vllm serve ... --served-model-name ...
 
 ```
 export NGINX_PROFILE=vllm AGENTIC_UI_ENABLED=false MQTT_DISABLED=true
-rm -f configs/grafana/provisioning/*.json
+rm -f configs/grafana/provisioning/*.json   # reference Makefile step: clears the whole directory
 cp configs/grafana/dashboards_jsons/{{DASHBOARD_SLUG}}_vlm.json configs/grafana/provisioning/{{DASHBOARD_SLUG}}.json
 docker compose -f docker-compose.yml -f docker-compose-vllm.yml up -d
 make upload_tar_file
+```
+
+That `rm -f .../*.json` is the reference Makefile's own, unmodified step —
+it deletes any dashboard JSON already provisioned there, including manual
+edits. Warn the user before the first `make up_vllm` (see `INSTALL.md` →
+*Grafana dashboard swap*). If you ever write this cleanup yourself (rather
+than relying on `make up_vllm`), scope it to the exact file you are about
+to replace instead of a wildcard, confined to this stack's own generated
+`configs/grafana/provisioning/` directory:
+
+```
+rm -f configs/grafana/provisioning/{{DASHBOARD_SLUG}}.json
 ```
 
 ## Completion criteria (`vllm` mode, in addition to the base `multimodal` criteria 1–9)

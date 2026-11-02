@@ -165,8 +165,9 @@ pip install paho-mqtt requests
 python openmes_publisher.py --config ./openmes-publisher.json
 ```
 
-Start the publisher **after** the stack is up. It is a foreground process;
-run it under `tmux`/`nohup`, or under a systemd unit if the user asks.
+Start the publisher **after** the stack is up. Keep it in a dedicated
+foreground terminal and stop it with Ctrl-C. Persistent service deployment
+requires a separate, explicitly approved service-management plan.
 
 ## Reliability model
 
@@ -213,20 +214,39 @@ into the stack's `openmes/` folder. It needs only the Python standard library.
   Pass the same file to both processes. Never reuse a real OpenMES token.
 - **Scaffolded stacks:** `scaffold_stack.py` with `openmes.dummy: true` does all of
   this: it copies the receiver, generates the throwaway token and writes the
-  config with the test IDs. It also writes `openmes/start_dummy_openmes.sh` (which
-  starts the receiver bound to `HOST_IP` and the publisher in the background, and
-  prints the alerts URL) and `openmes/stop_dummy_openmes.sh`.
-- **Start (manual):** start the receiver, then the publisher:
-  `python dummy_openmes_receiver.py --token-file ./openmes_token`
-  (default `--host 127.0.0.1`). The page has no login, so bind a LAN
-  address (`--host 0.0.0.0`) only on a trusted network, and say so to the
-  user.
+  config with the test IDs. It also writes `openmes/start_dummy_openmes_receiver.sh`
+  (binds to `HOST_IP`, runs the receiver in the **foreground**) and
+  `openmes/start_dummy_openmes_publisher.sh` (waits for `/health`, then runs the
+  publisher in the **foreground**). Both `exec` the Python process — there is
+  no `&`, no `nohup`/`disown`/`setsid`, no PID file and no separate stop
+  script, because a backgrounded (`cmd &`) job is reparented to init and
+  keeps running after the launching shell exits; it is **not** scoped to
+  that shell's lifetime, so a script that claimed otherwise would be wrong.
+  A plain foreground process has no such gap: it only runs for as long as
+  something is actively attached to it.
+- **Start:** run each script where something stays attached to it for as
+  long as the process should run — never via shell `&`/`nohup`/`disown`:
+  - **If your tool has its own attached background/async execution** (run
+    in the background but still tied to, and stoppable from, this session —
+    e.g. an agent's "async" bash mode, not a detached/independent process):
+    start `start_dummy_openmes_receiver.sh` that way, poll
+    `http://<host>:8099/health` until it answers, then start
+    `start_dummy_openmes_publisher.sh` the same way. Stop both explicitly
+    with that same tool's stop capability when done.
+  - **Otherwise (plain shell only, or a human running this by hand):** run
+    `start_dummy_openmes_receiver.sh` in one terminal and
+    `start_dummy_openmes_publisher.sh` — which waits for `/health` itself
+    before exec'ing the publisher — in a second terminal. Stop each with
+    Ctrl-C.
+  The page has no login, so bind a LAN address (`--host 0.0.0.0`) only on a
+  trusted network, and say so to the user.
 - **Volume:** fused modes report one Issue per defective frame, up to
   about 10 per second. The receiver keeps the newest `--max-issues`
   (default 5000) in memory.
 - **Summary:** give the user the alerts page URL `http://<HOST_IP>:8099/` and
-  the stop command, and state clearly that results came from the dummy receiver,
-  not a real OpenMES.
+  how to stop it (Ctrl-C in each terminal, or your tool's stop capability),
+  and state clearly that results came from the dummy receiver, not a real
+  OpenMES.
 
 ## Manual verification (smoke test)
 

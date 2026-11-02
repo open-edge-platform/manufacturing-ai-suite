@@ -295,10 +295,10 @@
       "expectations": [
         "Writes a spec (mode agentic, object/title, reference_dir, out_dir, vision/sensor/vlm/llm paths, fusion_mode AND, openmes enabled with dummy true) from assets/vertical.example.yaml using only the supplied paths",
         "Runs scripts/scaffold_stack.py with --dry-run first and then for real, instead of hand-writing Compose files, Makefile, nginx, Fusion Analytics or the UI service, and without a manual cp -r",
-        "Edits only the lines in the script's leftover report (UDF sensor fields and logic, labels, prompts, dashboard queries) and loads reference files only for those steps",
-        "Builds and starts with COMPOSE_BAKE=false make build and make up_agentic, then runs openmes/start_dummy_openmes.sh and scripts/verify_stack.py",
+        "Edits the lines in the script's leftover report (UDF sensor fields and logic, labels, prompts, dashboard queries) and also applies the semantic checklists independently (e.g. agent policy mode AND/OR, ticketing backend), loading reference files only for those steps",
+        "Builds and starts with COMPOSE_BAKE=false make build and make up_agentic, then starts openmes/start_dummy_openmes_receiver.sh, waits for /health, starts openmes/start_dummy_openmes_publisher.sh, and runs scripts/verify_stack.py",
         "Quotes verify_stack.py PASS evidence in the final summary rather than claiming success without it",
-        "Gives the user the dummy OpenMES alerts page URL http://<HOST_IP>:8099/ and the stop command, and labels the results as dummy",
+        "Gives the user the dummy OpenMES alerts page URL http://<HOST_IP>:8099/ and how to stop it (Ctrl-C in each terminal, or the tool’s stop capability), and labels the results as dummy",
         "Does not invent model paths, OpenMES IDs for a real OpenMES, or secrets"
       ]
     }

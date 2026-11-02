@@ -42,6 +42,7 @@ from pathlib import Path
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 OPENMES_ASSETS = SKILL_DIR / "assets" / "openmes"
+OPENMES_OVERRIDE = "docker-compose-openmes.override.yml"
 STABLE_DEPS_TAG = "2026.2.0"
 
 COMMON_EXCLUDES = {
@@ -89,6 +90,77 @@ def need(spec, *keys):
 
 def slugify(s):
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+
+
+_HOST_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$")
+
+
+def validate_host(host):
+    """Reject a host/IP value that is not safe to embed in generated shell
+    scripts (start_dummy_openmes_receiver.sh/start_dummy_openmes_publisher.sh,
+    README snippets): only hostname/IPv4 characters are accepted, so a spec
+    value cannot inject shell metacharacters or be parsed as a command flag
+    (e.g. a leading '-')."""
+    if not host or not _HOST_RE.match(host):
+        die(f"host_ip {host!r} is not a safe hostname/IPv4 address (letters, digits, '.', '-' only)")
+    return host
+
+
+_PATH_COMPONENT_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+
+
+def validate_path_component(name, what):
+    """Reject a name that will be joined as a single path segment under
+    ``apps/`` (``app_name``/``template_app``) before it is ever used in a
+    path. A value containing '/', '\\' or '..', or an absolute path, could
+    otherwise escape the ``apps/`` directory entirely -- e.g. ``app_name:
+    "../../etc"`` or an absolute ``app_name: "/etc"`` (``Path("apps") /
+    "/etc"`` silently discards the "apps" segment and resolves to "/etc").
+    Only a plain directory-name-shaped string is accepted."""
+    if (not name or "/" in name or "\\" in name or name in (".", "..")
+            or not _PATH_COMPONENT_RE.match(name)):
+        die(f"{what} {name!r} must be a plain directory name "
+            "(letters, digits, '_', '-', '.'; no path separators or '..')")
+    return name
+
+
+def _is_ancestor_or_self(maybe_ancestor, path):
+    return path == maybe_ancestor or maybe_ancestor in path.parents
+
+
+def validate_removal_target(path, *, protect):
+    """Guard the one destructive `shutil.rmtree` per mode behind a bounded,
+    validated path before `--force` is honoured.
+
+    Refuses to replace a target that is a symlink, or that is the same as,
+    or an ancestor of, the filesystem root / the caller's home directory /
+    this skill's own directory / the current working directory -- a normal
+    scaffold target *inside* one of those (e.g. `~/projects/my-stack`) is
+    unaffected, only consuming one of those directories itself is blocked.
+    The reference checkout(s) in *protect* get the stricter, symmetric
+    'overlap' check: the target must not equal, contain, or be contained by
+    a reference directory in either direction, since copying/removing
+    through an overlapping path would corrupt the source being copied from.
+    Closes the 'no root/home/workspace/reference or ancestors,
+    symlink/overlap/escape' gap on `scaffold_stack.py --force`.
+    """
+    target = Path(path)
+    if target.is_symlink():
+        die(f"refusing --force on {path}: target is a symlink")
+    resolved = target.resolve(strict=False)
+    ancestor_only = {Path(resolved.anchor or "/"), Path.home().resolve(),
+                     SKILL_DIR.resolve(), Path.cwd().resolve()}
+    for root in ancestor_only:
+        if _is_ancestor_or_self(resolved, root):
+            die(f"refusing --force on {path}: would remove a protected path ({root})")
+    for ref in protect:
+        if ref is None:
+            continue
+        ref_resolved = Path(ref).resolve(strict=False)
+        if resolved == ref_resolved or _is_ancestor_or_self(resolved, ref_resolved) \
+                or _is_ancestor_or_self(ref_resolved, resolved):
+            die(f"refusing --force on {path}: overlaps the reference directory ({ref_resolved})")
+    return resolved
 
 
 def is_text(path):
@@ -208,6 +280,67 @@ def fill_secrets(env_path, word):
     return generated
 
 
+SECRET_KEY_RE = re.compile(r"(_USERNAME|_PASSWORD|_USER|_SECRET|_TOKEN|_API_KEY|_ACCESS_KEY)$")
+
+
+def blank_env_secrets(env_path):
+    """Start from a secret-free .env: the reference checkout may already be configured."""
+    lines = env_path.read_text().splitlines()
+    for i, line in enumerate(lines):
+        m = re.match(r"^([A-Z0-9_]+)=(.*)$", line)
+        if m and SECRET_KEY_RE.search(m.group(1)) and m.group(2).strip() \
+                and not re.fullmatch(r"[0-9.]+", m.group(2).strip()):
+            lines[i] = f"{m.group(1)}="
+    env_path.write_text("\n".join(lines) + "\n")
+
+
+def normalize_ir_names(model_dir):
+    """DLSPS pipelines load <model dir>/model.xml; give a supplied IR pair that name."""
+    d = Path(model_dir)
+    xmls = sorted(d.glob("*.xml"))
+    if not xmls or (d / "model.xml").exists():
+        return
+    if len(xmls) > 1:
+        die(f"{d} contains several .xml files; supply a folder with a single OpenVINO IR pair")
+    xml = xmls[0]
+    binf = xml.with_suffix(".bin")
+    if not binf.exists():
+        die(f"{binf.name} not found next to {xml.name} in the supplied vision model folder")
+    for src, name in ((xml, "model.xml"), (binf, "model.bin")):
+        link_or_copy(src, d / name)
+        src.unlink()
+
+
+def prune_makefile(out, pruned, fallback, skip_download):
+    """Drop references to pruned Compose overlays and unneeded LLM download/start steps."""
+    mk = out / "Makefile"
+    t = mk.read_text()
+    for name, var in (("docker-compose-vllm.yml", "VLLM"), ("docker-compose-agentic.yml", "AGENTIC"),
+                      ("docker-compose-mcp.yml", "MCP")):
+        if name in pruned:
+            t = t.replace(f" -f $(DOCKER_COMPOSE_FILE_{var})", "")
+            if var == "MCP":
+                t = re.sub(r"^MCP_COMPOSE_ARG = .*$", "MCP_COMPOSE_ARG =", t, flags=re.M)
+    if fallback or skip_download:
+        t = t.replace("\t$(MAKE) download_model || exit 1; \\\n", "")
+    if fallback:
+        t = t.replace("$(MCP_COMPOSE_ARG) up -d || exit 1;", "$(MCP_COMPOSE_ARG) up -d --scale apm-llm=0 || exit 1;")
+    mk.write_text(t)
+
+
+def make_live(out, rtsp_url):
+    """Live camera/sensor input: drop the simulator service and point the pipeline at the camera."""
+    dc = out / "docker-compose.yml"
+    t = dc.read_text()
+    t = re.sub(r"\n  ia-weld-data-simulator:\n.*?(?=\n  nginx:)", "", t, flags=re.S)
+    t = re.sub(r"\n      ia-weld-data-simulator:\n        condition: [a-z_]+", "", t)
+    dc.write_text(t)
+    for name in ("config.json", "pipeline-request-cpu.json", "config_auto_start_off.json"):
+        p = out / "configs/dlstreamer-pipeline-server" / name
+        if p.exists():
+            p.write_text(p.read_text().replace("rtsp://mediamtx:8554/live.stream", rtsp_url))
+
+
 def write_model_proc(model_dir):
     """Geti-style classifiers need explicit RGB / [0,1] / mean-std preprocessing in DL Streamer."""
     xml = next(Path(model_dir).glob("*.xml"), None)
@@ -281,8 +414,8 @@ def leftovers(root, patterns, skip_paths):
     pat = re.compile("|".join(patterns), re.I)
     hits = []
     for p in sorted(root.rglob("*")):
-        if p.is_dir() or in_data_path(root, p, skip_paths) or not is_text(p):
-            continue
+        if p.is_dir() or p.name == ".env" or in_data_path(root, p, skip_paths) or not is_text(p):
+            continue  # .env holds credentials: never echo its lines
         for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1):
             if pat.search(line):
                 hits.append((p.relative_to(root).as_posix(), n, line.strip()[:140]))
@@ -290,31 +423,65 @@ def leftovers(root, patterns, skip_paths):
 
 
 # --------------------------------------------------------------------------- OpenMES
-START_DUMMY = r"""#!/usr/bin/env bash
-# Starts the dummy OpenMES receiver and the publisher in the background.
-# Alerts page: http://{host}:8099/  (no login; read-only; dummy data)
+# Both the receiver and the publisher run strictly in the foreground (no
+# `&`, no `nohup`/`disown`/`setsid`, no PID files, no kill logic). A shell
+# background job (`cmd &`) is reparented to init and keeps running after the
+# launching script/shell exits -- it is *not* scoped to that shell's
+# lifetime, so claiming otherwise would be false. A genuine foreground
+# process has no such problem: it only runs for as long as something is
+# actively waiting on it, and is torn down the moment that stops (Ctrl-C,
+# the terminal closing, or an agent's own attached background/async tool
+# execution being stopped) -- never through this script searching for and
+# signalling an arbitrary PID.
+#
+# Two supported ways to run two foreground processes at once:
+#   1. An agent with its own attached background/async tool execution (e.g.
+#      a "run in background, attached to this session" bash mode) starts the
+#      receiver that way, waits for /health, then starts the publisher the
+#      same way, and stops both with that same tool's explicit stop
+#      capability when done.
+#   2. A human (or an agent with only a single blocking shell) runs the
+#      receiver script in one terminal and the publisher script -- which
+#      itself waits for /health before exec'ing -- in a second terminal, and
+#      stops each with Ctrl-C.
+START_DUMMY_RECEIVER = r"""#!/usr/bin/env bash
+# Runs the dummy OpenMES receiver in the foreground. Start this first --
+# in its own terminal, or via your tool's attached background/async
+# execution (never shell `&`/nohup/disown). Alerts page:
+# http://{host}:8099/ (no login; read-only; dummy data). Stop with Ctrl-C
+# (or your tool's stop capability); there is no separate stop script and no
+# PID file to manage.
 set -euo pipefail
 cd "$(dirname "$0")"
 [ -d .venv ] || {{ python3 -m venv .venv && .venv/bin/pip install -q paho-mqtt requests; }}
-if [ ! -f receiver.pid ] || ! kill -0 "$(cat receiver.pid)" 2>/dev/null; then
-  nohup python3 -u dummy_openmes_receiver.py --host {host} --port 8099 --token-file ./openmes_token \
-    --log-file ./dummy_openmes_issues.jsonl >> receiver.log 2>&1 &
-  echo $! > receiver.pid
-fi
-for i in $(seq 1 20); do curl -sf --noproxy '*' http://{host}:8099/health >/dev/null && break; sleep 0.5; done
-if [ ! -f publisher.pid ] || ! kill -0 "$(cat publisher.pid)" 2>/dev/null; then
-  nohup .venv/bin/python -u openmes_publisher.py --config ./openmes-publisher.json >> publisher.log 2>&1 &
-  echo $! > publisher.pid
-fi
-echo "Dummy OpenMES alerts: http://{host}:8099/   (logs: $(pwd)/receiver.log, $(pwd)/publisher.log)"
+exec python3 -u dummy_openmes_receiver.py --host {host} --port 8099 \
+  --token-file ./openmes_token --log-file ./dummy_openmes_issues.jsonl
 """
 
-STOP_DUMMY = r"""#!/usr/bin/env bash
-set -u
+START_DUMMY_PUBLISHER = r"""#!/usr/bin/env bash
+# Waits for the dummy OpenMES receiver (start_dummy_openmes_receiver.sh,
+# already running in its own terminal or background task) to report
+# healthy, then runs the publisher in the foreground. Stop with Ctrl-C (or
+# your tool's stop capability); there is no separate stop script and no PID
+# file to manage. Fails loudly -- instead of silently backgrounding a dead
+# process -- if the receiver never becomes healthy.
+set -euo pipefail
 cd "$(dirname "$0")"
-for p in publisher receiver; do
-  if [ -f "$p.pid" ]; then kill "$(cat "$p.pid")" 2>/dev/null && echo "stopped $p"; rm -f "$p.pid"; fi
+[ -d .venv ] || {{ python3 -m venv .venv && .venv/bin/pip install -q paho-mqtt requests; }}
+ready=""
+for i in $(seq 1 40); do
+  if curl -sf --noproxy '*' http://{host}:8099/health >/dev/null; then
+    ready=1
+    break
+  fi
+  sleep 0.5
 done
+if [ -z "$ready" ]; then
+  echo "dummy OpenMES receiver at http://{host}:8099/ never reported healthy." >&2
+  echo "Start it first with start_dummy_openmes_receiver.sh (in its own terminal/background task)." >&2
+  exit 1
+fi
+exec .venv/bin/python -u openmes_publisher.py --config ./openmes-publisher.json
 """
 
 
@@ -330,7 +497,7 @@ def wire_openmes(spec, openmes_dir, mode_key, topic, fields):
         if not token.exists():
             token.write_text(secrets.token_hex(24) + "\n")  # throwaway, dummy receiver only
             token.chmod(stat.S_IRUSR)
-        base_url, token_file = "http://127.0.0.1:8099", "./openmes_token"
+        base_url, token_file = f"http://{host}:8099", "./openmes_token"
         wo, it = int(om.get("work_order_id", 1001)), int(om.get("issue_type_id", 7))
     else:
         for k in ("base_url", "token_file", "work_order_id", "issue_type_id", "source_id"):
@@ -353,10 +520,10 @@ def wire_openmes(spec, openmes_dir, mode_key, topic, fields):
         cfg["details"] = fields["details"]
     (openmes_dir / "openmes-publisher.json").write_text(json.dumps(cfg, indent=2) + "\n")
     (openmes_dir / ".gitignore").write_text("openmes_token\nopenmes_events.db*\ndummy_openmes_issues.jsonl\n"
-                                            "*.log\n*.pid\n.venv/\n")
+                                            "*.log\n.venv/\n")
     if dummy:
-        for name, body in (("start_dummy_openmes.sh", START_DUMMY.format(host=host)),
-                           ("stop_dummy_openmes.sh", STOP_DUMMY)):
+        for name, body in (("start_dummy_openmes_receiver.sh", START_DUMMY_RECEIVER.format(host=host)),
+                           ("start_dummy_openmes_publisher.sh", START_DUMMY_PUBLISHER.format(host=host))):
             (openmes_dir / name).write_text(body)
             (openmes_dir / name).chmod(0o755)
     return {"dummy": dummy, "ui_url": f"http://{host}:8099/" if dummy else None,
@@ -375,9 +542,12 @@ def write_readme(out, spec, mode, title):
         om_txt = ("\n## OpenMES\n\nConfirmed fused defects (fused_decision == 1) are posted to OpenMES by "
                   "`openmes/openmes_publisher.py` (config: `openmes/openmes-publisher.json`).\n")
         if om.get("dummy"):
-            om_txt += (f"\nThis stack uses the **dummy OpenMES receiver** for testing. After `{target}`:\n\n"
-                       "```bash\nopenmes/start_dummy_openmes.sh   # prints the alerts URL\n"
-                       "openmes/stop_dummy_openmes.sh\n```\n\n"
+            om_txt += (f"\nThis stack uses the **dummy OpenMES receiver** for testing. After `{target}`,"
+                       " run each in its own terminal (or your tool's attached background/async execution"
+                       " -- never shell `&`/`nohup`/`disown`), stopping each with Ctrl-C (or your tool's"
+                       " stop capability):\n\n"
+                       "```bash\nopenmes/start_dummy_openmes_receiver.sh    # terminal 1; prints the alerts URL\n"
+                       "openmes/start_dummy_openmes_publisher.sh   # terminal 2; waits for /health, then runs\n```\n\n"
                        f"Alerts page: http://{spec.get('host_ip', '127.0.0.1')}:8099/ (read-only, no login, dummy data).\n")
         else:
             om_txt += ("\n```bash\ncd openmes && python3 -m venv .venv && .venv/bin/pip install paho-mqtt requests\n"
@@ -406,21 +576,40 @@ Open `https://<HOST_IP>:<GRAFANA_PORT>` (credentials: `VISUALIZER_GRAFANA_USER` 
 def scaffold_multimodal(spec, args):
     mode, obj, slug = spec["mode"], spec["object"], spec["slug"]
     ref = Path(need(spec, "reference_dir")).resolve()
-    out = Path(need(spec, "out_dir")).resolve()
+    # Keep the pre-resolve Path for the --force symlink check: .resolve()
+    # follows symlinks, so checking is_symlink() on the *resolved* path can
+    # never be true even when out_dir itself is a symlink, silently losing
+    # that safety check. out_dir_raw preserves the information resolve()
+    # would otherwise discard; out itself stays resolved for every other use.
+    out_dir_raw = Path(need(spec, "out_dir"))
+    out = out_dir_raw.resolve()
     title = need(spec, "title")
     if not (ref / "docker-compose.yml").exists() or not (ref / "fusion-analytics").exists():
         die(f"{ref} is not an industrial-edge-insights-multimodal checkout")
     reuse = bool(spec.get("reuse_reference_assets"))
     sensor, vision = spec.get("sensor") or {}, spec.get("vision") or {}
     vlm, llm = spec.get("vlm") or {}, spec.get("llm") or {}
-    if not (spec.get("simulation_data_dir") or reuse):
-        die("simulation_data_dir is required (paired <name>.avi + <name>.csv), or reuse_reference_assets: true")
+    live = spec.get("input_type", "simulator") in ("rtsp", "device", "live")
+    rtsp_url = vision.get("rtsp_url")
+    if live:
+        if not (rtsp_url and re.fullmatch(r"rtsp://[^\s\"\\]+", rtsp_url)):
+            die("vision.rtsp_url (rtsp://...) is required when input_type is rtsp/device/live")
+    elif not (spec.get("simulation_data_dir") or reuse):
+        die("simulation_data_dir is required (paired <name>.avi + <name>.csv), or reuse_reference_assets: true, "
+            "or input_type: rtsp with vision.rtsp_url for live sources")
     if not (vision.get("model_dir") or reuse):
         die("vision.model_dir is required (folder with the OpenVINO .xml/.bin), or reuse_reference_assets: true")
     if mode in ("vllm", "agentic") and not vlm.get("model_dir"):
         die("vlm.model_dir is required for vllm/agentic (Hugging Face VLM folder); never invent one")
-    if mode == "agentic" and not (llm.get("model_name") and (llm.get("converted_dir") or llm.get("download"))):
-        die("llm.model_name plus llm.converted_dir (or llm.download: true) is required for agentic")
+    fallback = mode == "agentic" and llm.get("mode", "llm") == "fallback"
+    if mode == "agentic" and not fallback and \
+            not (llm.get("model_name") and (llm.get("converted_dir") or llm.get("download"))):
+        die("llm.model_name plus llm.converted_dir (or llm.download: true) is required for agentic "
+            "unless llm.mode: fallback")
+    if mode == "agentic" and llm.get("converted_dir") and not fallback:
+        cd = Path(llm["converted_dir"])
+        if not (list(cd.glob("*.xml")) and list(cd.glob("*.bin"))):
+            die(f"llm.converted_dir {cd} has no OpenVINO .xml/.bin; remove it and use llm.download: true")
 
     udf = sensor.get("udf_name") or f"{obj}_anomaly_detector"
     meas = sensor.get("measurement") or f"{slug}-sensor-data"
@@ -463,6 +652,7 @@ def scaffold_multimodal(spec, args):
     if out.exists():
         if not args.force:
             die(f"{out} exists (use --force to replace it)")
+        validate_removal_target(out_dir_raw, protect=[ref, SKILL_DIR])
         shutil.rmtree(out)
 
     def ignore(d, names):
@@ -474,14 +664,21 @@ def scaffold_multimodal(spec, args):
                 drop.append(n)
         return drop
     shutil.copytree(ref, out, ignore=ignore, symlinks=True)
+    if (out / ".env").exists():
+        blank_env_secrets(out / ".env")
+    prune_makefile(out, prune, fallback, bool(llm.get("converted_dir")))
 
     # data and models (old names; the rename pass below fixes folder names)
-    link_or_copy(spec.get("simulation_data_dir") or ref / "weld-data-simulator/simulation-data",
-                 out / "weld-data-simulator/simulation-data")
+    if live:
+        make_live(out, rtsp_url)
+    else:
+        link_or_copy(spec.get("simulation_data_dir") or ref / "weld-data-simulator/simulation-data",
+                     out / "weld-data-simulator/simulation-data")
     dl_models = out / "configs/dlstreamer-pipeline-server/models"
     link_or_copy(vision.get("model_dir") or
                  ref / "configs/dlstreamer-pipeline-server/models/weld-defect-classification-f16-ViT-Tiny",
                  dl_models / "weld-defect-classification-f16-ViT-Tiny")
+    normalize_ir_names(dl_models / "weld-defect-classification-f16-ViT-Tiny")
     ts_models = out / "configs/time-series-analytics-microservice/models"
     ts_models.mkdir(parents=True, exist_ok=True)
     if sensor.get("model_files"):
@@ -500,7 +697,7 @@ def scaffold_multimodal(spec, args):
         else:
             ad.mkdir(parents=True, exist_ok=True)
             (ad / "NO_ADAPTER.txt").write_text("No LoRA adapter: vllm-server serves the base model.\n")
-    if mode == "agentic" and llm.get("converted_dir"):
+    if mode == "agentic" and llm.get("converted_dir") and not fallback:
         dev, fmt = llm.get("device", "CPU").lower(), llm.get("weight_format", "int4").lower()
         link_or_copy(llm["converted_dir"], out / "configs/agentic/models/llm_model_agentic/openvino_models"
                      / dev / fmt / llm["model_name"])
@@ -547,7 +744,7 @@ def scaffold_multimodal(spec, args):
             vals["VLLM_ADAPTER_NAME"] = served
             vals["VLLM_ADAPTER_DIR"] = ""
     if mode == "agentic":
-        vals.update({"LLM_MODEL_NAME": llm["model_name"], "LLM_DEVICE": llm.get("device", "CPU"),
+        vals.update({"LLM_MODEL_NAME": llm.get("model_name") or "fallback-no-llm", "LLM_DEVICE": llm.get("device", "CPU"),
                      "LLM_WEIGHT_FORMAT": llm.get("weight_format", "int4"), "LLM_MODE": llm.get("mode", "llm")})
     vals.update({k: str(v) for k, v in (spec.get("env") or {}).items()})
     env = out / ".env"
@@ -591,9 +788,9 @@ def scaffold_multimodal(spec, args):
 def scaffold_ts(spec, args):
     obj, slug = spec["object"], spec["slug"]
     repo = Path(need(spec, "ts_repo_dir")).resolve()
-    tmpl = spec.get("template_app", "wind-turbine-anomaly-detection")
+    tmpl = validate_path_component(spec.get("template_app", "wind-turbine-anomaly-detection"), "template_app")
     src = repo / "apps" / tmpl
-    app = spec.get("app_name") or slug
+    app = validate_path_component(spec.get("app_name") or slug, "app_name")
     dst = repo / "apps" / app
     if not (repo / "Makefile").exists() or not src.exists():
         die(f"{repo} is not an industrial-edge-insights-time-series checkout with apps/{tmpl}")
@@ -601,12 +798,17 @@ def scaffold_ts(spec, args):
     sensor = spec.get("sensor") or {}
     udf = sensor.get("udf_name") or f"{obj}_anomaly_detector"
     meas = sensor.get("measurement") or f"{slug}-data"
+    alert_channel = spec.get("alert_channel", "mqtt")
+    if alert_channel not in ("mqtt", "opcua"):
+        die("alert_channel must be mqtt or opcua")
+    if (spec.get("openmes") or {}).get("enabled") and alert_channel != "mqtt":
+        die("OpenMES for ts requires alert_channel: mqtt (OPC-UA alerts cannot feed the publisher)")
     rename = {
         "wind-turbine-anomaly-detection": app,
         "windturbine_anomaly_detector": udf,
         "wind-turbine-anomaly-data": re.sub(r"-data$", "", meas) + "-anomaly-data",
         "wind-turbine-data": meas,
-        "wind-simulation-data": f"{slug}-simulation-data",
+        "wind-simulation-data": f"{app.split('-')[0]}-simulation-data",  # publisher rule: first token of SAMPLE_APP
         "alerts/wind_turbine": f"alerts/{obj}",
     }
     if args.dry_run:
@@ -615,6 +817,7 @@ def scaffold_ts(spec, args):
     if dst.exists():
         if not args.force:
             die(f"{dst} exists (use --force to replace it)")
+        validate_removal_target(dst, protect=[repo, SKILL_DIR])
         shutil.rmtree(dst)
     shutil.copytree(src, dst, ignore=shutil.ignore_patterns("training", "models", "*.tar", "*.csv",
                                                             "__pycache__", "openmes"))
@@ -633,17 +836,34 @@ def scaffold_ts(spec, args):
         mk.write_text(t[:m.end()] + f" {app}" + t[m.end():])
     om = None
     if (spec.get("openmes") or {}).get("enabled"):
-        ov = repo / "docker-compose.override.yml"
-        if not ov.exists():
-            ov.write_text("# loopback only, for the host-side OpenMES publisher (anonymous broker; never 0.0.0.0)\n"
-                          "services:\n  ia-mqtt-broker:\n    ports:\n      - \"127.0.0.1:1883:1883\"\n")
+        # The ts Makefile builds COMPOSE_FILES explicitly, so Compose never auto-loads an override:
+        # use a dedicated file and include it in the Makefile's file list.
+        (repo / OPENMES_OVERRIDE).write_text(
+            "# loopback only, for the host-side OpenMES publisher (anonymous broker; never 0.0.0.0)\n"
+            "services:\n  ia-mqtt-broker:\n    ports:\n      - \"127.0.0.1:1883:1883\"\n")
+        t = mk.read_text()
+        if OPENMES_OVERRIDE not in t:
+            anchor = "COMPOSE_FILES = -f $(DOCKER_COMPOSE_FILE)\n"
+            if anchor not in t:
+                die(f"cannot add {OPENMES_OVERRIDE} to the Makefile COMPOSE_FILES list; add it manually")
+            mk.write_text(t.replace(anchor, anchor + f"ifneq ($(wildcard ./{OPENMES_OVERRIDE}),)\n"
+                                    f"COMPOSE_FILES += -f ./{OPENMES_OVERRIDE}\nendif\n", 1))
+        # The publisher needs JSON alerts with top-level anomaly_status and time.
+        for tick in (dst / "time-series-analytics-config/tick_scripts").glob("*.tick"):
+            tt = tick.read_text()
+            new = re.sub(r"\.message\('[^\n]*'\)",
+                         lambda _m: ".message('{\"anomaly_status\": {{ index .Fields \"anomaly_status\" }}, "
+                                    "\"time\": \"{{ .Time }}\"}')", tt)
+            if new != tt:
+                tick.write_text(new)
         om = wire_openmes(spec, dst / "openmes", "ts", f"alerts/{obj}",
                           {"timestamp_format": "kapacitor",
                            "fields": {"defect": "/anomaly_status", "timestamp": "/time"}})
     write_meta(dst, {
         "mode": "ts", "slug": slug, "object": obj, "stack_dir": str(repo), "app": app,
         "host_ip": spec.get("host_ip", "127.0.0.1"), "compose_project": None,
-        "topics": {"sensor_alert": f"alerts/{obj}"},
+        "topics": {"sensor_alert": f"alerts/{obj}"} if alert_channel == "mqtt" else {},
+        "alert_channel": alert_channel,
         "measurements": {"sensor": meas, "sensor_anomaly": re.sub(r"-data$", "", meas) + "-anomaly-data"},
         "https_paths": ["/", "/ts-api/health"], "openmes": om})
     report(dst, spec, changed, [], None, om,
@@ -667,8 +887,10 @@ def report(root, spec, changed, generated, model_proc, om, hits):
         print(f"  OpenMES publisher: {om['dir']}  (topic {om['topic']} -> {om['base_url']})")
         if om["dummy"]:
             print(f"  DUMMY OpenMES alerts page - give this URL to the user: {om['ui_url']}")
-            print(f"    start after the stack is up: {om['dir']}/start_dummy_openmes.sh"
-                  f"   stop: {om['dir']}/stop_dummy_openmes.sh")
+            print(f"    after the stack is up, start {om['dir']}/start_dummy_openmes_receiver.sh"
+                  " (own terminal/background task), wait for /health, then start"
+                  f" {om['dir']}/start_dummy_openmes_publisher.sh; stop each with Ctrl-C"
+                  " (or your tool's stop capability)")
     print(f"\nLines still mentioning the old vertical: {len(hits)}"
           " (edit these: UDF logic, labels, prompts, sensor fields, dashboard queries)")
     for f, n, line in hits:
@@ -687,6 +909,7 @@ def main():
         die("mode must be ts, multimodal, vllm or agentic (vision is demo/PoC only, delegated to other skills)")
     spec["object"] = re.sub(r"[^a-z0-9_]", "_", need(spec, "object").lower())
     spec["slug"] = spec.get("slug") or slugify(spec["object"])
+    spec["host_ip"] = validate_host(spec.get("host_ip", "127.0.0.1"))
     (scaffold_ts if spec["mode"] == "ts" else scaffold_multimodal)(spec, args)
 
 

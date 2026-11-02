@@ -18,6 +18,7 @@ import argparse
 import json
 import re
 import shutil
+import sqlite3
 import ssl
 import subprocess
 import sys
@@ -34,8 +35,10 @@ def check(name, ok, evidence):
 
 
 def run(cmd, timeout=60):
+    """Run *cmd* (a list, never a shell string) with shell execution explicitly
+    disabled so values embedded in *cmd* can never reach a shell parser."""
     try:
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        p = subprocess.run(cmd, shell=False, capture_output=True, text=True, timeout=timeout)
         return p.returncode, (p.stdout or "") + (p.stderr or "")
     except subprocess.TimeoutExpired:
         return 124, "timeout"
@@ -46,6 +49,69 @@ def env_value(env_file, key):
         if line.startswith(key + "="):
             return line.split("=", 1)[1].strip()
     return ""
+
+
+_HOST_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$")
+_PORT_RE = re.compile(r"^[0-9]{1,5}$")
+_SAFE_TOKEN_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9/_.-]{0,254})$")
+
+
+def safe_host(value, what="HOST_IP"):
+    """Validate a hostname/IPv4 value read from .env or metadata before it is
+    embedded in a generated subprocess argument list (curl --resolve, the
+    dummy OpenMES URL, ...). Rejects anything that is not plain
+    hostname/IPv4 characters, including a value starting with '-' that could
+    otherwise be parsed as a command flag."""
+    if not value or not _HOST_RE.match(value):
+        sys.exit(f"unsafe {what} value {value!r}: expected a plain hostname or IPv4 address")
+    return value
+
+
+def safe_port(value, what="port"):
+    if not value or not _PORT_RE.match(value) or not (0 < int(value) < 65536):
+        sys.exit(f"unsafe {what} value {value!r}: expected a 1-65535 port number")
+    return value
+
+
+def safe_token(value, what="value"):
+    """Validate an MQTT topic / InfluxDB measurement read from .scaffold.json
+    before it is used as a subprocess argument or interpolated into an
+    InfluxDB query, rejecting values that could be parsed as flags or that
+    carry characters with no legitimate use in a topic/measurement name."""
+    if not isinstance(value, str) or not _SAFE_TOKEN_RE.match(value):
+        sys.exit(f"unsafe {what} {value!r} in .scaffold.json")
+    return value
+
+
+_SAFE_PATH_RE = re.compile(r"^/[A-Za-z0-9/_.-]*$")
+
+
+def safe_path(value, what="https path"):
+    if not isinstance(value, str) or not _SAFE_PATH_RE.match(value):
+        sys.exit(f"unsafe {what} {value!r} in .scaffold.json")
+    return value
+
+
+def openmes_evidence(db_path):
+    """Read delivery evidence from the publisher's SQLite store (works for any startup path).
+
+    Failures older than the latest delivery (e.g. the deliberate invalid-token smoke test)
+    are history, not unresolved problems.
+    """
+    if not db_path.exists():
+        return 0, 0, f" (store {db_path} not found)"
+    try:
+        con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        try:
+            delivered, last = con.execute(
+                "SELECT count(*), COALESCE(max(created_at), 0) FROM events WHERE state='delivered'").fetchone()
+            unresolved = con.execute(
+                "SELECT count(*) FROM events WHERE state!='delivered' AND created_at > ?", (last,)).fetchone()[0]
+        finally:
+            con.close()
+    except sqlite3.Error as exc:
+        return 0, 0, f" (cannot read {db_path}: {exc})"
+    return delivered, unresolved, f" (store: {db_path})"
 
 
 def main():
@@ -60,8 +126,8 @@ def main():
     meta = json.loads(meta_file.read_text())
     mode, stack_dir = meta["mode"], Path(meta["stack_dir"])
     env_file = stack_dir / ".env"
-    host = env_value(env_file, "HOST_IP") or meta.get("host_ip", "127.0.0.1")
-    port = env_value(env_file, "GRAFANA_PORT") or "3000"
+    host = safe_host(env_value(env_file, "HOST_IP") or meta.get("host_ip", "127.0.0.1"))
+    port = safe_port(env_value(env_file, "GRAFANA_PORT") or "3000")
     if not shutil.which("docker"):
         sys.exit("docker not found")
 
@@ -80,6 +146,9 @@ def main():
     for label, topic in meta.get("topics", {}).items():
         if label in ("sensor_alert",) and mode != "ts":
             continue
+        if label == "sensor_alert" and meta.get("alert_channel", "mqtt") != "mqtt":
+            continue  # OPC-UA alerts are covered by the InfluxDB anomaly measurement check below
+        topic = safe_token(topic, "MQTT topic")
         rc, out = run(["docker", "exec", "ia-mqtt-broker", "mosquitto_sub", "-h", "localhost", "-t", topic,
                        "-C", "1", "-W", str(args.wait)], timeout=args.wait + 10)
         msg = out.strip().splitlines()[0][:180] if out.strip() else ""
@@ -88,6 +157,7 @@ def main():
     # InfluxDB
     user, pw = env_value(env_file, "INFLUXDB_USERNAME"), env_value(env_file, "INFLUXDB_PASSWORD")
     for label, meas in meta.get("measurements", {}).items():
+        meas = safe_token(meas, "InfluxDB measurement")
         rc, out = run(["docker", "exec", "ia-influxdb", "influx", "-username", user, "-password", pw,
                        "-database", "datain", "-format", "json", "-execute",
                        f'SELECT count(*) FROM "{meas}"'])
@@ -107,6 +177,7 @@ def main():
             check("https", False, "could not copy nginx_proxy cert")
         else:
             for path in meta.get("https_paths", []):
+                path = safe_path(path)
                 rc, out = run(["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "--noproxy", "*",
                                "--cacert", str(cert), "--resolve", f"localhost:{port}:{host}",
                                f"https://localhost:{port}{path}"], timeout=30)
@@ -116,13 +187,9 @@ def main():
     # OpenMES
     om = meta.get("openmes")
     if om:
-        log = Path(om["dir"]) / "publisher.log"
-        delivered = errors = 0
-        if log.exists():
-            text = log.read_text(errors="ignore")
-            delivered, errors = text.count("Delivered event="), len(re.findall(r" ERROR ", text))
-        check("openmes publisher", delivered > 0 and errors == 0,
-              f"{delivered} delivered, {errors} errors (log: {log})")
+        delivered, unresolved, detail = openmes_evidence(Path(om["dir"]) / "openmes_events.db")
+        check("openmes publisher", delivered > 0 and unresolved == 0,
+              f"{delivered} delivered, {unresolved} unresolved failures since the last delivery{detail}")
         if om.get("dummy"):
             try:
                 ctx = ssl.create_default_context()
@@ -134,7 +201,8 @@ def main():
                       f"{s['total']} alerts, rejected {s.get('rejected') or {}} - alerts page: {om['ui_url']}")
             except OSError as exc:
                 check("dummy OpenMES receiver", False, f"{om['ui_url']} unreachable ({exc}); "
-                      f"run {om['dir']}/start_dummy_openmes.sh")
+                      f"start {om['dir']}/start_dummy_openmes_receiver.sh (own terminal/background task), "
+                      "then start_dummy_openmes_publisher.sh")
 
     failed = [n for n, ok in RESULTS if not ok]
     print(f"\n{len(RESULTS) - len(failed)}/{len(RESULTS)} checks passed" +

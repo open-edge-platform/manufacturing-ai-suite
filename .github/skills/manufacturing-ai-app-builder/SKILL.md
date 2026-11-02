@@ -10,14 +10,11 @@ description: >-
   deliverable by DELEGATING to the right skill(s) after you confirm.
 license: Apache-2.0
 compatibility: >-
-  Requires: `git`/`gh` and network access to github.com if a delegate skill
-  needs to be fetched from `open-edge-platform/skills` or its own repo; the
-  `skills` CLI pinned to an exact version (`npx skills@1.7.4`, Node.js >= 22.20)
-  for that install step — never `@latest`. `manufacturing-app-recipe` ships
-  locally in this workspace under `.github/skills/` — no install needed for
-  it. Individual delegate skills add their own requirements (Docker +
-  Compose v2, Intel CPU/GPU/NPU) — surface those during planning, do not
-  assume them.
+  External delegates require git/gh, github.com access, Node.js >= 22.20,
+  and the pinned CLI `npx skills@1.7.4` (never @latest).
+  `manufacturing-app-recipe` is local under `.github/skills/`; no install
+  needed. Surface each delegate's Docker Compose v2 and Intel CPU/GPU/NPU
+  requirements during planning; do not assume availability.
 metadata:
   author: open-edge-platform
   tags: "orchestrator business-objective skill-discovery planning manufacturing time-series multimodal vision"
@@ -26,14 +23,9 @@ allowed-tools: bash git gh
 
 # Manufacturing AI App Builder — business-objective orchestrator
 
-You are the **single owner of this conversation**. The user states a
-manufacturing-quality business outcome (e.g. *"alert me when a weld is
-defective"*, *"catch bearing wear before it fails"*, *"flag anomalous power
-output from my wind turbines"*, *"detect scratches on parts from my camera"*).
-Your job is to turn that into a running Intel Edge AI application **without
-ever asking the user to pick a technology** — including never asking whether
-the answer is "vision", "time series", or "both"; you infer that from what
-signals feed the decision.
+Own the conversation: turn a manufacturing-quality business outcome into a
+running Intel Edge AI application. Infer technology from the input signals
+instead of asking the user to choose it, except for Step 1 Q8.
 
 1. **Ask business questions** — outcome, what feeds the decision (camera,
    sensor, or both), deployment target, hardware, operations — never ask which
@@ -47,27 +39,12 @@ signals feed the decision.
 4. **Build only after approval** by delegating to the chosen skill(s). Nothing
    is created before the user confirms.
 
-> Golden rule: the user speaks **business**; you speak **technology** silently.
-> Whether the solution needs a camera, a sensor, or both is a technology
-> inference from the business answers, not a question you ask directly.
-> The one spoken-out-loud exception is the fused-stack explanation layer
-> (`multimodal` vs `vllm` vs `agentic`) — see Step 1's Q8.
-
 ## When to use this skill
 
-Use this skill for any *"I want to `<manufacturing quality/monitoring
-outcome>`"* request — asking only business questions — when you do **not**
-already know which specific skill to run. Specifically:
-
-- The user describes a defect/anomaly/quality-monitoring outcome for a
-  manufacturing process (welding, machining, electronics, rotating machinery,
-  HVAC/facilities, predictive maintenance) but has **not** named a concrete
-  skill.
-- It's unclear up front whether the signal is a **camera feed**, a **sensor
-  stream** (OPC-UA/MQTT), or **both correlated together** — this skill's job
-  is to resolve that ambiguity from business answers, then route.
-- The user asks *"how do I catch defects/anomalies in my `<process>`?"* and
-  needs a guided path.
+Use for manufacturing defect detection, quality monitoring or predictive
+maintenance when the user has not named a concrete skill. Clarify whether
+the decision depends on camera data, sensor data or both correlated together,
+then route to the appropriate delegate.
 
 **Do not** use this skill when the user already named a specific skill
 (invoke that skill directly), when the objective has nothing to do with
@@ -146,28 +123,18 @@ Adapt the wording to the stated outcome, but cover these axes:
     hardware gate in the same message: the vision-language model needs an
     Intel GPU and is validated on Core Ultra Series 3 with at least 32 GB RAM.
 
-**Phrase every question in business terms — never as a technology menu.**
-Do not list technical alternatives for the user to pick from (for example
-"RTSP/USB/ONVIF", "OPC-UA or MQTT", "Docker Compose or demo", "GPU vs
-CPU/NPU"). State the default you will use as a decision (for example "I'll
-use your RTSP camera and a looping sample sensor dataset on a single-host
-Docker Compose deployment on the Intel GPU") and ask only for a plain-language
-confirmation or an override of the *business fact* ("do you have a live
-camera feed or should I demo with sample footage?"). The only technical-looking
-items you may ask are the Q8 mode names, and model availability/ids for
-`vllm`/`agentic` (asked as "already on the host, or which ids to fetch?").
+**Use business questions, not technology menus.** State inferred defaults
+as decisions, then ask for confirmation or a business-fact override
+("live camera or sample footage?"). Do not offer protocol, framework or
+device menus. Only Q8's mode names and explanation-model availability/ids
+may be technical questions ("already on the host, or which ids to fetch?").
 Always request the **absolute build location** (Q7) and any missing business
 inputs (and, when OpenMES is wanted, the base URL, token file *path*, work
 order ID, non-blocking issue type ID, and station/line name) in this same
 single message.
 
-Keep it to what changes the routing decision. Never ask which model,
-framework, precision, device, or "vision vs time series vs multimodal" by
-name — you decide that from question 2's answer. The one exception is Q8's
-`multimodal`/`vllm`/`agentic` choice, which is always named out loud.
-Asking for the OpenMES connection details in Q6 is not a technology
-question. It identifies the user's own system, so ask it whenever OpenMES
-is wanted.
+Keep questions to routing-relevant business facts. OpenMES connection
+details identify the user's system and are permitted whenever it is wanted.
 
 ### Step 2 — Discover the relevant skill(s)
 
@@ -227,11 +194,7 @@ Any detail still missing stays an open question in the plan. Never use
 placeholder IDs or URLs. The recipe's dummy OpenMES receiver is only for a
 user who explicitly asks to test without a real OpenMES.
 
-**Exception — the working directory is not a technology inference.** Both
-manufacturing recipes now ask explicitly where to create their scaffold
-(existing repo checkout to extend, or a fresh parent directory) — carry the
-answer from Step 1's Q7 forward verbatim rather than guessing a path on the
-delegate's behalf; an inferred path is a correctness risk, not a convenience.
+**Working directory:** carry Q7's approved path forward verbatim; never infer it.
 
 ### Step 4 — Propose the plan and WAIT for confirmation
 
@@ -330,8 +293,8 @@ step fails, report the failing delegate step and stop — do not loop.
 If OpenMES was enabled, tell the user where the defect alerts can be seen:
 - **dummy receiver** (only when the user asked to test without a real
   OpenMES): give the alerts page URL `http://<HOST_IP>:8099/`, say it is a
-  read-only test page with dummy data and no login, and give the stop
-  command `openmes/stop_dummy_openmes.sh`;
+  read-only test page with dummy data and no login. Explain that the receiver
+  and publisher run in separate foreground terminals; stop each with Ctrl-C;
 - **real OpenMES**: say alerts appear as Issues on the configured work order,
   with the delivered count from the recipe's verification.
 
@@ -348,12 +311,8 @@ See [`example-prompts/`](example-prompts/) for end-to-end walk-throughs:
 - **User names a skill directly** → skip discovery; hand off to that skill.
 - **Objective spans two skills** (e.g. bare UDF prototype now, full scaffolded
   app later) → sequence them in the plan and confirm the whole pipeline once.
-- **Unsure if multimodal correlation is really needed** — if the user only wants a sensor
-  *or* vision alert and mentions the other modality just as context (not as
-  something to correlate into one verdict), route single-modality, not
-  `manufacturing-app-recipe`'s `multimodal`/`vllm`/`agentic` modes — multimodal correlation is for
-  when **both** signals must agree/combine into one decision, not merely
-  coexist.
+- **Unclear correlation requirement** → route single-modality if the other
+  signal is only context. Fused modes require both signals in one decision.
 - **No catalog match** → say so; offer the closest entry or a custom path;
   never fabricate a skill name or capability.
 - **User declines the plan** → adjust the business answers and re-propose;

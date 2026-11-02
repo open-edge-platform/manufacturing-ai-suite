@@ -98,10 +98,25 @@ names. Apply the `_SAFE_LABEL_RE.fullmatch` fix from [`FUSION.md`](FUSION.md).
 
 ```
 export NGINX_PROFILE=agentic AGENTIC_UI_ENABLED=true MQTT_DISABLED=false   # agentic_mcp when MCP=true
-rm -f configs/grafana/provisioning/*.json
+rm -f configs/grafana/provisioning/*.json   # reference Makefile step: clears the whole directory
 cp configs/grafana/dashboards_jsons/{{DASHBOARD_SLUG}}_vlm.json     configs/grafana/provisioning/{{DASHBOARD_SLUG}}.json
 cp configs/grafana/dashboards_jsons/{{DASHBOARD_SLUG}}_agentic.json configs/grafana/provisioning/{{DASHBOARD_SLUG}}_agentic.json
 make download_model
+```
+
+That `rm -f .../*.json` is the reference Makefile's own, unmodified step —
+it deletes any dashboard JSON already provisioned there, including manual
+edits. Warn the user before the first `make up_agentic` (see `INSTALL.md` →
+*Grafana dashboard swap*). If you ever write this cleanup yourself (rather
+than relying on `make up_agentic`), scope it to the exact files you are
+about to replace instead of a wildcard, confined to this stack's own
+generated `configs/grafana/provisioning/` directory:
+
+```
+rm -f configs/grafana/provisioning/{{DASHBOARD_SLUG}}.json configs/grafana/provisioning/{{DASHBOARD_SLUG}}_agentic.json
+```
+
+```
 docker compose -f docker-compose.yml -f docker-compose-vllm.yml -f docker-compose-agentic.yml [-f docker-compose-mcp.yml] up -d
 make upload_tar_file
 ```

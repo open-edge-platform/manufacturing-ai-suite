@@ -38,3 +38,24 @@ rules:
       reads only HOST_IP, GRAFANA_PORT and the InfluxDB credentials from that
       same .env to run local checks, never printing them. No external
       credential files are read.
+  - id: "PE3"
+    path: "assets/vertical.example.yaml"
+    message: "*.env*"
+    reason: >-
+      Reviewed: the "extra .env overrides" comment documents an optional map
+      written into the generated stack's own .env by scaffold_stack.py. It
+      names no external credential path and is never executed.
+  - id: "EA2"
+    path: "SKILL.md"
+    message: "*never ask the user*"
+    reason: >-
+      Reviewed: this is a safety guardrail instructing the agent NOT to ask
+      for secret values, not an autonomous-execution instruction. It reduces,
+      rather than expands, unsupervised agent behaviour.
+  - id: "EA2"
+    path: "references/OPENMES.md"
+    message: "*disable verification*"
+    reason: >-
+      Reviewed: "Never disable verification" instructs the agent to keep TLS
+      certificate verification enabled for OpenMES calls; it is a prohibition
+      on weakening security, not an autonomous action to take.

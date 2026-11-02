@@ -20,6 +20,7 @@ compatibility: >-
   `${GRAFANA_PORT}`), the Coturn UDP port (`multimodal`/`vllm`/`agentic`),
   and `${OPCUA_SERVER_PORT_MAPPING}` (`ts`, OPC-UA). Tested against the
   manufacturing-ai-suite Time Series / Multimodal references, v2026.2.0.
+allowed-tools: bash, docker, python, curl, read, write, fetch
 ---
 
 # Manufacturing App Recipe — vision / time-series / multimodal / VLM / agentic stacks on Intel hardware
@@ -107,6 +108,17 @@ rewriting them costs most of the time and tokens.
    and data, applies the known fixes, writes `.env` with generated secrets, and
    wires OpenMES. It then prints the **remaining lines that still mention the old
    vertical**.
+   - **If the automated copy cannot run** (permission denied on the reference
+     checkout or the target directory, a sandboxed/restricted environment, or
+     any other access failure): do not bypass the restriction (no `sudo`,
+     no alternate elevated path, no invented workaround) and do not report the
+     stack as scaffolded unless the files actually exist on disk. Instead,
+     inspect the existing reference folder's structure (`ls -R`/directory
+     listing of `reference_dir` or `ts_repo_dir`), recreate the **same**
+     layout by hand under `{{STACK_DIR}}`/`apps/{{APP_NAME}}`, and adapt only
+     the vertical-specific lines per the copy/leave-behind tables in
+     [`references/INSTALL.md`](references/INSTALL.md) — never invent a
+     different file layout or architecture.
 5. Edit **only** those lines (sensor UDF logic and fields, TICKscript fields,
    label normalisation, dashboard queries, agent/UI prompts). Load the
    reference file for a step only when you need it: `TIMESERIES.md`/
@@ -117,8 +129,15 @@ rewriting them costs most of the time and tokens.
    then `make up` / `up_vllm` / `up_agentic`; for `ts`,
    `make up_<transport>_ingestion app=<app>` in the time-series checkout.
    `make check_env_variables` is step 0 of every `up*` target.
-7. If OpenMES with the dummy receiver is enabled, run
-   `openmes/start_dummy_openmes.sh`. Then run `python3 scripts/verify_stack.py <stack or app dir>`
+7. If OpenMES with the dummy receiver is enabled, start
+   `openmes/start_dummy_openmes_receiver.sh`, wait for `/health`, then start
+   `openmes/start_dummy_openmes_publisher.sh` (it waits for `/health` itself
+   before running). Use your own tool's attached background/async execution
+   for each if you have one (stop both explicitly when done); otherwise run
+   each in its own terminal and stop with Ctrl-C. Never `&`/`nohup`/`disown`
+   a plain shell job and call it stopped later by searching for its PID —
+   that job outlives the shell that started it. Then run
+   `python3 scripts/verify_stack.py <stack or app dir>`
    and quote its PASS lines in the final summary. Re-run only the failed checks
    after a fix. Do not poll with fixed sleeps.
 
@@ -475,8 +494,11 @@ manual `cp -r`. The script drops docs, tests, training, Helm and repo
 metadata, prunes by mode, renames every vertical-specific path and name, and
 applies the known fixes. The renaming rule still applies: **no leftover
 `weld`/`wind-turbine` names** in generated files, services, MQTT topics or
-measurements. The script's leftover report is the checklist; finish when it
-lists only lines that are legitimately generic. The script needs a
+measurements. The script's leftover report is a naming checklist only: it
+does not detect semantic settings (e.g. the copied agent policy's `mode: OR`
+or `ticketing.backend: jira`), so also walk the per-vertical semantic
+checklists independently; finish when both are clean and the report lists only
+lines that are legitimately generic. The script needs a
 reference checkout on disk (`reference_dir` / `ts_repo_dir`); clone the upstream
 repo at a pinned tag if none exists. Details:
 [`references/INSTALL.md`](references/INSTALL.md) → *Reference implementation*.
@@ -501,10 +523,10 @@ points*. A claim with no quoted evidence is treated as unmet.
 
 **OpenMES in the summary.** If OpenMES was enabled, say which OpenMES the
 alerts go to. With the **dummy receiver**, always give the user its alerts page
-URL, `http://<HOST_IP>:8099/` (printed by `scaffold_stack.py` and by
-`openmes/start_dummy_openmes.sh`). Say that it is a read-only test page
-with no login and dummy data, show how to stop it
-(`openmes/stop_dummy_openmes.sh`), and give the alert count from
+URL, `http://<HOST_IP>:8099/` (printed by `scaffold_stack.py`). Say that it is
+a read-only test page with no login and dummy data, show how to stop it
+(Ctrl-C in each terminal, or your tool's stop capability — there is no
+separate stop script), and give the alert count from
 `verify_stack.py`. With a real OpenMES, give the delivered count and where
 to look in OpenMES (issues on the configured work order), never the token.
 
@@ -526,8 +548,14 @@ rather than implying it:
   `check_env_variables`, `up`/`up_*`, `status` and `down`; the selected Grafana
   dashboard JSON from `dashboards_jsons/` is **copied into
   `configs/grafana/provisioning/` at install/`up` time** (the `up*` target
-  runs `rm -f provisioning/*.json` then `cp`). State that no
-  weld/wind-turbine names remain in the generated artifacts.
+  clears every file already in that one provisioning directory before
+  copying the new ones in — see `INSTALL.md`'s *Grafana dashboard swap* for
+  the exact reference-Makefile step). **Warn the user before the first
+  `up`/`up_*` run that this deletes every file already in
+  `configs/grafana/provisioning/`**, including any manually edited dashboard
+  JSON — back up custom edits (or keep them only under `dashboards_jsons/`,
+  which is never deleted) before switching modes or re-running `up*`. State
+  that no weld/wind-turbine names remain in the generated artifacts.
 - **OpenMES:** say `{{OPENMES_ENABLED}}=yes` explicitly, that `openmes/`
   holds `openmes_publisher.py` copied verbatim from `assets/openmes/` plus a
   templated `openmes-publisher.json`, and that only `fused_decision == 1`
