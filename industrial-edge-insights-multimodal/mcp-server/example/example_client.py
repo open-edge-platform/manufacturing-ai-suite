@@ -60,6 +60,7 @@ def create_parser() -> argparse.ArgumentParser:
     parser.add_argument("--insecure", action="store_true", help="Trust the local self-signed HTTPS certificate")
     tools = parser.add_subparsers(dest="tool", required=True)
     tools.add_parser("describe", help="Describe the MCP server and its tools")
+    tools.add_parser("get_pipeline_status", help="Get time-series and DL Streamer pipeline statuses")
 
     insights = tools.add_parser("list_insights_data", help="List fusion results")
     insights.add_argument("--page", type=int, default=1)

@@ -14,10 +14,6 @@ usage() {
     echo "Docker Compose commands:"
     echo "  up             - Start all instances"
     echo "  down           - Stop all instances"
-    echo ""
-    echo "Helm commands:"
-    echo "  helm_install   - Install helm releases for all instances"
-    echo "  helm uninstall - Uninstall helm releases for all instances"
     exit 1
 }
 
@@ -80,27 +76,6 @@ main() {
                 docker compose -p "$instance_name" down -v
             done < <(get_all_instances)
             echo "All instances stopped!"
-            ;;
-        helm_install)
-            echo "Installing helm releases for all instances..."
-            while IFS='|' read -r sample_app instance_name; do
-            values_file="$SCRIPT_DIR/helm/temp_apps/$sample_app/$instance_name/values.yaml"
-            if [[ ! -f "$values_file" ]]; then
-                err "Values file not found: $values_file"
-                exit 1
-            fi
-            echo "Installing $instance_name..."
-            helm install "$instance_name" helm -n "$instance_name" --create-namespace -f "$values_file"
-            done < <(get_all_instances)
-            echo "All helm releases installed!"
-            ;;
-        helm_uninstall)
-            echo "Uninstalling helm releases for all instances..."
-            while IFS='|' read -r sample_app instance_name; do
-            echo "Uninstalling $instance_name..."
-            helm uninstall "$instance_name" -n "$instance_name"
-            done < <(get_all_instances)
-            echo "All helm releases uninstalled!"
             ;;
         *)
             usage

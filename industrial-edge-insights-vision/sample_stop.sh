@@ -7,7 +7,6 @@
 
 # Default values
 SCRIPT_DIR=$(dirname "$(readlink -f "$0")")
-DEPLOYMENT_TYPE=""                     # Default deployment type (empty for existing flow)
 CONFIG_FILE="$SCRIPT_DIR/config.yml"   # Config file path (For multiple instances)
 
 init() {
@@ -33,23 +32,13 @@ init() {
         exit 1
     fi
 
-    # Set the appropriate HOST_IP with port for curl commands based on deployment type and config file presence 
+    # Set the appropriate HOST_IP with port for curl commands based on config file presence 
     if [[ -f "$CONFIG_FILE" ]]; then
-        if [[ "$DEPLOYMENT_TYPE" == "helm" ]]; then
-            CURL_HOST_IP="${HOST_IP}:$NGINX_HTTPS_PORT"
-            echo "Using Helm deployment - curl commands will use: $CURL_HOST_IP"
-        else
-            CURL_HOST_IP="$HOST_IP:$NGINX_HTTPS_PORT"
-            echo "Using default deployment - curl commands will use: $CURL_HOST_IP"
-        fi
+        CURL_HOST_IP="$HOST_IP:$NGINX_HTTPS_PORT"
+        echo "Using default deployment - curl commands will use: $CURL_HOST_IP"
     else
-        if [[ "$DEPLOYMENT_TYPE" == "helm" ]]; then
-            CURL_HOST_IP="${HOST_IP}:$NGINX_HTTPS_PORT"
-            echo "Using Helm deployment - curl commands will use: $CURL_HOST_IP"
-        else
-            CURL_HOST_IP="${HOST_IP}:$NGINX_HTTPS_PORT"
-            echo "Using default deployment - curl commands will use: $CURL_HOST_IP"
-        fi
+        CURL_HOST_IP="${HOST_IP}:$NGINX_HTTPS_PORT"
+        echo "Using default deployment - curl commands will use: $CURL_HOST_IP"
     fi
 }
 
@@ -185,12 +174,7 @@ stop_pipelines() {
     if [[ -f "$CONFIG_FILE" && -n "$INSTANCE_NAME" ]]; then
         # if config.yml exists and INSTANCE_NAME is set
         get_sample_app
-        # if deployment type is helm or default and set ENV_PATH accordingly
-        if [[ "$DEPLOYMENT_TYPE" == "helm" ]]; then
-            ENV_PATH="$SCRIPT_DIR/helm/temp_apps/$SAMPLE_APP/$INSTANCE_NAME/.env"
-        else                
-            ENV_PATH="$SCRIPT_DIR/temp_apps/$SAMPLE_APP/$INSTANCE_NAME/.env"
-        fi
+        ENV_PATH="$SCRIPT_DIR/temp_apps/$SAMPLE_APP/$INSTANCE_NAME/.env"
         init
         # check if dlstreamer-pipeline-server is running
         get_status
@@ -211,11 +195,7 @@ stop_pipelines() {
             echo "Processing instance: $instance_name (SAMPLE_APP: $sample_app)"
             echo "-------------------------------------------"
             
-            if [[ "$DEPLOYMENT_TYPE" == "helm" ]]; then
-                ENV_PATH="$SCRIPT_DIR/helm/temp_apps/$sample_app/$instance_name/.env"
-            else
-                ENV_PATH="$SCRIPT_DIR/temp_apps/$sample_app/$instance_name/.env"
-            fi
+            ENV_PATH="$SCRIPT_DIR/temp_apps/$sample_app/$instance_name/.env"
             init  
             # check if dlstreamer-pipeline-server is running
             get_status
@@ -261,10 +241,7 @@ err() {
 }
 
 usage() {
-    echo "Usage: $0 [helm] [OPTIONS]"
-    echo ""
-    echo "Arguments:"
-    echo "  helm                                      Use Helm deployment (adds :30443 port to HOST_IP)"
+    echo "Usage: $0 [OPTIONS]"
     echo ""
     echo "Options:"
     echo "  (no options)                              Stop all pipeline instances (default)"
@@ -284,24 +261,6 @@ usage() {
 }
 
 main() {
-    # Check for helm argument first and set DEPLOYMENT_TYPE
-    args=("$@")
-    for i in "${!args[@]}"; do
-        if [[ "${args[i]}" == "helm" ]]; then
-            DEPLOYMENT_TYPE="helm"
-            # Remove helm from the args array
-            unset 'args[i]'
-            break
-        fi
-    done
-
-    # Reconstruct the arguments from the modified array (removing empty elements)
-    filtered_args=()
-    for arg in "${args[@]}"; do
-        [[ -n "$arg" ]] && filtered_args+=("$arg")
-    done
-    set -- "${filtered_args[@]}"
-
     # If no arguments provided, stop all pipeline instances
     if [[ -z "$1" ]]; then
         echo "No pipelines specified. Stopping all pipeline instances"

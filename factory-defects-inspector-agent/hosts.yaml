@@ -10,8 +10,8 @@
 recipes:
   weld:
     source_delivery: central_copy
-    repository: https://github.com/vkb1/manufacturing-ai-suite.git
-    ref: feature/vkb1/add-mcp-server-ts
+    repository: https://github.com/open-edge-platform/manufacturing-ai-suite.git
+    ref: main
     remote_root: manufacturing-ai-suite  # prompt path prefix; checkouts are isolated per deployment
     app_dir: industrial-edge-insights-multimodal
     skill:
@@ -69,8 +69,8 @@ recipes:
 
   wind_turbine:
     source_delivery: central_copy
-    repository: https://github.com/vkb1/manufacturing-ai-suite.git
-    ref: feature/vkb1/add-mcp-server-ts
+    repository: https://github.com/open-edge-platform/manufacturing-ai-suite.git
+    ref: main
     remote_root: manufacturing-ai-suite  # prompt path prefix; checkouts are isolated per deployment
     app_dir: industrial-edge-insights-time-series
     skill:

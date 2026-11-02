@@ -20,7 +20,7 @@ Expected agent flow:
 3. `make build MCP=true` (only if images must be built locally).
 4. `make up_agentic MCP=true` (hardware/model gates, then the agentic LLM
    download via `make download_model`).
-5. `<skill-dir>/scripts/smoke-check.sh` — includes the
+5. `<skill-dir>/scripts/smoke-check.sh` — includes an authenticated,
    read-only MCP `tools/list` probe.
 6. Explain that pipelines do not auto-start in MCP mode, so Grafana is
    empty until `start_pipeline` is called.

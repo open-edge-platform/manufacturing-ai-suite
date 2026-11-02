@@ -4,7 +4,7 @@ This section describes how to create custom AI pipelines for the sample applicat
 
 ## Create Pipelines
 
-The AI pipelines are defined by the `pipeline-server-config.json` file present under the configs subdirectory of a particular application directory (for Docker Compose deployment) and similarly inside the Helm directory (for Helm based deployment).
+The AI pipelines are defined by the `pipeline-server-config.json` file present under the configs subdirectory of a particular application directory.
 
 <!--hide_directive ::::{tab-set} hide_directive-->
 <!--hide_directive :::{tab-item} hide_directive--> **Pallet Defect Detection**
