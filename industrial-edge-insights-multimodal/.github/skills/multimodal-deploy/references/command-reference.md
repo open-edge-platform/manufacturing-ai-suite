@@ -46,8 +46,8 @@ deployment procedures, use the app's published user guide at
 | Target | Depends on | Effect |
 |---|---|---|
 | `make up` | `check_env_variables validate_host_ip down` | Default compose file, copies default Grafana dashboard, `docker compose up -d`, then uploads the weld-anomaly UDF tar and posts config to the Time-Series Analytics microservice |
-| `make up_vllm` | `check_hardware check_env_variables validate_host_ip down` | Runs `make download_model` to ensure vLLM models, then starts the vLLM overlay and dashboard |
-| `make up_agentic` | `check_hardware check_env_variables validate_host_ip down` | Runs `make download_model DOWNLOAD_AGENTIC=true` to ensure vLLM models and download the agentic model, then brings up all services and runs `upload_tar_file` |
+| `make up_vllm` | `check_hardware check_models check_env_variables validate_host_ip down` | Requires vLLM models, then starts the vLLM overlay and dashboard |
+| `make up_agentic` | `check_hardware check_models check_env_variables validate_host_ip down` | Requires vLLM models; downloads the agentic model if requested, then brings up all services and runs `upload_tar_file` |
 | `make up_agentic MCP=true` | same, with MCP credential validation | As `up_agentic`, plus `docker-compose-mcp.yml` and `NGINX_PROFILE=agentic_mcp`. Does **not** run `upload_tar_file`; the DL Streamer pipeline uses `config_auto_start_off.json`, so nothing is processed until an MCP client calls `start_pipeline` |
 | `make down` | — | `docker compose -f docker-compose.yml -f docker-compose-vllm.yml -f docker-compose-agentic.yml [-f docker-compose-mcp.yml] down -v --remove-orphans` (removes volumes; pass `MCP=true` after an MCP deployment) |
 | `make status` | — | Lists containers on the `timeseriessoftware_timeseries_network` network, waits 20s, then scans last 5 log lines per container for "error" |

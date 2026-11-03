@@ -10,7 +10,7 @@ Expected agent flow:
 2. Meet the prerequisites in
    [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html):
    `make check_hardware`, then `make check_models`. If `check_models` fails,
-   run `make download_model`
+   run `make download_model DOWNLOAD_AGENTIC=true`
    only after the user explicitly accepts the model license (asked
    separately from the deploy request), and re-run `make check_models`.
    Inspect `configs/vllm/huggingface` and `configs/vllm/models` first; if
