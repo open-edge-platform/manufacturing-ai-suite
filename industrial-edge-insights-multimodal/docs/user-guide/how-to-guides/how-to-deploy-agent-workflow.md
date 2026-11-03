@@ -50,7 +50,7 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
    - `S3_STORAGE_USERNAME`, `S3_STORAGE_PASSWORD`
    - `SEAWEEDFS_WEB_AUTH_USER`, `SEAWEEDFS_WEB_AUTH_PASSWORD`
 
-2. Download the Vision-Language Model (VLM) model and LoRA adapter by running `make model_download` from the app root (see the [guide](./how-to-deploy-vllm-service.md) for details, including license acceptance).
+2. Download the Vision-Language Model (VLM) and LoRA adapter with `make download_model` from the app root (see the [guide](./how-to-deploy-vllm-service.md) for details, including license acceptance). `make up_agentic` also downloads the agentic model.
 
 ## Deploy the Agentic Workflow
 

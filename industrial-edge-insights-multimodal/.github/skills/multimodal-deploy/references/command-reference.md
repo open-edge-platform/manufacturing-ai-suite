@@ -39,15 +39,15 @@ deployment procedures, use the app's published user guide at
 | `check_env_variables` | Validates `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD`, `MTX_WEBRTCICESERVERS2_0_USERNAME/PASSWORD`, `S3_STORAGE_USERNAME/PASSWORD`, `SEAWEEDFS_WEB_AUTH_USER/PASSWORD` in `.env`, plus `MCP_USERNAME/PASSWORD` when `MCP=true`. Usernames: letters only, at least 5 characters (`INFLUXDB_USERNAME` must not be `admin`). Passwords: alphanumeric, at least 10 characters, with at least one letter and one digit |
 | `validate_host_ip` | Ensures `HOST_IP` in `.env` is set and is a valid IPv4 address (`localhost` is rejected; use `127.0.0.1` for local-only access) |
 | `check_hardware` | Requires Intel Panther Lake (Family 6, Model 204) / Core Ultra 3xx CPU unless `PLATFORM_CHECK=false` (in `.env` or on the `make` command line; CI/validation only) |
-| `check_models` | Requires non-empty `configs/vllm/models` and `configs/vllm/huggingface` directories. Populate them with `make model_download` (also run automatically by `make up_vllm` when they are missing); `make download_model` does not fill these directories |
+| `check_models` | Requires non-empty `configs/vllm/models` and `configs/vllm/huggingface` directories. `make download_model` ensures these are populated; `DOWNLOAD_AGENTIC=true` also downloads the agentic model |
 
 ## Deploy (Docker Compose)
 
 | Target | Depends on | Effect |
 |---|---|---|
 | `make up` | `check_env_variables validate_host_ip down` | Default compose file, copies default Grafana dashboard, `docker compose up -d`, then uploads the weld-anomaly UDF tar and posts config to the Time-Series Analytics microservice |
-| `make up_vllm` | `check_hardware check_env_variables validate_host_ip down` | Runs `make model_download` first when `configs/vllm/models` or `configs/vllm/huggingface` is missing/empty, then verifies with `check_models`; adds `docker-compose-vllm.yml` overlay (`vllm-server`, `multimodal-agentic-ui`), VLM Grafana dashboard, `NGINX_PROFILE=vllm` |
-| `make up_agentic` | `check_hardware check_models check_env_variables validate_host_ip down` | Adds agentic + vllm overlays, VLM + agentic Grafana dashboards, `NGINX_PROFILE=agentic`; runs `make download_model` first (can take minutes), brings up all services, then runs `upload_tar_file` |
+| `make up_vllm` | `check_hardware check_env_variables validate_host_ip down` | Runs `make download_model` to ensure vLLM models, then starts the vLLM overlay and dashboard |
+| `make up_agentic` | `check_hardware check_env_variables validate_host_ip down` | Runs `make download_model DOWNLOAD_AGENTIC=true` to ensure vLLM models and download the agentic model, then brings up all services and runs `upload_tar_file` |
 | `make up_agentic MCP=true` | same, with MCP credential validation | As `up_agentic`, plus `docker-compose-mcp.yml` and `NGINX_PROFILE=agentic_mcp`. Does **not** run `upload_tar_file`; the DL Streamer pipeline uses `config_auto_start_off.json`, so nothing is processed until an MCP client calls `start_pipeline` |
 | `make down` | — | `docker compose -f docker-compose.yml -f docker-compose-vllm.yml -f docker-compose-agentic.yml [-f docker-compose-mcp.yml] down -v --remove-orphans` (removes volumes; pass `MCP=true` after an MCP deployment) |
 | `make status` | — | Lists containers on the `timeseriessoftware_timeseries_network` network, waits 20s, then scans last 5 log lines per container for "error" |
@@ -56,8 +56,7 @@ deployment procedures, use the app's published user guide at
 
 | Target | Effect |
 |---|---|
-| `make download_model` | Gives the downloader container's user (UID 1000) ownership of `configs/agentic/models` via a short-lived root container (no `sudo`), starts the `model-download` service, polls `http://${HOST_IP}:8200/api/v1/models/results` until ready, requests download/conversion of `LLM_MODEL_NAME` (`LLM_DEVICE`, `LLM_WEIGHT_FORMAT`), then polls the job until completed (up to 600 × 5s) |
-| `make model_download` | Wipes and re-creates `configs/vllm/huggingface` and `configs/vllm/models` (owned by the downloader container's user) via a short-lived root container, starts the `model-download-vllm` service, polls `http://${HOST_IP}:8201/api/v1/models/results` until ready, requests `VLLM_MODEL_REPO_ID` and `VLLM_ADAPTER_REPO_ID` from HuggingFace, polls each job until completed (up to 600 × 5s), moves the downloads into the layout expected by `docker-compose-vllm.yml`, then stops the service |
+| `make download_model [DOWNLOAD_AGENTIC=true]` | Ensures vLLM base model and adapter are present. Optionally downloads/converts `LLM_MODEL_NAME` into `configs/agentic/models`; stages vLLM artifacts and replaces their target directories only after both jobs succeed |
 | `make wait_for_tsam` | Polls `https://${HOST_IP}:3000/ts-api/health` (port `3000` is hard-coded, not `GRAFANA_PORT`) until the Time-Series Analytics microservice responds |
 | `make upload_tar_file` | Builds `configs/time-series-analytics-microservice/weld_anomaly_detector.tar` and uploads it to `https://${HOST_IP}:${GRAFANA_PORT}/ts-api/udfs/package`, then runs `post_config` |
 | `make post_config` | Posts `configs/time-series-analytics-microservice/config.json` to `https://${HOST_IP}:${GRAFANA_PORT}/ts-api/config` |

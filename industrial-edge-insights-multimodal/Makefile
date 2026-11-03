@@ -36,6 +36,7 @@ LLM_DEVICE_LOWER := $(shell printf '%s' "$(LLM_DEVICE)" | tr '[:upper:]' '[:lowe
 LLM_WEIGHT_FORMAT_LOWER := $(shell printf '%s' "$(LLM_WEIGHT_FORMAT)" | tr '[:upper:]' '[:lower:]')
 MODEL_PATH ?= /model/llm_model_agentic/openvino_models/$(LLM_DEVICE_LOWER)/$(LLM_WEIGHT_FORMAT_LOWER)/$(LLM_MODEL_NAME)
 export MODEL_PATH
+DOWNLOAD_AGENTIC ?= false
 PLATFORM_CHECK ?= true
 MCP ?= false
 MCP_COMPOSE_ARG = $(if $(filter true,$(MCP)),-f $(DOCKER_COMPOSE_FILE_MCP))
@@ -293,11 +294,7 @@ check_hardware:
 
 .PHONY: up_vllm
 up_vllm: check_hardware check_env_variables validate_host_ip down
-	@if ! $(MAKE) check_models >/dev/null 2>&1; then \
-		echo "vLLM models not found under configs/vllm. Downloading..."; \
-		$(MAKE) model_download || exit 1; \
-	fi; \
-	$(MAKE) check_models || exit 1; \
+	$(MAKE) download_model || exit 1; \
 	export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
 	export NGINX_PROFILE=vllm; \
 	export AGENTIC_UI_ENABLED=false MQTT_DISABLED=true; \
@@ -312,7 +309,19 @@ up_vllm: check_hardware check_env_variables validate_host_ip down
 # configs/agentic/models directory, which on the host is owned by the invoking user (or root,
 # if Docker created it). A one-off root container first chowns it to the uid:gid that owns /opt
 # in the image, i.e. the user the service runs as.
+.PHONY: download_model _download_agentic_model _download_vllm_models
 download_model:
+	@case "$(DOWNLOAD_AGENTIC)" in true|false) ;; *) echo "Use DOWNLOAD_AGENTIC=true or false" >&2; exit 2 ;; esac; \
+	if ! $(MAKE) check_models >/dev/null 2>&1; then \
+		echo "vLLM models not found. Downloading the base model and adapter..."; \
+		$(MAKE) _download_vllm_models || exit 1; \
+	fi; \
+	$(MAKE) check_models || exit 1; \
+	if [ "$(DOWNLOAD_AGENTIC)" = "true" ]; then \
+		$(MAKE) _download_agentic_model || exit 1; \
+	fi
+
+_download_agentic_model:
 	@echo "Starting Model Download Service..."; \
 	mkdir -p configs/agentic/models; \
 	docker run --rm --user 0:0 --entrypoint sh \
@@ -375,8 +384,7 @@ download_model:
 	echo "Model download completed successfully"
 
 # Downloads the vLLM base model and LoRA adapter via the model-download microservice.
-.PHONY: model_download
-model_download:
+_download_vllm_models:
 	@echo "Starting Model Download Service for the vLLM models..."; \
 	mkdir -p configs/vllm || exit 1; \
 	staging_dir=$$(mktemp -d configs/vllm/.download.XXXXXX) || exit 1; \
@@ -479,7 +487,7 @@ model_download:
 
 
 .PHONY: up_agentic
-up_agentic: check_hardware check_models check_env_variables validate_host_ip down
+up_agentic: check_hardware check_env_variables validate_host_ip down
 	@export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
 	export NGINX_PROFILE=$(AGENTIC_NGINX_PROFILE); \
 	export AGENTIC_UI_ENABLED=true MQTT_DISABLED=false; \
@@ -488,7 +496,7 @@ up_agentic: check_hardware check_models check_env_variables validate_host_ip dow
 	rm -f configs/grafana/provisioning/*.json; \
 	cp configs/grafana/dashboards_jsons/weld_defect_detection_vlm.json configs/grafana/provisioning/weld_defect_detection.json || exit 1; \
 	cp configs/grafana/dashboards_jsons/weld_defect_detection_agentic.json configs/grafana/provisioning/weld_defect_detection_agentic.json || exit 1; \
-	$(MAKE) download_model || exit 1; \
+	$(MAKE) download_model DOWNLOAD_AGENTIC=true || exit 1; \
 	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) up -d || exit 1; \
 	if [ "$(MCP)" != "true" ]; then $(MAKE) upload_tar_file; fi
 
@@ -554,9 +562,9 @@ help:
 	@echo "  make build_copyleft_sources       - Build all Docker images including copyleft licensed sources"
 	@echo "  make up                           - Start the base application (MQTT ingestion)"
 	@echo "  make up_vllm                      - Start the application and the vLLM stack"
-	@echo "      Requires a supported platform (see check_hardware); downloads the vLLM models first if missing (see model_download)"
+	@echo "      Requires a supported platform (see check_hardware); downloads vLLM models first if missing"
 	@echo "  make up_agentic                   - Start the application and the agentic stack including vLLM"
-	@echo "      Requires: supported platform (see check_hardware); downloads the agentic models first"
+	@echo "      Requires a supported platform; ensures vLLM models and downloads the agentic model"
 	@echo "  make up_agentic MCP=true          - Also start the authenticated MCP server"
 	@echo "      Set MCP_USERNAME and MCP_PASSWORD in .env first. Pipelines are then started through MCP."
 	@echo "  make down                         - Stop Docker containers and remove volumes"
@@ -567,9 +575,7 @@ help:
 	@echo "  make check_models                 - Check that the vLLM model directories are populated"
 	@echo "  make check_hardware               - Check the platform for the vLLM/agentic stacks"
 	@echo "      Optional: PLATFORM_CHECK=false skips the check (CI/validation use only)"
-	@echo "  make download_model               - Download the agentic models"
-	@echo "  make model_download               - Download the vLLM base model and LoRA adapter via the model-download microservice"
-	@echo "      Stages both downloads before replacing requested artifacts; preserves unrelated models"
+	@echo "  make download_model [DOWNLOAD_AGENTIC=true] - Download vLLM models; optionally include the agentic model"
 	@echo "  make upload_tar_file              - Upload the weld anomaly detection UDF package to the Time-Series Analytics microservice"
 	@echo "  make post_config                  - Post the weld anomaly detection config to the Time-Series Analytics microservice"
 	@echo "  make push_images                  - Build and push all images, including the MCP server, to the docker registry"

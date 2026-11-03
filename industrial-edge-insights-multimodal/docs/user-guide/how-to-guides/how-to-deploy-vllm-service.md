@@ -30,7 +30,7 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
    - `S3_STORAGE_USERNAME`, `S3_STORAGE_PASSWORD`
    - `SEAWEEDFS_WEB_AUTH_USER`, `SEAWEEDFS_WEB_AUTH_PASSWORD`
 
-2. Review and accept the [Unsloth Qwen3.5-2B license](https://huggingface.co/unsloth/Qwen3.5-2B/blob/main/LICENSE) before deploying.
+2. Review the [Unsloth Qwen3.5-2B license](https://huggingface.co/unsloth/Qwen3.5-2B/blob/main/LICENSE) prior to deployment.
 
    > [!NOTE]
    > The [Low-Rank Adaptation (LoRA) adapter](https://huggingface.co/Intel/qwen3.5-2b-vlm-weld-explainability-lora) was specifically trained on a subset of the [Intel Robotic Welding Multimodal Dataset](https://huggingface.co/datasets/IntelLabs/Intel_Robotic_Welding_Multimodal_Dataset) and may not generalize to generic weld datasets.
@@ -55,7 +55,7 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
    > the fine-tuned LoRA adapter through the model-download microservice into
    > `configs/vllm/huggingface/Qwen3.5-2B` and
    > `configs/vllm/models/qwen3.5-2b-vlm-weld-explainability-lora`. To re-download the models,
-   > run `make model_download`.
+  > run `make download_model`.
 
 2. (Optional) To build from source instead of deploying the pre-built artifacts, run the
    following for a fresh build before deployment:
@@ -128,15 +128,15 @@ make down
   This is expected as the model initializes and loads into memory.
 
 - `Error: configs/vllm/models directory does not exist.`
-  Run `make model_download` to download the model and adapter into the expected directories.
+  Run `make download_model` to download the model and adapter into the expected directories.
 
 - `Error: configs/vllm/models directory is empty.`
-  Run `make model_download` before running `make up_vllm`.
+  Run `make download_model` before running `make up_vllm`.
 
 - `ERROR: model-download-vllm service did not become ready in time` or a failed download job
   Inspect the service logs with `docker logs vllm-model-download`. If you are behind a proxy,
   ensure `http_proxy`/`https_proxy` are set in your environment before running
-  `make model_download`.
+  `make download_model`.
 
 - `HOST_IP is not set` or `HOST_IP is not a valid IPv4 address format.`
   Update `HOST_IP` in `.env` with a valid IPv4 address.

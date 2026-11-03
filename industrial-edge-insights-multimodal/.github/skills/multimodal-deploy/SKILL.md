@@ -89,7 +89,7 @@ checkout copy instead):
 | [System requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/system-requirements.html) | Base hardware/OS/Docker/Python requirements for every variant |
 | [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) | Clone commands, Docker configuration (non-root, proxy, log rotation), `.env` fields, default `make up` deploy, GPU/NPU inference switches, verification, `make status` caveats |
 | [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html) | `make build` / `make build_copyleft_sources`, and, only when explicitly requested, building the Time Series Analytics microservice from the latest `edge-ai-libraries` source first (Step 2a) |
-| [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | vLLM variant: extra hardware/RAM/storage requirements, the `make model_download` procedure that populates `configs/vllm/huggingface` and `configs/vllm/models` (also run automatically by `make up_vllm` when they are missing), `VLLM_GPU_MEMORY_UTILIZATION`, `make up_vllm`, verification, troubleshooting |
+| [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | vLLM variant: extra hardware/RAM/storage requirements, `make download_model` (also run automatically by `make up_vllm` when models are missing), `VLLM_GPU_MEMORY_UTILIZATION`, verification, troubleshooting |
 | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Agentic variant (with or without `MCP=true`): extra requirements, prerequisites (including the vLLM model download), `LLM_DEVICE`, `make up_agentic [MCP=true]`, agent configuration, verification |
 | [Update config](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-update-config.html), [Configure alerts](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-configure-alerts.html), [Configure an RTSP camera](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-configure-rtsp-camera.html), [Access S3-stored images](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-access-s3-stored-images.html) | Post-deploy configuration questions |
 | [Troubleshooting](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/troubleshooting.html) | Known runtime issues ("No Data" in Grafana, slow Time-Series Analytics start, coturn/mediamtx log noise, EMT `docker exec`) |
@@ -146,7 +146,7 @@ Ask (or infer from the user's request) which variant to deploy:
 |---|---|---|---|
 | Default (vision + time-series fusion) | `make up` | [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) | No extra hardware checks |
 | vLLM-based VLM | `make up_vllm` | [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | Requires `check_hardware` + `check_models` — see Step 1b |
-| Agentic | `make up_agentic` | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Requires `check_hardware` + `check_models` (Step 1b), then triggers `make download_model` (can take minutes) |
+| Agentic | `make up_agentic` | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Requires `check_hardware`; ensures vLLM models and downloads the agentic model (can take minutes) |
 | Agentic + MCP server | `make up_agentic MCP=true` | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Same as Agentic, plus `docker-compose-mcp.yml` (`multimodal-mcp-server`), `MCP_USERNAME`/`MCP_PASSWORD` validation, and the `agentic_mcp` nginx profile that exposes `/mcp`. Pipelines do **not** auto-start — see Step 2 |
 
 All `up*` targets implicitly run `check_env_variables`, `validate_host_ip`,
@@ -170,30 +170,20 @@ For `make up_vllm`, `make up_agentic`, and `make up_agentic MCP=true`:
    least 256 GB storage (512 GB recommended); check with `free -g` and
    `df -h .` and report any shortfall. `PLATFORM_CHECK=false` bypasses only
    the CPU gate and is for CI/validation, not for real deployments.
-2. **vLLM base model and LoRA adapter.** Run `make check_models`. If it
-   fails (`configs/vllm/models` or `configs/vllm/huggingface` missing or
-   empty), run `make model_download` from the app root — it starts the
-   `model-download-vllm` microservice (from `docker-compose-vllm.yml`),
-   downloads the base model and the weld LoRA adapter from HuggingFace
-   through its REST API, places them under `configs/vllm`, and stops the
-   service. Then re-run `make check_models` and require it to pass.
-   (`make up_vllm` also runs `make model_download` automatically when the
-   models are missing.)
+2. **Models.** `make download_model` ensures the vLLM base model and LoRA
+  adapter exist. `make download_model DOWNLOAD_AGENTIC=true` also downloads
+  the agentic model. `make up_vllm` and `make up_agentic` call this target
+  automatically with the required option.
    - **License acceptance.** The doc asks the user to review and accept the
      base model's license first. Show the license link from the doc and get
      explicit acceptance of that license before downloading. A request to
      "meet prerequisites" or "download models" is permission to download,
      not license acceptance — ask separately.
-   - **Do not delete existing models.** `make model_download` wipes
-     `configs/vllm/huggingface` and `configs/vllm/models` before
-     downloading, which erases anything already staged (including
-     user-supplied or git-ignored models/adapters). Before running it, list
-     the contents of both directories. If either is non-empty, do not run
-     it without the user's explicit permission.
-   - `make download_model` (run inside `up_agentic`) does **not** satisfy
-     this gate: it fetches the agentic LLM (`LLM_MODEL_NAME`) into
-     `configs/agentic/models` via the `model-download` service, and
-     `check_models` runs before it.
+  - The vLLM download stages both artifacts and replaces only the requested
+     model and adapter after both jobs succeed. Inspect those target directories
+     and get permission before replacing existing user-supplied artifacts.
+   - The optional agentic download fetches `LLM_MODEL_NAME` into
+     `configs/agentic/models` via the `model-download` service.
    - `configs/vllm*` is git-ignored; staged models are not tracked and
      survive `make down`.
    - Download failures (no network, proxy, disk full) are real blockers —

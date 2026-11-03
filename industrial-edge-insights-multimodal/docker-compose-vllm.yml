@@ -87,7 +87,7 @@ services:
     image: ${DOCKER_REGISTRY}${MODEL_DOWLOADER_IMAGE}:${DEPS_IMAGE_SUFFIX:-2026.2.0}
     container_name: vllm-model-download
     hostname: model-download-vllm
-    # Only started by the `make model_download` target; the profile keeps it out of `make up_vllm`.
+    # Only started by the vLLM branch of `make download_model`; the profile keeps it out of `make up_vllm`.
     profiles:
       - model-download
     command: ["--plugins", "huggingface"]
