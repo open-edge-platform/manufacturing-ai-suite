@@ -145,7 +145,7 @@ Ask (or infer from the user's request) which variant to deploy:
 | Variant | Make target | Procedure doc | Notes |
 |---|---|---|---|
 | Default (vision + time-series fusion) | `make up` | [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) | No extra hardware checks |
-| vLLM-based VLM | `make up_vllm` | [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | Requires `check_hardware` + `check_models` — see Step 1b |
+| vLLM-based VLM | `make up_vllm` | [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | Requires `check_hardware`; downloads vLLM models if missing |
 | Agentic | `make up_agentic` | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Requires `check_hardware`; ensures vLLM models and downloads the agentic model (can take minutes) |
 | Agentic + MCP server | `make up_agentic MCP=true` | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Same as Agentic, plus `docker-compose-mcp.yml` (`multimodal-mcp-server`), `MCP_USERNAME`/`MCP_PASSWORD` validation, and the `agentic_mcp` nginx profile that exposes `/mcp`. Pipelines do **not** auto-start — see Step 2 |
 
