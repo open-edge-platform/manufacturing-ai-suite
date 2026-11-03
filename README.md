@@ -45,6 +45,30 @@ It includes:
 | [OpenVINO&trade; toolkit](https://github.com/openvinotoolkit/openvino)                                                                                | An open source toolkit for deploying performant AI solutions across Intel hardware for generative and conventional AI models.    |
 | [OpenVINO&trade; Model Server](https://github.com/openvinotoolkit/model_server)                                                                       | An OpenVINO server solution for enabling remote model inference for AI applications deployed on low-performance devices.         |
 
+## Skills
+
+This repository ships [Agent Skills](https://agentskills.io) that let AI coding assistants
+(GitHub Copilot, Claude Code, Codex and other compatible agents) build, deploy, validate and review
+the applications in this suite. Suite-level skills live in [`.github/skills/`](.github/skills/) and
+are discovered automatically; app-level skills live in the `.github/skills/` folder of each
+application and are indexed by its `skill-catalog.json`.
+
+### Suite-level skills
+
+| Skill | Description |
+|-------|-------------|
+| [manufacturing-ai-app-builder](.github/skills/manufacturing-ai-app-builder/SKILL.md) | Conversational orchestrator that turns a plain manufacturing-quality business objective into a working Intel Edge AI application by asking only business questions, proposing a plan, and delegating the build to the right skills. |
+| [manufacturing-app-recipe](.github/skills/manufacturing-app-recipe/SKILL.md) | Stands up a complete, ready-to-run manufacturing analytics stack (vision, time series, multimodal, with optional VLM narrative and agentic orchestration) with one Docker Compose command. |
+| [onboarding-validation](.github/skills/onboarding-validation/SKILL.md) | Validates the get-started experience of Open Edge Platform components by following the documented path exactly and producing a structured pass/fail report. |
+| [security-review](.github/skills/security-review/SKILL.md) | On-demand security review for code, containers, Docker Compose, Helm/Kubernetes configuration and CI/CD workflows. |
+
+### Application skills
+
+| Skill | Application | Description |
+|-------|-------------|-------------|
+| [multimodal-deploy](industrial-edge-insights-multimodal/.github/skills/multimodal-deploy/SKILL.md) | [Industrial Edge Insights - Multimodal](industrial-edge-insights-multimodal/) | Build, deploy, smoke-check and functionally test the Multimodal Weld Defect Detection application, including the vLLM, agentic and MCP variants. |
+| [time-series-deploy](industrial-edge-insights-time-series/.github/skills/time-series-deploy/SKILL.md) | [Industrial Edge Insights - Time Series](industrial-edge-insights-time-series/) | Build, deploy, smoke-check and functionally test the Time Series sample applications (for example wind turbine anomaly detection) with MQTT or OPC-UA ingestion. |
+
 ## Contribute
 
 Read the [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on submitting issues and pull requests.
