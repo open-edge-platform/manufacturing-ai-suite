@@ -89,7 +89,7 @@
       "expectations": [
         "Uses references/SKILL_CATALOG.md to route the camera-only dashboard objective to metro-ai-app-recipe, not manufacturing-app-recipe vision demo or multimodal mode",
         "States the deliverable path /work/stacks/scratch-inspection-stack and explains that the camera alone feeds the decision",
-        "Presents model/device/topics as inferred decisions rather than asking the user to select frameworks, models, or precision",
+        "Presents model/device/topics as inferred decisions rather than asking the user to select a framework, model architecture, precision, or device; asking only whether a trained scratch model already exists (and where) or should be fetched is a model-availability question and is allowed",
         "Surfaces Docker Compose, Intel GPU device/group permissions, required ports, and network/model-download prerequisites",
         "Includes npx skills@1.7.4 add open-edge-platform/skills --skill metro-ai-app-recipe as an installation step to run only after approval",
         "Commits to delegating to metro-ai-app-recipe and checking its completion criteria after approval rather than implementing the stack by hand",
