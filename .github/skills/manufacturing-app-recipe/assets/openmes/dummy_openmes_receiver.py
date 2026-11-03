@@ -18,7 +18,7 @@ no login, so keep the default --host 127.0.0.1, or bind a LAN address only on
 a trusted network.
 
 Run:
-  (umask 077; openssl rand -hex 24 > openmes_token); chmod 0400 openmes_token
+  (umask 277; openssl rand -hex 24 > openmes_token)   # created read-only (0400)
   python dummy_openmes_receiver.py --token-file ./openmes_token
   # then open http://127.0.0.1:8099/ and point openmes-publisher.json at
   #   "base_url": "http://127.0.0.1:8099", "work_order_id": 1001, "issue_type_id": 7

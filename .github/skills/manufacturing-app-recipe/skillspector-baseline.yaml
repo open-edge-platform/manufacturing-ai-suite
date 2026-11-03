@@ -59,3 +59,40 @@ rules:
       Reviewed: "Never disable verification" instructs the agent to keep TLS
       certificate verification enabled for OpenMES calls; it is a prohibition
       on weakening security, not an autonomous action to take.
+  - id: "AST4"
+    path: "scripts/verify_stack.py"
+    message: "*subprocess.run(cmd, shell=False*"
+    reason: >-
+      Reviewed: the single subprocess call already follows the scanner's own
+      remediation: shell=False with an explicit argument list and a timeout.
+      It only runs fixed local commands (docker ps/exec/cp against this
+      stack's containers, and curl with TLS verification against the stack's
+      own nginx cert). Every value placed in those argument lists (HOST_IP,
+      ports, MQTT topics, measurements, HTTPS paths) is validated by
+      safe_host/safe_port/safe_token/safe_path, which reject flag-like and
+      shell-meaningful input. The checks need the docker CLI; replacing it
+      with the Docker SDK would add a dependency with broader socket access,
+      and querying MQTT/InfluxDB directly would require publishing those
+      ports on the host.
+  - id: "PE3"
+    path: "benchmark/benchmark.json"
+    message: "*.env*"
+    reason: >-
+      Reviewed: benchmark.json is generated eval output (prompts, graded
+      assertions and grader evidence), never executed or read by the skill.
+      ".env" appears only in quoted eval text about the generated stack's own
+      .env; no credential file is accessed.
+  - id: "TM1"
+    path: "benchmark/benchmark.json"
+    message: "*curl*"
+    reason: >-
+      Reviewed: benchmark.json is generated eval output. The match is quoted
+      assertion/evidence text describing the skill's verification checks
+      (curl --noproxy to the local stack), not a command the skill runs.
+  - id: "RP1"
+    path: "benchmark/benchmark.json"
+    message: "*Docker image referenced without tag or digest*"
+    reason: >-
+      Reviewed: benchmark.json is generated eval output. The match is grader
+      evidence text mentioning "docker run", not a Compose/image reference
+      that is pulled; the skill itself pins every image to a concrete tag.
