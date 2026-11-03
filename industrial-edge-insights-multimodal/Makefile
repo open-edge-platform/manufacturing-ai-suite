@@ -246,7 +246,7 @@ up: check_env_variables validate_host_ip down
 
 .PHONY: check_models
 check_models:
-	@echo "Checking if vllm models are available..."
+	@echo "Checking if VLM models are available..."
 	@for dir in configs/vllm/models configs/vllm/huggingface; do \
 		if [ ! -d "$$dir" ]; then \
 			echo "Error: $$dir directory does not exist."; \
@@ -313,7 +313,7 @@ up_vllm: check_hardware check_env_variables validate_host_ip down
 download_model:
 	@case "$(DOWNLOAD_AGENTIC)" in true|false) ;; *) echo "Use DOWNLOAD_AGENTIC=true or false" >&2; exit 2 ;; esac; \
 	if ! $(MAKE) check_models >/dev/null 2>&1; then \
-		echo "vLLM models not found. Downloading the base model and adapter..."; \
+		echo "VLM models not found. Downloading the base model and adapter..."; \
 		$(MAKE) _download_vllm_models || exit 1; \
 	fi; \
 	$(MAKE) check_models || exit 1; \
@@ -383,9 +383,9 @@ _download_agentic_model:
 	fi; \
 	echo "Model download completed successfully"
 
-# Downloads the vLLM base model and LoRA adapter via the model-download microservice.
+# Downloads the VLM base model and LoRA adapter via the model-download microservice.
 _download_vllm_models:
-	@echo "Starting Model Download Service for the vLLM models..."; \
+	@echo "Starting Model Download Service for the VLM models..."; \
 	mkdir -p configs/vllm || exit 1; \
 	staging_dir=$$(mktemp -d configs/vllm/.download.XXXXXX) || exit 1; \
 	staging_name=$${staging_dir##*/}; \
@@ -481,7 +481,7 @@ _download_vllm_models:
 			mv "$$staging/huggingface/$$2" "/opt/models/huggingface/$$3"; \
 			mv "$$staging/huggingface/$$4" "/opt/models/models/$$5"; \
 			rm -rf "$$staging"' sh "$$staging_name" "$$model_src" "$$model_dst" "$$adapter_src" "$$adapter_dst" || exit $$?; \
-	echo "vLLM model download completed successfully:"; \
+	echo "VLM model download completed successfully:"; \
 	echo "  configs/vllm/huggingface/$$model_dst"; \
 	echo "  configs/vllm/models/$$adapter_dst"
 
@@ -562,9 +562,9 @@ help:
 	@echo "  make build_copyleft_sources       - Build all Docker images including copyleft licensed sources"
 	@echo "  make up                           - Start the base application (MQTT ingestion)"
 	@echo "  make up_vllm                      - Start the application and the vLLM stack"
-	@echo "      Requires a supported platform; downloads vLLM models if missing"
+	@echo "      Requires a supported platform; downloads VLM models if missing"
 	@echo "  make up_agentic                   - Start the application and the agentic stack including vLLM"
-	@echo "      Requires a supported platform; ensures vLLM models and downloads the agentic model"
+	@echo "      Requires a supported platform; ensures VLM models and downloads the agentic model"
 	@echo "  make up_agentic MCP=true          - Also start the authenticated MCP server"
 	@echo "      Set MCP_USERNAME and MCP_PASSWORD in .env first. Pipelines are then started through MCP."
 	@echo "  make down                         - Stop Docker containers and remove volumes"
@@ -572,10 +572,10 @@ help:
 	@echo "  make status                       - Show status of deployed containers and check for errors"
 	@echo "  make check_env_variables          - Validate required .env variables (MCP=true also checks MCP_USERNAME/MCP_PASSWORD)"
 	@echo "  make validate_host_ip             - Validate HOST_IP in .env"
-	@echo "  make check_models                 - Check that the vLLM model directories are populated"
+	@echo "  make check_models                 - Check that the VLM model directories are populated"
 	@echo "  make check_hardware               - Check the platform for the vLLM/agentic stacks"
 	@echo "      Optional: PLATFORM_CHECK=false skips the check (CI/validation use only)"
-	@echo "  make download_model [DOWNLOAD_AGENTIC=true] - Download vLLM models; optionally include the agentic model"
+	@echo "  make download_model [DOWNLOAD_AGENTIC=true] - Download VLM models; optionally include the agentic model"
 	@echo "  make upload_tar_file              - Upload the weld anomaly detection UDF package to the Time-Series Analytics microservice"
 	@echo "  make post_config                  - Post the weld anomaly detection config to the Time-Series Analytics microservice"
 	@echo "  make push_images                  - Build and push all images, including the MCP server, to the docker registry"

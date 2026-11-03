@@ -7,7 +7,7 @@ Grafana, the data ingestion paths, and the agentic UI remain unchanged.
 ## Prerequisites
 
 - Complete the [Get Started prerequisites](../get-started.md).
-- Meet the requirements of the [agentic workflow](./how-to-deploy-agent-workflow.md), including the vLLM model download.
+- Meet the requirements of the [agentic workflow](./how-to-deploy-agent-workflow.md), including the VLM model download.
   The MCP server is deployed only with the agentic stack.
 - Use Python 3.12 or later for the example client.
 - Set `HOST_IP` in `.env` to the gateway's IPv4 address.
