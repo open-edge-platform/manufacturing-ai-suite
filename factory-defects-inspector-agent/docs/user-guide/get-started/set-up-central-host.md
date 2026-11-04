@@ -32,6 +32,8 @@ The [Agent Harness Installer](https://github.com/open-edge-platform/edge-ai-libr
 
 2. Install Hermes with the OVMS image and the model:
 
+   >**Note**: Go with the default values during the `./install.sh` execution
+
    ```bash
    HARNESS_OVMS_IMAGE=openvino/model_server:2026.4.1-gpu \
    ./install.sh --harness hermes --model OpenVINO/Qwen3.5-9B-int8-ov
@@ -49,21 +51,27 @@ If the model needs access credentials, supply them through environment variables
 
 The installer does not configure or test Hermes. Do these steps to configure and test it.
 
-1. Note these values from the installer output:
+1. Find the `hermes config set` commands in the installer output. They point Hermes to the Inference Router. Do not use the OVMS endpoint directly.
 
-   - The base URL of the Inference Router. It ends in `/v1`. By default it is a loopback address.
-   - The served model name.
-   - The router API key, only if the installer reports that it is necessary.
+2. Run the commands. Example:
 
-2. Add a provider to `~/.hermes/config.yaml`. Use the Inference Router and the model `OpenVINO/Qwen3.5-9B-int8-ov`. Do not use the OVMS endpoint directly.
+   ```bash
+   hermes config set model.provider custom
+   hermes config set model.base_url http://127.0.0.1:8010/v1
+   hermes config set model.default Qwen3.5-9B-int8-ov
+   ```
 
-3. Start a test chat:
+   Use the values from your installer output. The base URL is the Inference Router and ends in `/v1`. `model.default` is the served model name.
+
+3. If the installer reports that the router needs an API key, set the key as the installer output says. Do not put the key in a file that you commit.
+
+4. Start a test chat:
 
    ```bash
    hermes
    ```
 
-4. Ask a simple question. Make sure that Hermes gives a response.
+5. Ask a simple question. Make sure that Hermes gives a response.
 
 If the model does not respond, do not continue. Fix the problem first:
 
