@@ -120,7 +120,7 @@ def get_detections(
 
     where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ""
     limit_clause = f" LIMIT {limit}" if limit else ""
-    query = f"SELECT frame_id, fused_decision, fusion_classification as label, fusion_confidence as confidence, mode, timeseries_anomaly, timeseries_classification, timeseries_confidence, timeseries_timestamp, ts_anomaly, vision_anomaly, vision_classification, vision_confidence, vision_rtsp_ts_diff_ms, vision_timestamp FROM \"{FUSION_MEASUREMENT}\"{where_clause} ORDER BY time DESC{limit_clause}"
+    query = f"SELECT frame_id, fused_decision, fusion_classification as label, fusion_confidence as confidence, mode, timeseries_anomaly, timeseries_classification, timeseries_confidence, timeseries_timestamp, ts_anomaly, vision_anomaly, vision_classification, vision_confidence, vision_rtsp_ts_diff_ms, vision_timestamp FROM \"{FUSION_MEASUREMENT}\"{where_clause} ORDER BY time DESC{limit_clause}"  # nosec B608 - measurement is constant; filter values are validated or bound parameters
     return _influx_points(query, bind_params=bind_params)
 
 
