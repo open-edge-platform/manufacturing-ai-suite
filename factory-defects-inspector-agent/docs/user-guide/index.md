@@ -13,7 +13,7 @@ The installer (`fleet-setup.sh`) sets the agent up. It uses deployment skills to
 This guide helps two audiences:
 
 - **Administrator:** prepares the central host and edge nodes, configures the inventory, and runs the setup. See [Get Started](./get-started.md).
-- **Operator:** after setup, asks Hermes to inspect or operate the registered nodes in natural language. See [Use Hermes as an Operator](./how-to-guides/use-hermes.md).
+- **Operator:** after setup, asks Hermes to inspect or operate the registered nodes in natural language. See [Use Hermes as an Operator](./how-to-guides/use-hermes-as-operator.md).
 
 ## What the installer sets up
 

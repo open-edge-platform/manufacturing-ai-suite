@@ -3,7 +3,7 @@
 ## Central Hermes host
 
 - A Linux host with a normal interactive login session and working **systemd user services**. Run the installer as the Hermes user, not through `sudo` or inside a container. If user services are unavailable, an administrator may need to enable lingering for that user and have them log in again.
-- Hermes Agent installed and configured with an LLM provider, as described in [Install Hermes on the central host](./install-hermes.md). The `hermes` command must be available to the user running setup.
+- Hermes Agent installed and configured with an LLM provider, as described in [Install Hermes on the central host](./set-up-central-host.md). The `hermes` command must be available to the user running setup.
 - These commands available on the host: `ssh`, `scp`, `ssh-copy-id`, `ssh-keygen`, `curl`, `openssl`, `git`, `base64`, `systemctl`, and `loginctl`.
 - Python 3 and PyYAML to read and validate the YAML inventory. On Debian or Ubuntu, install PyYAML with `sudo apt-get install python3-yaml` if it is missing.
 - The installer files kept together: `fleet-setup.sh` and `fleet_inventory.py`.
