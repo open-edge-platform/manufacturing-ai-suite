@@ -1,42 +1,68 @@
 # Use Hermes as an Operator
 
-Begin after the administrator has deployed the applications, verified MCP registration, and provided approved access to Hermes. Operators do not need to rerun the installer for normal queries.
+Start after the administrator has deployed the applications and verified the MCP registration. The administrator also gives you approved access to Hermes. You do not run the installer for normal queries.
 
 ## Open the WebUI
 
-On the central host, open <http://127.0.0.1:8787/> and log in with the WebUI password supplied securely by the administrator. Administrators bring the WebUI up as part of [Install Hermes, Set the Persona, and Bring Up the WebUI](../get-started/set-up-central-host.md).
+1. Get the WebUI password from the administrator.
+2. On the central host, open <http://127.0.0.1:8787/>.
+3. Log in with the password.
 
-Keep that SSH session open, then visit <http://127.0.0.1:8787/> on your workstation. If local port `8787` is occupied, use a different local port, for example `-L 8788:127.0.0.1:8787`, and open <http://127.0.0.1:8788/> instead. This browser-access tunnel is separate from the administrator-managed MCP tunnels to the edge nodes.
+To open the WebUI from your workstation:
 
-## Choose the right profile
+1. Open an SSH tunnel to the central host:
 
-- Select **`default`** for fleet queries through the registered MCP tools. In the checked-in inventory, the MCP servers are named `node1` and `node2`.
-- Node profiles such as **`node1`** and **`node2`** run terminal commands on their corresponding edge nodes over SSH. Use these only for administrator-approved node-specific work; they are not required for normal MCP queries.
+   ```bash
+   ssh -L 8787:127.0.0.1:8787 <user>@<central-host>
+   ```
 
-Start a new chat after MCP registrations change. In a CLI chat, `/reload-mcp` can reload the registrations. The central host's MCP tunnels and the remote applications must remain running while you use their tools.
+2. Keep the SSH session open.
+3. On your workstation, open <http://127.0.0.1:8787/>.
 
-## Use natural-language requests
+If local port `8787` is in use, use a different local port. For example, use `-L 8788:127.0.0.1:8787` and open <http://127.0.0.1:8788/>.
 
-After registration, operators use the default Hermes profile and address servers by their inventory deployment name. For example:
+This tunnel is not the same as the MCP tunnels to the edge nodes. The administrator manages the MCP tunnels.
+
+## Choose the profile
+
+| Profile | Use |
+| --- | --- |
+| `default` | Fleet queries through the registered MCP tools. In the checked-in inventory, the MCP servers are `node1` and `node2`. |
+| `node1`, `node2` | Terminal commands on the edge node over SSH. Use only for node-specific work that the administrator approves. Not necessary for normal MCP queries. |
+
+After an MCP registration changes, start a new chat. In a CLI chat, you can run `/reload-mcp`. The MCP tunnels and the remote applications must stay running.
+
+## Ask Hermes
+
+Use the `default` profile. Use the deployment name from the inventory to select a server.
+
+Example: describe the nodes.
 
 > Describe node1 and node2, then compare their current status.
 
-Before requesting a processing change, ask Hermes to describe the selected application's pipeline controls and required options:
-
-> Describe the pipeline controls available on node1 and the options needed to start processing. Do not start it yet.
-
-Or query recent data:
+Example: read the recent data.
 
 > Show the latest 10 insights from node1 and summarize the results, including the time range.
 
-Starting or stopping a live pipeline changes processing. Review the requested action and confirm it is intended before authorizing it. The available tools and accepted options depend on the recipe configured for that deployment.
+To change processing, do these steps in order:
 
-## Use the CLI instead of the WebUI
+1. Ask Hermes to describe the pipeline controls. Example:
 
-If authorized to use the central Hermes account, start a chat from the central host:
+   > Describe the pipeline controls available on node1 and the options needed to start processing. Do not start it yet.
+
+2. Review the action that you request.
+3. Confirm the action only if you intend it.
+
+**Caution:** Starting or stopping a live pipeline changes processing. The available tools and options depend on the recipe of the deployment.
+
+## Use the CLI
+
+If you have access to the central Hermes account, start a chat on the central host:
 
 ```bash
 hermes
 ```
 
-Use the same natural-language requests as in the browser. If tools are missing, a tunnel is unavailable, or authentication fails, report the affected server and error to the administrator. Do not paste passwords, tokens, or private keys into chat.
+Use the same requests as in the browser.
+
+If tools are missing, a tunnel is not available, or authentication fails, tell the administrator. Include the server name and the error. Do not paste passwords, tokens, or private keys in a chat.
