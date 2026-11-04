@@ -67,7 +67,7 @@ Use them only on a deployment that you intend to replace.
    It does not modify application assets.
    Batch results use a 20-minute window.
 
-The additional parameter `INCLUDE=validation` (no support for `num_of_streams` parameter) retain their existing behavior.
+`INCLUDE=validation` retains its existing behavior with MCP. The `num_of_streams` parameter is not supported.
 System metrics remain available in Grafana when collected; this MCP version does not expose host metrics.
 
 ## Trust the gateway certificate
