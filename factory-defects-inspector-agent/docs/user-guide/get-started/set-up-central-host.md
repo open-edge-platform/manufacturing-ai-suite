@@ -39,6 +39,8 @@ The [Agent Harness Installer](https://github.com/open-edge-platform/edge-ai-libr
 
 3. Read the install output. Make sure that the model registration is successful. A completed download is not sufficient.
 
+OVMS serves the model through the Inference Router. Hermes uses this local model for all inference.
+
 The installer prepares the host, starts OVMS and the Inference Router, downloads the model, and installs Hermes. The `OpenVINO/*` models are pre-converted. OVMS serves the model only if the downloaded repository has the `graph.pbtxt` file.
 
 If the model needs access credentials, supply them through environment variables. Do not put them in the command or the inventory.

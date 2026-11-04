@@ -17,6 +17,8 @@ The Factory Defects Inspector Agent is a [Hermes Agent](https://github.com/NousR
 | Administrator | Prepare the central host and edge nodes, then run the installer. | [Get Started](./get-started.md) |
 | Operator | Ask Hermes about the registered nodes in natural language. | [Use Hermes as an Operator](./how-to-guides/use-hermes-as-operator.md) |
 
+![Administrator and operator flows](./_assets/fdi-admin-operator-flows.drawio.svg)
+
 ## What the installer does
 
 The installer is the `fleet-setup.sh` script. For each deployment in the inventory, it does these tasks:
@@ -37,7 +39,6 @@ The inventory defines the available nodes, skills, prompts, and MCP tools.
 :::{toctree}
 :hidden:
 
-how-it-works.md
 get-started.md
 how-to-guides.md
 release-notes.md

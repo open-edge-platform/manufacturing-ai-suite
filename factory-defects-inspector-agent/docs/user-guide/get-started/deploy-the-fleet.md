@@ -53,6 +53,29 @@ To use a different inventory file, add `--hosts`:
 
 Run the installer in an interactive terminal. Use the same user that installed and configured Hermes.
 
+![Central host and edge node deployment](../_assets/fdi-deployment-architecture.drawio.svg)
+
+The diagram shows `./fleet-setup.sh` without options. The installer reaches each node over SSH. The agent reaches each MCP server through an SSH tunnel. The node applications are not exposed to the network.
+
+The arrows have these colors:
+
+- Dashed gray: one-time provisioning.
+- Blue: SSH preparation and deployment.
+- Orange: SSH tunnels to the node MCP servers.
+- Black: commands, chat, and tool calls.
+
+| Arrows | Phase | What happens |
+| --- | --- | --- |
+| 1–2 | Provision (one time) | The administrator installs Hermes, the Inference Router, and OVMS on the central host. See [Install Hermes with a local model](./set-up-central-host.md#install-hermes-with-a-local-model). |
+| 3 | Deploy | The administrator runs `fleet-setup.sh`. |
+| 4 | Deploy | `fleet-setup.sh` creates one profile for each node. It clones the default profile. Each profile has an SSH terminal for its node, the deployment skill, and an approval policy. |
+| 5 | Deploy | `fleet-setup.sh` prepares each node over SSH. It installs packages, gets the application checkout, and generates credentials. The node profile then builds and starts the application and its MCP server. |
+| 6 | Connect | For each node, the installer starts a `fleet-tunnel@` systemd unit. The unit opens an SSH tunnel from a local port to the MCP endpoint of the node. The local port is `localhost:13001` for node 1 and `localhost:13002` for node 2. The endpoint is `127.0.0.1:3000` (nginx with TLS). The installer pins the server certificate. It registers the tunnel URL, a credentials reference, and the tool allow-list with the default profile. |
+| 7 | Operate | Operators chat with the default profile in the WebUI or the CLI. |
+| 8 | Operate | The questions become MCP tool calls. They go through the SSH tunnels to the node applications. |
+
+To run the installer, do these steps:
+
 1. From the `factory-defects-inspector-agent` directory, run:
 
    ```bash
@@ -158,6 +181,8 @@ Do these checks before you run `--no-deploy`:
    ```bash
    ./fleet-setup.sh --node node1 --no-deploy
    ```
+
+![Central host and edge nodes with applications that already run](../_assets/fdi-no-deploy-architecture.drawio.svg)
 
 The command does these steps:
 
