@@ -154,6 +154,8 @@ To set loopback again on an existing installation:
 HERMES_WEBUI_HOST=127.0.0.1 ./hermes-webui.sh restart
 ```
 
+**Caution:** Direct HTTP sends passwords and chat content without encryption. Use a firewall to limit access to authorized clients. Prefer SSH forwarding or a TLS reverse proxy. Do not expose the plain-HTTP service to an untrusted network.
+
 To give direct access on a trusted network:
 
 1. Set `HERMES_WEBUI_HOST` to an IPv4 address of the central host. Use `0.0.0.0` for all IPv4 interfaces:
@@ -167,8 +169,6 @@ To give direct access on a trusted network:
 2. Open `http://<central-host-ip>:8787/` from the remote system. `0.0.0.0` is not a browser address.
 
 The script saves the bind address for the next starts.
-
-**Caution:** Direct HTTP sends passwords and chat content without encryption. Use a firewall to limit access to authorized clients. Prefer SSH forwarding or a TLS reverse proxy. Do not expose the plain-HTTP service to an untrusted network.
 
 ### Manage the WebUI
 

@@ -28,13 +28,15 @@ Do the tasks on this page on each edge node. Use an existing administrator accou
    sudo usermod -aG docker deploy
    ```
 
-4. If the installer must install packages, give the account `sudo` access. Follow the policy of your site. On Ubuntu or Debian, this command gives temporary access:
+4. If the installer must install packages, give the account `sudo` access. Follow the policy of your site.
+
+   **Caution:** The next command gives broad administrative access. If possible, install the packages and configure Docker access yourself. Remove the `sudo` access after preparation.
+
+   On Ubuntu or Debian, this command gives temporary access:
 
    ```bash
    sudo usermod -aG sudo deploy
    ```
-
-   **Caution:** This command gives broad administrative access. If possible, install the packages and configure Docker access yourself. Remove the `sudo` access after preparation.
 
 5. Open a login session so that the new group memberships apply. Do not use `su deploy`. It can keep the working directory and environment of the previous user.
 

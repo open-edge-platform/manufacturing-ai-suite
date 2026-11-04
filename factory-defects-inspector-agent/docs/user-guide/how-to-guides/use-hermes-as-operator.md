@@ -44,6 +44,8 @@ Example: read the recent data.
 
 > Show the latest 10 insights from node1 and summarize the results, including the time range.
 
+**Caution:** Starting or stopping a live pipeline changes processing. The available tools and options depend on the recipe of the deployment. Confirm an action only if you intend it.
+
 To change processing, do these steps in order:
 
 1. Ask Hermes to describe the pipeline controls. Example:
@@ -51,9 +53,7 @@ To change processing, do these steps in order:
    > Describe the pipeline controls available on node1 and the options needed to start processing. Do not start it yet.
 
 2. Review the action that you request.
-3. Confirm the action only if you intend it.
-
-**Caution:** Starting or stopping a live pipeline changes processing. The available tools and options depend on the recipe of the deployment.
+3. Confirm the action.
 
 ## Use the CLI
 

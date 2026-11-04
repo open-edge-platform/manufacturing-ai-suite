@@ -164,10 +164,10 @@ Do these checks before you run `--no-deploy`:
 
 1. Make sure that the application runs on the node.
 2. Find the location of the application:
-   - If the application is in the managed checkout `~/fleet-deployments/<deployment name>/checkout`, do nothing.
+   - If the application is in the managed checkout `~/fleet-deployments/<deployment name>/checkout`, do nothing. Do not set `app_path`.
    - If the application is in a different location, set `app_path` on its deployment in `hosts.yaml`. Use a path relative to the home directory of the node user, for example `apps/weld`. Do not use an absolute path, `~`, `.`, or `..`. The installer rejects them.
 
-   **Note:** You can only connect a deployment that has `app_path`. Deploy and `--prepare-only` runs refuse it.
+   **Note:** A deployment that has `app_path` is connect-only. Deploy and `--prepare-only` runs refuse it. A deployment in the managed checkout can use all the installer modes.
 
 3. Make sure that the `.env` file of the application has `MCP_USERNAME` and `MCP_PASSWORD` (or the token of the recipe). The installer reads them from this file.
 4. If the `.env` file has no credentials, the installer uses the credentials that it stored on the central host. In a terminal, it can ask for them with hidden input. Otherwise it stops and names the missing credential.
