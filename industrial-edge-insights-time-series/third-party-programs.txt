@@ -57,18 +57,18 @@ Docker image: intel/ia-time-series-mcp-server:2026.3.0-rc1
 apps/wind-turbine-anomaly-detection/training/requirements.txt
 ================================================================
 License-Identifier: Apache-2.0
-dpctl==0.21.1
-scikit-learn-intelex==2025.2.0
+dpctl==0.22.1
+scikit-learn-intelex==2026.1.0
 ----------------------------------------------------------------------
 
 License-Identifier: BSD-3-Clause
 numpy==2.2.3
 pandas==2.2.3
-scikit-learn==1.6.1
+scikit-learn==1.9.0
 ----------------------------------------------------------------------
 
 License-Identifier: MIT
-setuptools==83.0.0
+setuptools==84.1.0
 
 ---------------------------------------------------------------------------------------------------------------------------
 
@@ -87,12 +87,13 @@ License-Identifier: Apache-2.0
 aiofiles==25.1.0
 pyOpenSSL==26.4.0
 sortedcontainers==2.4.0
-tzdata==2026.3
+tzdata==2026.6
 ----------------------------------------------------------------------
 
 License-Identifier: MIT
 aiosqlite==0.22.1
-pytz==2026.3.post1
+anyio==4.15.1
+pytz==2026.5
 six==1.17.0
 ----------------------------------------------------------------------
 
@@ -106,24 +107,21 @@ asyncua==2.0.1
 ----------------------------------------------------------------------
 
 License-Identifier: Apache-2.0 OR BSD-3-Clause
-python-dateutil==2.9.0.post0
+python-dateutil==3.0.0
 ----------------------------------------------------------------------
 
 License-Identifier: BSD-3-Clause
 pandas==3.0.6
-pycparser==3.0
+idna==3.20
+pycparser==3.12
 ----------------------------------------------------------------------
 
 License-Identifier: BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
-numpy==2.5.1
+numpy==2.5.4
 ----------------------------------------------------------------------
 
 License-Identifier: PSF-2.0
 typing_extensions==4.16.0
-----------------------------------------------------------------------
-
-License-Identifier: MIT OR LicenseRef-Proprietary
-pip==26.2.1
 ----------------------------------------------------------------------
 
 License-Identifier: BSD License or Apache License 2.0
@@ -143,7 +141,7 @@ License-Identifier: PSF-2.0
 2. requirements.txt
 
 License-Identifier: Apache-2.0
-tzdata==2026.3
+tzdata==2026.6
 ----------------------------------------------------------------------
 
 License-Identifier: EPL-1.0 OR EDL-1.0
@@ -152,25 +150,21 @@ paho-mqtt==1.4.0
 
 
 License-Identifier: Apache-2.0 OR BSD-3-Clause
-python-dateutil==2.9.0.post0
+python-dateutil==3.0.0
 ----------------------------------------------------------------------
 
 License-Identifier: BSD-3-Clause
 pandas==2.3.3
 ----------------------------------------------------------------------
 
-License-Identifier: MIT OR LicenseRef-Proprietary
-pip==26.2.1
-----------------------------------------------------------------------
-
 License-Identifier: MIT
-pytz==2026.3.post1
+pytz==2026.5
 six==1.17.0
 
 ----------------------------------------------------------------------
 
 License-Identifier: BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0
-numpy==2.5.1
+numpy==2.5.4
 
 ---------------------------------------------------------------------------------------------------------------------------
 
@@ -178,7 +172,7 @@ numpy==2.5.1
 tests/requirements.txt
 ================================================================
 License-Identifier: Apache-2.0
-aiohttp==3.14.1
+aiohttp==3.14.4
 playwright==1.58.0
 requests==2.33.0
 ----------------------------------------------------------------------

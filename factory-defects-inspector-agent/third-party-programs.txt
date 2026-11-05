@@ -1,0 +1,71 @@
+Factory Defects Inspector Agent - Third Party Programs File
+
+This file records third-party software used by or installed through the
+Factory Defects Inspector Agent. Components installed separately by the
+administrator or on edge nodes are not bundled with this repository; their
+versions and license terms are controlled by their respective projects and
+operating-system distributors.
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Python inventory support:
+=========================
+
+1. Python 3
+License-Identifier: PSF-2.0
+
+2. PyYAML (system package; version provided by the operating-system package manager)
+License-Identifier: MIT License
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Hermes Agent on the central host:
+=================================
+
+Hermes Agent
+License-Identifier: MIT License
+Source: https://github.com/NousResearch/hermes-agent
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Optional Hermes WebUI:
+=====================
+
+Hermes WebUI v0.52.492 (cloned by hermes-webui.sh when enabled)
+License-Identifier: MIT License
+Source: https://github.com/nesquena/hermes-webui
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Model-serving components installed separately:
+===============================================
+
+Inference Router image: intel/inference-router:2026.2.0
+License-Identifier: Apache-2.0
+Source: https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/inference-router
+
+OpenVINO Model Server image: openvino/model_server:2026.4.1-gpu
+License-Identifier: Apache-2.0
+
+The Agent Harness Installer starts the Inference Router. OpenVINO Model Server is installed separately when a local inference backend is configured. Neither image is bundled with this repository. Model weights may have separate license terms.
+
+Agent Harness Installer
+License-Identifier: Apache-2.0
+Source: https://github.com/open-edge-platform/edge-ai-libraries/tree/main/frameworks/agent-harness-install
+
+---------------------------------------------------------------------------------------------------------------------------
+
+Host and edge-node tools (not bundled):
+=======================================
+
+The setup and deployment workflows use Bash, Git, OpenSSH tools (ssh, scp,
+ssh-copy-id, ssh-keygen), curl, OpenSSL, systemd, Docker Engine, and Docker
+Compose v2. These are supplied by the administrator's operating system or
+container platform; their versions and license terms depend on that provider.
+
+Manufacturing applications, their MCP servers, container images, and model
+artifacts are selected by the deployment inventory and are installed from
+their respective repositories or registries. See each application's own
+third-party-programs.txt and license notices for its dependencies.
+
+---------------------------------------------------------------------------------------------------------------------------

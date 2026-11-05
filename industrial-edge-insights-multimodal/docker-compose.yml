@@ -122,6 +122,8 @@ services:
     # render group IDs for ubuntu 24.04 host OS
     - "992"
     - "993"
+    # render group ID for ubuntu 26.04 host OS
+    - "990"
     devices:
       # Following devices under /dev filesystem will be needed based on usecase
       # dri - GPU
@@ -315,7 +317,7 @@ services:
       - timeseries_network
 
   dlstreamer-pipeline-server:
-    image: ${DOCKER_REGISTRY}${DLSTREAMER_PIPELINE_SERVER_IMAGE}:${DEPS_IMAGE_SUFFIX:-2026.2.0}-ubuntu24
+    image: ${DOCKER_REGISTRY}${DLSTREAMER_PIPELINE_SERVER_IMAGE}
     container_name: dlstreamer-pipeline-server
     hostname: dlstreamer-pipeline-server
     read_only: true
@@ -379,6 +381,8 @@ services:
       # render group ID for ubuntu 24.04 host OS
     - "992"
     - "993"
+      # render group ID for ubuntu 26.04 host OS
+    - "990"
     device_cgroup_rules:
       # Default run - device-cgroup-rule='c 189:* rmw'
       # Selective rules can be applied for deployment

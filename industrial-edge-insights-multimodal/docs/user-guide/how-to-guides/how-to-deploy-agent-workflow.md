@@ -43,6 +43,12 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
 
 1. Ensure the `.env` file is configured with valid values for:
 
+   > [!NOTE]
+   >
+   > - If you are trying to deploy it on Ubuntu 26.04, update the `DLSTREAMER_PIPELINE_SERVER_IMAGE` value in .env
+   >   to `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu26-rc1` before deployment.
+
+
    - `HOST_IP`
    - `INFLUXDB_USERNAME`, `INFLUXDB_PASSWORD`
    - `VISUALIZER_GRAFANA_USER`, `VISUALIZER_GRAFANA_PASSWORD`
@@ -50,7 +56,7 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
    - `S3_STORAGE_USERNAME`, `S3_STORAGE_PASSWORD`
    - `SEAWEEDFS_WEB_AUTH_USER`, `SEAWEEDFS_WEB_AUTH_PASSWORD`
 
-2. Download the Vision-Language Model (VLM) model by following the [guide](./how-to-deploy-vllm-service.md#download-models).
+2. Download the Vision-Language Model (VLM) and LoRA adapter with `make download_model` from the app root (see the [guide](./how-to-deploy-vllm-service.md) for details, including license acceptance). `make up_agentic` also downloads the agentic model.
 
 ## Deploy the Agentic Workflow
 

@@ -10,16 +10,13 @@ Expected agent flow:
 2. Meet the prerequisites in
    [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html):
    `make check_hardware`, then `make check_models`. If `check_models` fails,
-   run **Download Models** from
-   [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html)
+   run `make download_model DOWNLOAD_AGENTIC=true`
    only after the user explicitly accepts the model license (asked
    separately from the deploy request), and re-run `make check_models`.
    Inspect `configs/vllm/huggingface` and `configs/vllm/models` first; if
-   either has content, do not run the doc's `rm -rf huggingface models`
-   without explicit permission — download only the missing artifact.
+   either target directory has content, get permission before replacing it.
 3. `make build MCP=true` (only if images must be built locally).
-4. `make up_agentic MCP=true` (hardware/model gates, then the agentic LLM
-   download via `make download_model`).
+4. `make up_agentic MCP=true` (hardware checks, model downloads, then deployment).
 5. `<skill-dir>/scripts/smoke-check.sh` — includes an authenticated,
    read-only MCP `tools/list` probe.
 6. Explain that pipelines do not auto-start in MCP mode, so Grafana is

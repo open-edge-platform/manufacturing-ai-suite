@@ -30,10 +30,13 @@ $(shell chmod 600 .env)
 KEY_LENGTH=3072
 DAYS=365
 SHA_ALGO="sha384"
+VLLM_MODEL_REPO_ID := $(VLLM_SERVED_MODEL_NAME)
+VLLM_ADAPTER_REPO_ID := Intel/$(notdir $(patsubst %/,%,$(VLLM_ADAPTER_DIR)))
 LLM_DEVICE_LOWER := $(shell printf '%s' "$(LLM_DEVICE)" | tr '[:upper:]' '[:lower:]')
 LLM_WEIGHT_FORMAT_LOWER := $(shell printf '%s' "$(LLM_WEIGHT_FORMAT)" | tr '[:upper:]' '[:lower:]')
 MODEL_PATH ?= /model/llm_model_agentic/openvino_models/$(LLM_DEVICE_LOWER)/$(LLM_WEIGHT_FORMAT_LOWER)/$(LLM_MODEL_NAME)
 export MODEL_PATH
+DOWNLOAD_AGENTIC ?= false
 PLATFORM_CHECK ?= true
 MCP ?= false
 MCP_COMPOSE_ARG = $(if $(filter true,$(MCP)),-f $(DOCKER_COMPOSE_FILE_MCP))
@@ -243,7 +246,7 @@ up: check_env_variables validate_host_ip down
 
 .PHONY: check_models
 check_models:
-	@echo "Checking if vllm models are available..."
+	@echo "Checking if VLM models are available..."
 	@for dir in configs/vllm/models configs/vllm/huggingface; do \
 		if [ ! -d "$$dir" ]; then \
 			echo "Error: $$dir directory does not exist."; \
@@ -290,8 +293,9 @@ check_hardware:
 	echo "Hardware check passed: $$cpu_model (Panther Lake)."
 
 .PHONY: up_vllm
-up_vllm: check_hardware check_models check_env_variables validate_host_ip down
-	@export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
+up_vllm: check_hardware check_env_variables validate_host_ip down
+	$(MAKE) download_model || exit 1; \
+	export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
 	export NGINX_PROFILE=vllm; \
 	export AGENTIC_UI_ENABLED=false MQTT_DISABLED=true; \
 	echo "Starting Docker containers..."; \
@@ -305,7 +309,19 @@ up_vllm: check_hardware check_models check_env_variables validate_host_ip down
 # configs/agentic/models directory, which on the host is owned by the invoking user (or root,
 # if Docker created it). A one-off root container first chowns it to the uid:gid that owns /opt
 # in the image, i.e. the user the service runs as.
+.PHONY: download_model _download_agentic_model _download_vllm_models
 download_model:
+	@case "$(DOWNLOAD_AGENTIC)" in true|false) ;; *) echo "Use DOWNLOAD_AGENTIC=true or false" >&2; exit 2 ;; esac; \
+	if ! $(MAKE) check_models >/dev/null 2>&1; then \
+		echo "VLM models not found. Downloading the base model and adapter..."; \
+		$(MAKE) _download_vllm_models || exit 1; \
+	fi; \
+	$(MAKE) check_models || exit 1; \
+	if [ "$(DOWNLOAD_AGENTIC)" = "true" ]; then \
+		$(MAKE) _download_agentic_model || exit 1; \
+	fi
+
+_download_agentic_model:
 	@echo "Starting Model Download Service..."; \
 	mkdir -p configs/agentic/models; \
 	docker run --rm --user 0:0 --entrypoint sh \
@@ -367,9 +383,111 @@ download_model:
 	fi; \
 	echo "Model download completed successfully"
 
+# Downloads the VLM base model and LoRA adapter via the model-download microservice.
+_download_vllm_models:
+	@echo "Starting Model Download Service for the VLM models..."; \
+	mkdir -p configs/vllm || exit 1; \
+	staging_dir=$$(mktemp -d configs/vllm/.download.XXXXXX) || exit 1; \
+	staging_name=$${staging_dir##*/}; \
+	echo "Staging downloads in $$staging_dir (retained on failure)."; \
+	docker run --rm --user 0:0 --entrypoint sh \
+		-v "$$PWD/configs/vllm:/opt/models" \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
+		-c 'chown "$$(stat -c %u:%g /opt)" "/opt/models/$$1"' sh "$$staging_name" || exit 1; \
+	resp_file=$$(mktemp) || exit 1; \
+	cleanup_download() { \
+		original_status=$$?; \
+		trap - 0; \
+		trap '' HUP INT TERM; \
+		if [ "$$original_status" -ne 0 ]; then \
+			(umask 077; docker logs vllm-model-download >"$$staging_dir.log" 2>&1); \
+			echo "Downloader failure logs saved to $$staging_dir.log" >&2; \
+		fi; \
+		docker rm -f vllm-model-download >/dev/null || echo "WARNING: Downloader cleanup failed." >&2; \
+		rm -f "$$resp_file"; \
+		exit "$$original_status"; \
+	}; \
+	trap cleanup_download 0; \
+	trap 'exit 129' HUP; \
+	trap 'exit 130' INT; \
+	trap 'exit 143' TERM; \
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) --profile model-download up -d model-download-vllm || exit $$?; \
+	echo "Waiting for model-download-vllm service to become healthy on port $${VLLM_MODEL_DOWNLOAD_PORT:-8200}..."; \
+	i=0; \
+	while [ $$i -lt 60 ]; do \
+		if curl -sf "http://127.0.0.1:$${VLLM_MODEL_DOWNLOAD_PORT:-8200}/api/v1/models/results" >/dev/null 2>&1; then \
+			break; \
+		fi; \
+		if [ "$$i" -eq 59 ]; then \
+			echo "ERROR: model-download-vllm service did not become ready in time"; \
+			exit 1; \
+		fi; \
+		sleep 2; \
+		i=$$(($$i + 1)); \
+	done; \
+	echo "Requesting download of '${VLLM_MODEL_REPO_ID}' and '${VLLM_ADAPTER_REPO_ID}' from HuggingFace..."; \
+	payload='{"models":[{"name":"${VLLM_MODEL_REPO_ID}","hub":"huggingface","type":"llm","is_ovms":false},{"name":"${VLLM_ADAPTER_REPO_ID}","hub":"huggingface","type":"llm","is_ovms":false}],"parallel_downloads":false}'; \
+	http_code=$$(curl -w "%{http_code}" -s -o "$$resp_file" -X POST "http://127.0.0.1:$${VLLM_MODEL_DOWNLOAD_PORT:-8200}/api/v1/models/download?download_path=$$staging_name" \
+		-H "Content-Type: application/json" \
+		-d "$$payload"); \
+	response=$$(cat "$$resp_file"); \
+	echo "  HTTP Status: $$http_code"; \
+	echo "  Response: $$response"; \
+	if [ "$$http_code" != "200" ]; then \
+		echo "ERROR: Unexpected HTTP status $$http_code from model-download"; \
+		exit 1; \
+	fi; \
+	job_ids=$$(echo "$$response" | python3 -c "import sys, json; jobs = json.load(sys.stdin)['job_ids']; assert len(jobs) == 2 and all(isinstance(job, str) and job for job in jobs) and jobs[0] != jobs[1]; print(' '.join(jobs))" 2>/dev/null) || { \
+		echo "ERROR: Failed to extract job_ids from response"; \
+		exit 1; \
+	}; \
+	echo "Download jobs submitted (job_ids=$$job_ids). Waiting for completion..."; \
+	for job_id in $$job_ids; do \
+		i=0; \
+		while [ $$i -lt 600 ]; do \
+			job=$$(curl -sf "http://127.0.0.1:$${VLLM_MODEL_DOWNLOAD_PORT:-8200}/api/v1/jobs/$$job_id" 2>/dev/null || echo '{}'); \
+			status=$$(echo "$$job" | python3 -c "import sys, json; print(json.load(sys.stdin).get('status', 'unknown'))" 2>/dev/null); \
+			if [ "$$status" = "completed" ]; then \
+				echo "Download job $$job_id complete."; \
+				break; \
+			fi; \
+			if [ "$$status" = "failed" ]; then \
+				echo "ERROR: Download job $$job_id failed"; \
+				exit 1; \
+			fi; \
+			echo "  [$$i/600] Job $$job_id status: $$status"; \
+			i=$$(($$i + 1)); \
+			sleep 5; \
+		done; \
+		if [ $$i -ge 600 ]; then \
+			echo "ERROR: Download timeout for job $$job_id (600 attempts exhausted)"; \
+			exit 1; \
+		fi; \
+	done; \
+	echo "Moving the models into the layout expected by docker-compose-vllm.yml..."; \
+	model_src=$$(printf '%s' "${VLLM_MODEL_REPO_ID}" | tr '/' '_'); \
+	model_dst=$$(basename "${VLLM_MODEL_REPO_ID}"); \
+	adapter_src=$$(printf '%s' "${VLLM_ADAPTER_REPO_ID}" | tr '/' '_'); \
+	adapter_dst=$$(basename "${VLLM_ADAPTER_REPO_ID}"); \
+	docker run --rm --user 0:0 --entrypoint sh \
+		-v "$$PWD/configs/vllm:/opt/models" \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
+		-c 'set -e; \
+			staging="/opt/models/$$1"; \
+			test -s "$$staging/huggingface/$$2/config.json"; \
+			test -s "$$staging/huggingface/$$4/adapter_config.json"; \
+			mkdir -p /opt/models/huggingface /opt/models/models; \
+			rm -rf "/opt/models/huggingface/$$3" "/opt/models/models/$$5"; \
+			mv "$$staging/huggingface/$$2" "/opt/models/huggingface/$$3"; \
+			mv "$$staging/huggingface/$$4" "/opt/models/models/$$5"; \
+			rm -rf "$$staging"' sh "$$staging_name" "$$model_src" "$$model_dst" "$$adapter_src" "$$adapter_dst" || exit $$?; \
+	echo "VLM model download completed successfully:"; \
+	echo "  configs/vllm/huggingface/$$model_dst"; \
+	echo "  configs/vllm/models/$$adapter_dst"
+
 
 .PHONY: up_agentic
-up_agentic: check_hardware check_models check_env_variables validate_host_ip down
+up_agentic: check_hardware check_env_variables validate_host_ip down
 	@export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
 	export NGINX_PROFILE=$(AGENTIC_NGINX_PROFILE); \
 	export AGENTIC_UI_ENABLED=true MQTT_DISABLED=false; \
@@ -378,7 +496,7 @@ up_agentic: check_hardware check_models check_env_variables validate_host_ip dow
 	rm -f configs/grafana/provisioning/*.json; \
 	cp configs/grafana/dashboards_jsons/weld_defect_detection_vlm.json configs/grafana/provisioning/weld_defect_detection.json || exit 1; \
 	cp configs/grafana/dashboards_jsons/weld_defect_detection_agentic.json configs/grafana/provisioning/weld_defect_detection_agentic.json || exit 1; \
-	$(MAKE) download_model || exit 1; \
+	$(MAKE) download_model DOWNLOAD_AGENTIC=true || exit 1; \
 	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) up -d || exit 1; \
 	if [ "$(MCP)" != "true" ]; then $(MAKE) upload_tar_file; fi
 
@@ -444,9 +562,9 @@ help:
 	@echo "  make build_copyleft_sources       - Build all Docker images including copyleft licensed sources"
 	@echo "  make up                           - Start the base application (MQTT ingestion)"
 	@echo "  make up_vllm                      - Start the application and the vLLM stack"
-	@echo "      Requires: models under configs/vllm (see check_models) and a supported platform (see check_hardware)"
+	@echo "      Requires a supported platform; downloads VLM models if missing"
 	@echo "  make up_agentic                   - Start the application and the agentic stack including vLLM"
-	@echo "      Requires: supported platform (see check_hardware); downloads the agentic models first"
+	@echo "      Requires a supported platform; ensures VLM models and downloads the agentic model"
 	@echo "  make up_agentic MCP=true          - Also start the authenticated MCP server"
 	@echo "      Set MCP_USERNAME and MCP_PASSWORD in .env first. Pipelines are then started through MCP."
 	@echo "  make down                         - Stop Docker containers and remove volumes"
@@ -454,10 +572,10 @@ help:
 	@echo "  make status                       - Show status of deployed containers and check for errors"
 	@echo "  make check_env_variables          - Validate required .env variables (MCP=true also checks MCP_USERNAME/MCP_PASSWORD)"
 	@echo "  make validate_host_ip             - Validate HOST_IP in .env"
-	@echo "  make check_models                 - Check that the vLLM model directories are populated"
+	@echo "  make check_models                 - Check that the VLM model directories are populated"
 	@echo "  make check_hardware               - Check the platform for the vLLM/agentic stacks"
 	@echo "      Optional: PLATFORM_CHECK=false skips the check (CI/validation use only)"
-	@echo "  make download_model               - Download the agentic models"
+	@echo "  make download_model [DOWNLOAD_AGENTIC=true] - Download VLM models; optionally include the agentic model"
 	@echo "  make upload_tar_file              - Upload the weld anomaly detection UDF package to the Time-Series Analytics microservice"
 	@echo "  make post_config                  - Post the weld anomaly detection config to the Time-Series Analytics microservice"
 	@echo "  make push_images                  - Build and push all images, including the MCP server, to the docker registry"

@@ -42,7 +42,7 @@ curl -k https://<HOST_IP>/api/pipelines/user_defined_pipelines/pallet_defect_det
     },
     "parameters": {
         "detection-properties": {
-            "model": "/home/pipeline-server/resources/models/pallet-defect-detection/deployment/Detection/model/model.xml",
+            "model": "/home/pipeline-server/resources/models/pallet-defect-detection/model.xml",
             "device": "CPU"
         }
     }

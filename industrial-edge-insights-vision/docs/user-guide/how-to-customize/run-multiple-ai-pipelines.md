@@ -44,7 +44,7 @@ The following demonstrates running two AI pipelines.
        },
        "parameters": {
            "detection-properties": {
-               "model": "/home/pipeline-server/resources/models/pallet-defect-detection/deployment/Detection/model/model.xml",
+               "model": "/home/pipeline-server/resources/models/pallet-defect-detection/model.xml",
                "device": "CPU"
            }
        }
@@ -105,7 +105,7 @@ The following demonstrates running two AI pipelines.
        },
        "parameters": {
            "detection-properties": {
-               "model": "/home/pipeline-server/resources/models/pallet-defect-detection/deployment/Detection/model/model.xml",
+               "model": "/home/pipeline-server/resources/models/pallet-defect-detection/model.xml",
                "device": "CPU"
            }
        }

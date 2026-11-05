@@ -69,6 +69,11 @@ cd industrial-edge-insights-multimodal
 
 1. Update the following fields in `.env`.
 
+   > [!NOTE]
+   >
+   > - If you are trying to deploy it on Ubuntu 26.04, update the `DLSTREAMER_PIPELINE_SERVER_IMAGE` value in .env
+   >   to `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu26-rc1` before deployment.
+
    - `INFLUXDB_USERNAME`
    - `INFLUXDB_PASSWORD`
    - `VISUALIZER_GRAFANA_USER`

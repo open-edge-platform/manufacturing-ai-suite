@@ -67,7 +67,7 @@ Use them only on a deployment that you intend to replace.
    It does not modify application assets.
    Batch results use a 20-minute window.
 
-`num_of_streams` and `INCLUDE=validation` retain their existing behavior.
+`INCLUDE=validation` retains its existing behavior with MCP. The `num_of_streams` parameter is not supported.
 System metrics remain available in Grafana when collected; this MCP version does not expose host metrics.
 
 ## Trust the gateway certificate
@@ -166,5 +166,3 @@ Use `MCP=true` consistently for deployment, status, and shutdown.
 The server port is internal; only nginx exposes `/mcp`.
 Its internal `/health` endpoint provides liveness and does not require credentials.
 Browser origins must match the configured HTTPS gateway origin.
-
-For tests, see the [MCP testing instructions](../../../tests/README.md#mcp-server-tests).

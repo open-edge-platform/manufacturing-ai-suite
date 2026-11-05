@@ -25,6 +25,8 @@ services:
     # render group IDs for ubuntu 24.04 host OS
     - "992"
     - "993"
+    # render group ID for ubuntu 26.04 host OS
+    - "990"
     volumes:
       - ${DRI_MOUNT_PATH:-/dev/null}:/dev/dri:ro
       - "/run/udev:/run/udev:ro"
@@ -82,7 +84,36 @@ services:
       - TRITON_ATTN
     networks:
       - timeseries_network
-      
+
+  model-download-vllm:
+    image: ${DOCKER_REGISTRY}${MODEL_DOWLOADER_IMAGE}:${IMAGE_SUFFIX}
+    container_name: vllm-model-download
+    hostname: model-download-vllm
+    # Only started by the vLLM branch of `make download_model`; the profile keeps it out of `make up_vllm`.
+    profiles:
+      - model-download
+    command: ["--plugins", "huggingface"]
+    environment:
+      no_proxy: "${no_proxy:-},localhost,127.0.0.1"
+      HF_TOKEN: ${HUGGINGFACEHUB_API_TOKEN:-}
+      HF_HUB_ENABLE_HF_TRANSFER: 1
+      MODEL_PATH: /opt/models
+    volumes:
+      - ./configs/vllm:/opt/models
+    ports:
+      - "127.0.0.1:${VLLM_MODEL_DOWNLOAD_PORT:-8200}:8000"
+    networks:
+      - timeseries_network
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 180s
+
   multimodal-agentic-ui:
     container_name: multimodal-agentic-ui
     hostname: multimodal-agentic-ui

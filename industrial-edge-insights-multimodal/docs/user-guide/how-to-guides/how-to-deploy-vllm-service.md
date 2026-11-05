@@ -23,6 +23,12 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
 ## Prerequisites
 
 1. Ensure the `.env` file is configured with valid values for:
+
+   > [!NOTE]
+   >
+   > - If you are trying to deploy it on Ubuntu 26.04, update the `DLSTREAMER_PIPELINE_SERVER_IMAGE` value in .env
+   >   to `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu26-rc1` before deployment.
+
    - `HOST_IP`
    - `INFLUXDB_USERNAME`, `INFLUXDB_PASSWORD`
    - `VISUALIZER_GRAFANA_USER`, `VISUALIZER_GRAFANA_PASSWORD`
@@ -30,38 +36,10 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
    - `S3_STORAGE_USERNAME`, `S3_STORAGE_PASSWORD`
    - `SEAWEEDFS_WEB_AUTH_USER`, `SEAWEEDFS_WEB_AUTH_PASSWORD`
 
-## Download Models
-
-This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Qwen3.5-2B fine-tuned LoRA` adapter.
-
-1. Review and accept the [Unsloth Qwen3.5-2B license](https://huggingface.co/unsloth/Qwen3.5-2B/blob/main/LICENSE) before downloading.
+2. Review the [Unsloth Qwen3.5-2B license](https://huggingface.co/unsloth/Qwen3.5-2B/blob/main/LICENSE) prior to deployment.
 
    > [!NOTE]
    > The [Low-Rank Adaptation (LoRA) adapter](https://huggingface.co/Intel/qwen3.5-2b-vlm-weld-explainability-lora) was specifically trained on a subset of the [Intel Robotic Welding Multimodal Dataset](https://huggingface.co/datasets/IntelLabs/Intel_Robotic_Welding_Multimodal_Dataset) and may not generalize to generic weld datasets.
-
-2. Go to the root folder of the multimodal sample app:
-
-   ```bash
-   cd industrial-edge-insights-multimodal
-   ```
-
-3. Download the model and adapter:
-
-   ```bash
-   mkdir -p configs/vllm/huggingface configs/vllm/models && \
-   cd configs/vllm/ && \
-   rm -rf .modelenv && \
-   python3 -m venv .modelenv && \
-   source .modelenv/bin/activate && \
-   pip3 install huggingface_hub==1.23.0 && \
-   rm -rf huggingface models && \
-   hf download unsloth/Qwen3.5-2B \
-       --local-dir ./huggingface/Qwen3.5-2B && \
-   hf download Intel/qwen3.5-2b-vlm-weld-explainability-lora \
-       --local-dir ./models/qwen3.5-2b-vlm-weld-explainability-lora && \
-   deactivate && \
-   cd ../..
-   ```
 
 ## Deploy the vLLM Service
 
@@ -77,6 +55,13 @@ This section shows how to download the `Unsloth Qwen3.5-2B` model and `Unsloth Q
    cd industrial-edge-insights-multimodal
    make up_vllm
    ```
+
+   > [!NOTE]
+   > On the first run, `make up_vllm` automatically downloads the `Unsloth Qwen3.5-2B` model and
+   > the fine-tuned LoRA adapter through the model-download microservice into
+   > `configs/vllm/huggingface/Qwen3.5-2B` and
+   > `configs/vllm/models/qwen3.5-2b-vlm-weld-explainability-lora`. To re-download the models,
+  > run `make download_model`.
 
 2. (Optional) To build from source instead of deploying the pre-built artifacts, run the
    following for a fresh build before deployment:
@@ -149,10 +134,15 @@ make down
   This is expected as the model initializes and loads into memory.
 
 - `Error: configs/vllm/models directory does not exist.`
-  Create the directory and place the required model artifacts in it.
+  Run `make download_model` to download the model and adapter into the expected directories.
 
 - `Error: configs/vllm/models directory is empty.`
-  Add model files and checkpoints before running `make up_vllm`.
+  Run `make download_model` before running `make up_vllm`.
+
+- `ERROR: model-download-vllm service did not become ready in time` or a failed download job
+  Inspect the service logs with `docker logs vllm-model-download`. If you are behind a proxy,
+  ensure `http_proxy`/`https_proxy` are set in your environment before running
+  `make download_model`.
 
 - `HOST_IP is not set` or `HOST_IP is not a valid IPv4 address format.`
   Update `HOST_IP` in `.env` with a valid IPv4 address.

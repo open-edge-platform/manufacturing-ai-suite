@@ -2,12 +2,14 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 # Prepares nodes, installs deployment skills, deploys apps with their MCP servers,
-# and registers each node's MCP server with the Hermes on this host.
+# and registers each node's MCP server with the agent harness on this host
+# (Hermes by default; see HARNESS_AGENT and agents/).
 set -euo pipefail
 
 SSH_USER=
 SKIP_PLATFORM_CHECK=false
 DEPLOY=true
+PREPARE_ONLY=false
 INTERACTIVE=false
 HOSTS_FILE=
 LIST_ONLY=false
@@ -43,8 +45,15 @@ if [[ ${FLEET_RECIPE_MODE:-} == 1 ]]; then
   [[ -n ${PASS_KEYS[0]:-} ]] || PASS_KEYS=()
   MCP_TOOLS=${MCP_TOOLS_JSON:-'[]'}
 fi
-DEPLOY_PROMPT=${DEPLOY_PROMPT:-"In ~/$APP_REL, Meet prerequisites (ignore accepting licenses for downloading models from HF), build time series analytics microservice, build and deploy (pull latest weekly tags of intel/ images) the agentic variant with the MCP server (make up_agentic MCP=true), then run the smoke check. Do not edit .env; if a required credential is missing, stop and name it. Do not start or stop pipelines."}
-SMART_POLICY=${SMART_POLICY:-"APPROVE make build, make up_agentic, make down and make status (with or without MCP=true) and .github/skills/multimodal-deploy/scripts/smoke-check.sh when run from ~/$APP_REL. ESCALATE anything that edits .env, uses sudo, or touches paths outside that directory."}
+# An application deployed outside this installer lives at FLEET_APP_PATH (relative to the node user's home);
+# it is only connected (--no-deploy), never prepared or deployed.
+if [[ -n ${FLEET_APP_PATH:-} ]]; then
+  [[ $FLEET_APP_PATH =~ ^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$ && $FLEET_APP_PATH != *..* ]] \
+    || { echo "ERROR: invalid app_path: $FLEET_APP_PATH" >&2; exit 2; }
+  APP_REL=$FLEET_APP_PATH
+fi
+DEPLOY_PROMPT=${DEPLOY_PROMPT:-"In ~/$APP_REL, Meet prerequisites (ignore accepting licenses for downloading models from HF), build time series analytics microservice, build and deploy the agentic variant with the MCP server (make up_agentic MCP=true), then run the smoke check. Do not edit .env; if a required credential is missing, stop and name it. Do not start or stop pipelines. Use the edge-ai-libraries sparse checkout exactly as the skill's build script creates it; do not initialize or update git submodules, which the build does not need."}
+SMART_POLICY=${SMART_POLICY:-"APPROVE make build, make up_agentic, make down and make status (with or without MCP=true) and .github/skills/multimodal-deploy/scripts/smoke-check.sh when run from ~/$APP_REL. ESCALATE anything that edits .env, uses sudo, runs git submodule commands, or touches paths outside that directory."}
 
 RUN_STARTED=$SECONDS
 log() { printf '[%(%Y-%m-%dT%H:%M:%S%z)T] [+%ss] %s\n' -1 "$((SECONDS - RUN_STARTED))" "$*" >&2; }
@@ -63,12 +72,29 @@ run_stage() (
   log "START: $STAGE_LABEL"
   "$@"
 )
+
+# Agent harness adapter: every harness-specific operation (isolated per-node
+# contexts, skills, one-shot deploy tasks, MCP registration) goes through the
+# agent_* functions defined by agents/<HARNESS_AGENT>.sh. Hermes is the only
+# adapter implemented today; see agents/hermes.sh for the contract.
+HARNESS_AGENT=${HARNESS_AGENT:-hermes}
+[[ $HARNESS_AGENT =~ ^[a-z][a-z0-9_-]{0,31}$ ]] || die "invalid HARNESS_AGENT: $HARNESS_AGENT"
+AGENT_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/agents/$HARNESS_AGENT.sh"
+[[ -f $AGENT_LIB ]] || die "unsupported agent harness '$HARNESS_AGENT': $AGENT_LIB not found"
+# shellcheck source=agents/hermes.sh
+source "$AGENT_LIB"
+agent_supports() { agent_capabilities 2>/dev/null | grep -qx "$1"; }
 usage() {
   cat >&2 <<EOF
-usage: $0 [--hosts FILE] [--list] [--user NAME] [--interactive] [--no-deploy] [--skip-platform-check]
-       $0 [--list] [--user NAME] [--interactive] [--no-deploy] [--skip-platform-check] <node-ip> [<node-ip> ...]
+usage: $0 [--hosts FILE] [--list] [--user NAME] [--interactive] [--no-deploy | --prepare-only] [--skip-platform-check]
+       $0 [--list] [--user NAME] [--interactive] [--no-deploy | --prepare-only] [--skip-platform-check] <node-ip> [<node-ip> ...]
 Without node IPs, nodes are read from FILE (default: hosts.yaml next to this script).
 --list prints the resolved nodes and exits without changing anything.
+--no-deploy connects the MCP servers of applications that are already running: it checks SSH access,
+  starts the tunnels, and registers and tests the servers. It does not prepare nodes, copy source,
+  change the applications' .env files, or create node profiles.
+--prepare-only prepares the nodes (packages, checkout, credentials, node profiles) and stops, so that
+  you can deploy the applications yourself and then connect them with --no-deploy.
 --node NAME and --recipe NAME select deployments from a recipe inventory (repeatable).
 EOF
   exit 2
@@ -82,11 +108,13 @@ while [[ $# -gt 0 ]]; do
     --user) [[ $# -ge 2 ]] || usage; SSH_USER=$2; shift 2 ;;
     --interactive) INTERACTIVE=true; shift ;;
     --no-deploy) DEPLOY=false; shift ;;
+    --prepare-only) PREPARE_ONLY=true; shift ;;
     --skip-platform-check) SKIP_PLATFORM_CHECK=true; shift ;;
     -h|--help|-*) usage ;;
     *) break ;;
   esac
 done
+if $PREPARE_ONLY && ! $DEPLOY; then die "--prepare-only and --no-deploy cannot be combined"; fi
 if [[ $# == 0 && ${FLEET_RECIPE_MODE:-} != 1 ]]; then
   HOSTS_FILE=${HOSTS_FILE:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hosts.yaml"}
   command -v python3 >/dev/null || die "python3 is required for YAML inventories"
@@ -106,6 +134,7 @@ PY
     $LIST_ONLY && inventory_args+=(--list)
     $INTERACTIVE && inventory_args+=(--interactive)
     $DEPLOY || inventory_args+=(--no-deploy)
+    $PREPARE_ONLY && inventory_args+=(--prepare-only)
     $SKIP_PLATFORM_CHECK && inventory_args+=(--skip-platform-check)
     exec python3 "$(dirname "${BASH_SOURCE[0]}")/fleet_inventory.py" "${inventory_args[@]}"
   fi
@@ -116,7 +145,7 @@ fi
 [[ $REPO_URL =~ ^https://[A-Za-z0-9./_-]+$ ]] || die "invalid REPO_URL: $REPO_URL"
 [[ $REPO_BRANCH =~ ^[A-Za-z0-9._/-]+$ ]] || die "invalid REPO_BRANCH: $REPO_BRANCH"
 
-# Per-node settings by position (0-based). Node N (1-based) defaults to name weld_nodeN and local port BASE_PORT+N.
+# Per-node settings by position (0-based). Node N (1-based) defaults to name fleet_nodeN and local port BASE_PORT+N.
 NAME=() HOST=() NUSER=() SSH_PORT=() KEY=() LPORT=() SKIP=()
 
 # Prints one tab-separated line per node: name host user port identity_file local_port skip_platform_check.
@@ -159,12 +188,12 @@ for i, node in enumerate(nodes, 1):
         fail(f"node {i}: unknown keys {sorted(set(node) - NODE_KEYS)}")
     if "host" not in node:
         fail(f"node {i}: 'host' is required")
-    v = {"name": f"weld_node{i}", "user": cli_user, "port": 22, "identity_file": "", "local_port": 0,
+    v = {"name": f"fleet_node{i}", "user": cli_user, "port": 22, "identity_file": "", "local_port": 0,
          "skip_platform_check": cli_skip, **defaults, **node}
     if not v["user"]:
         fail(f"node {i}: 'user' is required (set it under 'defaults' or on the node, or pass --user)")
     if v["name"] == "default":
-        fail(f"node {i}: name 'default' is reserved for Hermes' central profile")
+        fail(f"node {i}: name 'default' is reserved for the agent's central profile")
     if not isinstance(v["skip_platform_check"], bool):
         fail(f"node {i}: skip_platform_check must be true or false")
     for k in ("port", "local_port"):
@@ -190,7 +219,7 @@ valid_host() {
 if [[ $# -ge 1 ]]; then
   [[ -n $SSH_USER ]] || die "--user is required when node IPs are given on the command line"
   for ip in "$@"; do
-    NAME+=("weld_node$((${#NAME[@]} + 1))") HOST+=("$ip") NUSER+=("$SSH_USER") SSH_PORT+=(22) KEY+=("")
+    NAME+=("fleet_node$((${#NAME[@]} + 1))") HOST+=("$ip") NUSER+=("$SSH_USER") SSH_PORT+=(22) KEY+=("")
     LPORT+=(0) SKIP+=("$SKIP_PLATFORM_CHECK")
   done
 else
@@ -207,7 +236,7 @@ declare -A seen_name seen_port
 for i in "${!NAME[@]}"; do
   n=${NAME[i]}
   [[ $n =~ ^[a-z][a-z0-9_]{0,31}$ ]] || die "invalid node name: $n (lowercase letters, digits, _)"
-  [[ $n != default ]] || die "node name 'default' is reserved for Hermes' central profile"
+  [[ $n != default ]] || die "node name 'default' is reserved for the agent's central profile"
   valid_host "${HOST[i]}" || die "[$n] not an IPv4 address or hostname: ${HOST[i]}"
   [[ ${NUSER[i]} =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "[$n] invalid user: ${NUSER[i]}"
   if ! [[ ${SSH_PORT[i]} =~ ^[0-9]{1,5}$ ]] || (( SSH_PORT[i] < 1 || SSH_PORT[i] > 65535 )); then
@@ -229,9 +258,9 @@ for i in "${!NAME[@]}"; do
   seen_name[$n]=1 seen_port[${LPORT[i]}]=$n
 done
 
-# Hermes profile per node: weld_nodeN -> weld-node-N (as in the manual sections); other names: _ -> -.
+# Agent context/profile per node: underscores in the node name map to hyphens.
 profile_of() {
-  if [[ $1 =~ ^weld_node([0-9]+)$ ]]; then printf 'weld-node-%s' "${BASH_REMATCH[1]}"; else printf '%s' "${1//_/-}"; fi
+  printf '%s' "${1//_/-}"
 }
 
 # ssh and scp with the node's port and key; the first argument is the node index.
@@ -264,6 +293,12 @@ finish() {
 }
 trap finish EXIT
 log "Inventory validated: ${#NAME[@]} node(s); deploy=$DEPLOY; interactive=$INTERACTIVE"
+if $DEPLOY && ! $PREPARE_ONLY && ! agent_supports deploy; then
+  die "the '$HARNESS_AGENT' adapter does not support agentic deployment; use --prepare-only and deploy the applications yourself, then --no-deploy to connect their MCP servers"
+fi
+if [[ -n ${FLEET_APP_PATH:-} ]] && $DEPLOY; then
+  die "this deployment uses app_path (an application managed outside this installer); run it with --no-deploy"
+fi
 if $INTERACTIVE && $DEPLOY && (( ${#NAME[@]} > 1 )); then
   die "Parallel deployments cannot share an interactive terminal; omit --interactive or select a single node"
 fi
@@ -277,15 +312,8 @@ if [[ $FLEET_STAGE != all ]]; then
     || die "staged execution requires a recipe inventory and state directory"
 fi
 
-rand_user() { printf 'weld%s' "$(openssl rand -base64 48 | tr -dc 'a-z' | cut -c1-8)"; }
+rand_user() { printf 'fdi%s' "$(openssl rand -base64 48 | tr -dc 'a-z' | cut -c1-8)"; }
 rand_pass() { printf '%sa7' "$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | cut -c1-22)"; }
-
-set_central_env() {
-  local f="$HOME/.hermes/.env" tmp
-  tmp=$(mktemp "$f.XXXXXX")
-  { grep -v "^$1=" "$f" 2>/dev/null || true; printf '%s=%s\n' "$1" "$2"; } > "$tmp"
-  mv "$tmp" "$f"
-}
 
 write_helpers() {
   cat > "$LOCAL_TMP/node-prepare.sh" <<'REMOTE'
@@ -414,14 +442,23 @@ REMOTE
 }
 
 write_tunnel_unit() {
-  install -d "$HOME/.config/systemd/user" "$HOME/.config/weld-tunnels"
-  cat > "$HOME/.config/systemd/user/weld-tunnel@.service" <<'UNIT'
+  install -d "$HOME/.config/systemd/user" "$HOME/.config/fleet-tunnels"
+  # One-time migration: earlier releases named these units weld-tunnel@. Stop
+  # and remove them so they don't hold the local ports the renamed units reuse.
+  if [[ -f "$HOME/.config/systemd/user/weld-tunnel@.service" ]]; then
+    log "Removing legacy weld-tunnel units (renamed to fleet-tunnel)"
+    systemctl --user stop 'weld-tunnel@*' 2>/dev/null || true
+    rm -f "$HOME/.config/systemd/user/weld-tunnel@.service" \
+          "$HOME"/.config/systemd/user/default.target.wants/weld-tunnel@*.service
+    rm -rf "$HOME/.config/weld-tunnels"
+  fi
+  cat > "$HOME/.config/systemd/user/fleet-tunnel@.service" <<'UNIT'
 [Unit]
-Description=SSH tunnel to multimodal nginx (%i)
+Description=SSH tunnel to a node's MCP endpoint (%i)
 After=network-online.target
 
 [Service]
-EnvironmentFile=%h/.config/weld-tunnels/%i.env
+EnvironmentFile=%h/.config/fleet-tunnels/%i.env
 ExecStart=/usr/bin/ssh -N -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 $SSH_OPTS -L ${LOCAL_PORT}:127.0.0.1:${REMOTE_PORT} ${NODE}
 Restart=always
 RestartSec=5
@@ -434,36 +471,19 @@ UNIT
 }
 
 setup_profile() {
-  local i=$1 ip=${HOST[$1]} p profiles dst
+  local i=$1 ip=${HOST[$1]} p
   p=$(profile_of "${NAME[i]}")
-  log "[$p] Hermes profile for $ip"
-  profiles=$(hermes profile list 2>/dev/null || true)
-  if ! awk -v p="$p" '{ for (i = 1; i <= NF; i++) if ($i == p) found = 1 } END { exit !found }' <<<"$profiles"; then
-    log "[${NAME[i]}] Creating Hermes profile"
-    hermes profile create "$p" --clone --description "Runs $SKILL_NAME on $ip over SSH"
-    hermes -p "$p" config unset mcp_servers >/dev/null 2>&1 || true
-  fi
+  log "[$p] $AGENT_LABEL context for $ip"
+  agent_context_recreate "$p" "Runs $SKILL_NAME on $ip over SSH"
   log "[${NAME[i]}] Configuring SSH backend, timeout, approval policy, and deploy skill"
-  hermes -p "$p" config set terminal.backend ssh
-  hermes -p "$p" config set TERMINAL_SSH_HOST "$ip"
-  hermes -p "$p" config set TERMINAL_SSH_USER "${NUSER[i]}"
-  hermes -p "$p" config set TERMINAL_SSH_PORT "${SSH_PORT[i]}"
-  if [[ -n ${KEY[i]} ]]; then
-    hermes -p "$p" config set TERMINAL_SSH_KEY "${KEY[i]}"
-  else
-    hermes -p "$p" config unset TERMINAL_SSH_KEY >/dev/null 2>&1 || true
-  fi
-  hermes -p "$p" config set terminal.timeout 3600
-  hermes -p "$p" config set approvals.smart_policy "$SMART_POLICY"
-  dst="$HOME/.hermes/profiles/$p/skills/devops"
-  install -d "$dst"
+  agent_context_set_ssh "$p" "$ip" "${NUSER[i]}" "${SSH_PORT[i]}" "${KEY[i]}"
+  agent_context_set_policy "$p" "$SMART_POLICY"
   [[ $SKILL_NAME =~ ^[a-z][a-z0-9_-]{0,63}$ ]] || die "invalid skill name"
-  rm -rf "${dst:?}/${SKILL_NAME:?}"
-  cp -r "$SKILL_SRC" "$dst/$SKILL_NAME"
+  agent_skill_install "$p" "$SKILL_NAME" "$SKILL_SRC"
 }
 
-prepare_node() {
-  local i=$1 ip=${HOST[$1]} name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}" rtmp upd creds mcp_user mcp_pass
+ensure_node_ssh() {
+  local i=$1 name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}"
   local copy_id=(-p "${SSH_PORT[$1]}" -o StrictHostKeyChecking=accept-new)
   if [[ -n ${KEY[i]} ]]; then copy_id+=(-i "${KEY[i]}.pub"); fi
   log "[$name] Checking key-based SSH connectivity"
@@ -471,6 +491,59 @@ prepare_node() {
     log "[$name] SSH check failed; installing public key (enter the node password in the terminal)"
     run_stage "[$name] Install SSH public key" ssh-copy-id "${copy_id[@]}" "$target"
   fi
+}
+
+# Stores the node app's MCP credentials on the central host for the agent's config references. Sources, in
+# order: the app's .env on the node (the source of truth), credentials already stored on this host, and, for a
+# terminal session only, a hidden prompt. Values are never logged or passed as command-line arguments.
+save_mcp_credentials() {
+  local i=$1 name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}" creds mcp_user="" mcp_pass=""
+  local var="${name^^}_MCP_BASIC"
+  [[ $MCP_AUTH_TYPE != none ]] || return 0
+  [[ $MCP_AUTH_TYPE == basic ]] || var="${name^^}_MCP_TOKEN"
+  log "[$name] Retrieving MCP authentication from ~/$APP_REL/.env on the node (values will not be logged)"
+  if [[ $MCP_AUTH_TYPE == basic ]]; then
+    creds=$(nssh "$i" -n "$target" grep -E "'^($MCP_USER_KEY|$MCP_PASS_KEY)='" "$APP_REL/.env" 2>/dev/null || true)
+    mcp_user=$(sed -n "s/^$MCP_USER_KEY=//p" <<<"$creds" | tail -n 1)
+    mcp_pass=$(sed -n "s/^$MCP_PASS_KEY=//p" <<<"$creds" | tail -n 1)
+  else
+    creds=$(nssh "$i" -n "$target" grep -E "'^$MCP_TOKEN_KEY='" "$APP_REL/.env" 2>/dev/null || true)
+    mcp_pass=$(sed -n "s/^$MCP_TOKEN_KEY=//p" <<<"$creds" | tail -n 1)
+  fi
+  if [[ $MCP_AUTH_TYPE == basic && -n $mcp_user && -n $mcp_pass ]]; then
+    agent_env_set "$var" "$(printf '%s:%s' "$mcp_user" "$mcp_pass" | base64 -w0)"
+    return 0
+  elif [[ $MCP_AUTH_TYPE == bearer && -n $mcp_pass ]]; then
+    [[ $mcp_pass =~ ^[A-Za-z0-9._~+/-]+=*$ ]] || die "[$name] MCP bearer token has an unsupported format"
+    agent_env_set "$var" "$mcp_pass"
+    return 0
+  fi
+  if agent_env_has "$var"; then
+    log "[$name] MCP authentication not found in the node's .env; using the credentials already stored on this host"
+    return 0
+  fi
+  if [[ -t 0 ]]; then
+    log "[$name] MCP authentication not found in ~/$APP_REL/.env on the node; enter it now (input is hidden)"
+    if [[ $MCP_AUTH_TYPE == basic ]]; then
+      read -r -p "[$name] MCP username: " mcp_user
+      read -r -s -p "[$name] MCP password: " mcp_pass
+      echo >&2
+      [[ -n $mcp_user && -n $mcp_pass && $mcp_user != *:* ]] || die "[$name] invalid MCP username or password"
+      agent_env_set "$var" "$(printf '%s:%s' "$mcp_user" "$mcp_pass" | base64 -w0)"
+    else
+      read -r -s -p "[$name] MCP bearer token: " mcp_pass
+      echo >&2
+      [[ $mcp_pass =~ ^[A-Za-z0-9._~+/-]+=*$ ]] || die "[$name] MCP bearer token is empty or has an unsupported format"
+      agent_env_set "$var" "$mcp_pass"
+    fi
+    return 0
+  fi
+  die "[$name] MCP authentication not found in ~/$APP_REL/.env on the node and none is stored as $var; set app_path in the inventory if the application is deployed elsewhere, or run from a terminal to enter it"
+}
+
+prepare_node() {
+  local i=$1 ip=${HOST[$1]} name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}" rtmp upd
+  ensure_node_ssh "$i"
   log "[$name] SSH ready; creating remote workspace and uploading helpers"
 
   rtmp=$(nssh "$i" "$target" mktemp -d)
@@ -510,27 +583,13 @@ PY
   log "[$name] Removing remote temporary files"
   nssh "$i" "$target" rm -rf "$rtmp"
 
-  if [[ $MCP_AUTH_TYPE == basic ]]; then
-    log "[$name] Saving MCP authentication on central host (values will not be logged)"
-    creds=$(nssh "$i" "$target" grep -E "'^($MCP_USER_KEY|$MCP_PASS_KEY)='" "$APP_REL/.env")
-    mcp_user=$(sed -n "s/^$MCP_USER_KEY=//p" <<<"$creds" | tail -n 1)
-    mcp_pass=$(sed -n "s/^$MCP_PASS_KEY=//p" <<<"$creds" | tail -n 1)
-    [[ -n $mcp_user && -n $mcp_pass ]] || die "[$name] MCP credentials missing in the node's .env"
-    set_central_env "${name^^}_MCP_BASIC" "$(printf '%s:%s' "$mcp_user" "$mcp_pass" | base64 -w0)"
-  elif [[ $MCP_AUTH_TYPE == bearer ]]; then
-    log "[$name] Saving MCP token on central host (value will not be logged)"
-    creds=$(nssh "$i" "$target" grep -E "'^$MCP_TOKEN_KEY='" "$APP_REL/.env")
-    mcp_pass=$(sed -n "s/^$MCP_TOKEN_KEY=//p" <<<"$creds" | tail -n 1)
-    [[ -n $mcp_pass ]] || die "[$name] MCP token missing in the node's .env"
-    [[ $mcp_pass =~ ^[A-Za-z0-9._~+/-]+=*$ ]] || die "[$name] MCP bearer token has an unsupported format"
-    set_central_env "${name^^}_MCP_TOKEN" "$mcp_pass"
-  fi
+  save_mcp_credentials "$i"
 }
 
 deploy_node() {
   local p=$1 file=$2 started=$SECONDS result=0
   log "START: Deployment and smoke check" > "$file" 2>&1
-  if hermes -p "$p" chat -s "$SKILL_NAME" --oneshot -q "$DEPLOY_PROMPT" >> "$file" 2>&1; then
+  if agent_task_run "$p" "$SKILL_NAME" "$DEPLOY_PROMPT" >> "$file" 2>&1; then
     log "DONE: Deployment and smoke check (elapsed=$((SECONDS - started))s)" >> "$file" 2>&1
   else
     result=$?
@@ -541,18 +600,19 @@ deploy_node() {
 
 deploy_all() {
   local i n p pid result active next_report=$((SECONDS + 30))
-  local log_dir="$HOME/.hermes/logs/weld-fleet" pids=() nodes=()
+  local log_dir pids=() nodes=()
+  log_dir=$(agent_log_dir)
   install -d "$log_dir"
   for i in "${!NAME[@]}"; do
     n=${NAME[i]} p=$(profile_of "${NAME[i]}")
     if $INTERACTIVE; then
       log "[$p] Interactive deployment; enter /quit when it finishes"
       if run_stage "[$n] Interactive deployment" \
-        hermes -p "$p" chat -s "$SKILL_NAME" -q "$DEPLOY_PROMPT"; then
-        log "[$n] Hermes chat completed; MCP readiness will be checked separately"
+        agent_task_run_interactive "$p" "$SKILL_NAME" "$DEPLOY_PROMPT"; then
+        log "[$n] $AGENT_LABEL chat completed; MCP readiness will be checked separately"
       else
         result=$?
-        log "WARN: [$n] Hermes chat exited with $result; continuing to MCP readiness check"
+        log "WARN: [$n] $AGENT_LABEL chat exited with $result; continuing to MCP readiness check"
         printf '%s\n' "$result" > "$LOCAL_TMP/$n.deploy-failed"
       fi
     else
@@ -578,7 +638,7 @@ deploy_all() {
   for i in "${!pids[@]}"; do
     pid=${pids[i]}
     if wait "$pid"; then
-      log "[${nodes[i]}] Hermes deployment completed; MCP readiness will be checked separately"
+      log "[${nodes[i]}] $AGENT_LABEL deployment completed; MCP readiness will be checked separately"
     else
       result=$?
       log "WARN: [${nodes[i]}] Deployment exited with $result; see $log_dir/${nodes[i]}.deploy.log; continuing to MCP readiness check"
@@ -589,18 +649,19 @@ deploy_all() {
 
 connect_node() {
   local i=$1 ip=${HOST[$1]} name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}" port=${LPORT[$1]}
-  local cert="$HOME/.hermes/certs/${NAME[$1]}.pem" url="$MCP_SCHEME://localhost:${LPORT[$1]}$MCP_PATH" code=000
+  local cert url="$MCP_SCHEME://localhost:${LPORT[$1]}$MCP_PATH" code=000
+  cert="$(agent_cert_dir)/${NAME[$1]}.pem"
   local attempt ready_started tls_args=()
   node_opts "$i" -p
   # systemd splits $SSH_OPTS on spaces; all values were validated to contain none.
   printf 'LOCAL_PORT=%s\nREMOTE_PORT=%s\nNODE=%s\nSSH_OPTS=%s\n' "$port" "$REMOTE_PORT" "$target" "${NODE_OPTS[*]}" \
-    > "$HOME/.config/weld-tunnels/$name.env"
+    > "$HOME/.config/fleet-tunnels/$name.env"
   log "[$name] Starting SSH tunnel on local port $port"
-  systemctl --user enable -q "weld-tunnel@$name"
-  systemctl --user restart "weld-tunnel@$name"
+  systemctl --user enable -q "fleet-tunnel@$name"
+  systemctl --user restart "fleet-tunnel@$name"
 
   # Refresh the pin over authenticated SSH, because app certificates may change on redeploy.
-  install -d -m 0700 "$HOME/.hermes/certs"
+  install -d -m 0700 "$(agent_cert_dir)"
   if [[ $MCP_SCHEME == https ]]; then
     log "[$name] Fetching and validating current MCP certificate over SSH"
     if [[ -n $MCP_CERT_CONTAINER ]]; then
@@ -618,7 +679,7 @@ connect_node() {
   ready_started=$SECONDS
   log "[$name] Waiting for MCP tools/list readiness (up to 60 attempts)"
   for attempt in {1..60}; do
-    # Authenticated endpoints are verified by Hermes below; do not put secrets in curl's argv.
+    # Authenticated endpoints are verified by the agent harness below; do not put secrets in curl's argv.
     code=$(curl -s --connect-timeout 5 --max-time 15 "${tls_args[@]}" -o /dev/null -w '%{http_code}' -X POST "$url" \
       -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
       -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' || true)
@@ -629,22 +690,13 @@ connect_node() {
     sleep 5
   done
   [[ $code == 200 || ( $MCP_AUTH_TYPE != none && $code == 401 ) ]] || die "[$name] $url not ready (HTTP $code)"
-  log "[$name] MCP endpoint responding (HTTP=$code, attempt=$attempt/60, elapsed=$((SECONDS - ready_started))s); verifying with Hermes next"
+  log "[$name] MCP endpoint responding (HTTP=$code, attempt=$attempt/60, elapsed=$((SECONDS - ready_started))s); verifying with $AGENT_LABEL next"
 
   log "[$name] Registering MCP URL, pinned certificate, credential reference, and tool allow-list"
-  hermes config set "mcp_servers.$name.url" "$url"
-  if [[ $MCP_SCHEME == https ]]; then
-    hermes config set "mcp_servers.$name.ssl_verify" "$cert"
-  else
-    hermes config set "mcp_servers.$name.ssl_verify" true
-  fi
-  case $MCP_AUTH_TYPE in
-    basic) hermes config set "mcp_servers.$name.headers.Authorization" "Basic \${${name^^}_MCP_BASIC}" ;;
-    bearer) hermes config set "mcp_servers.$name.headers.Authorization" "Bearer \${${name^^}_MCP_TOKEN}" ;;
-    none) hermes config set "mcp_servers.$name.headers" '{}' ;;
-  esac
-  hermes config set "mcp_servers.$name.tools.include" "$MCP_TOOLS"
-  run_stage "[$name] Hermes MCP verification" hermes mcp test "$name" >/dev/null
+  local ssl_verify=true
+  [[ $MCP_SCHEME == https ]] && ssl_verify=$cert
+  agent_mcp_register "$name" "$url" "$ssl_verify" "$MCP_AUTH_TYPE" "$MCP_TOOLS"
+  run_stage "[$name] $AGENT_LABEL MCP verification" agent_mcp_verify "$name"
 }
 
 ensure_user_systemd() {
@@ -669,11 +721,13 @@ LOCAL_TMP=${FLEET_STATE_DIR:-$(mktemp -d)}
 if [[ $FLEET_STAGE == all || $FLEET_STAGE == prepare ]]; then
 stage_started=$SECONDS
 log "START: Central host prerequisites and SSH keys"
-for c in hermes ssh scp ssh-copy-id ssh-keygen curl openssl git base64 systemctl loginctl; do
+mapfile -t agent_cmds < <(agent_required_commands)
+for c in "${agent_cmds[@]}" ssh scp ssh-copy-id ssh-keygen curl openssl git base64 systemctl loginctl; do
   command -v "$c" >/dev/null || die "missing on this host: $c"
 done
 ensure_user_systemd
-install -d -m 0700 "$HOME/.hermes" "$HOME/.ssh"
+agent_init
+install -d -m 0700 "$HOME/.ssh"
 if ! compgen -G "$HOME/.ssh/id_*.pub" >/dev/null; then
   log "Creating default SSH key (private key contents will not be logged)"
   ssh-keygen -q -t ed25519 -N '' -f "$HOME/.ssh/id_ed25519"
@@ -684,16 +738,20 @@ for i in "${!KEY[@]}"; do
   if [[ ! -e $k ]]; then
     log "[${NAME[i]}] Creating configured SSH key (private key contents will not be logged)"
     install -d -m 0700 "$(dirname "$k")"
-    ssh-keygen -q -t ed25519 -N '' -C "weld-fleet@$(hostname)" -f "$k"
+    ssh-keygen -q -t ed25519 -N '' -C "fleet-setup@$(hostname)" -f "$k"
   fi
   [[ -f $k.pub ]] || die "[${NAME[i]}] public key $k.pub not found"
 done
 log "DONE: Central host prerequisites and SSH keys (elapsed=$((SECONDS - stage_started))s)"
 
+# Preparing nodes (skill, packages, source, app environment, node profiles) is only for runs that deploy or
+# prepare. A --no-deploy run connects applications that are already running and touches none of it.
+if $DEPLOY; then
+if agent_supports deploy; then
 stage_started=$SECONDS
 log "START: Acquire $SKILL_NAME skill"
 if [[ -z ${SKILL_SRC:-} ]]; then
-  cache="$HOME/.cache/weld-fleet/${REMOTE_ROOT}-${SKILL_NAME}"
+  cache="$HOME/.cache/fleet-setup/${REMOTE_ROOT}-${SKILL_NAME}"
   if [[ -d $cache/.git ]]; then
     log "Updating cached skill checkout"
     git -C "$cache" fetch -q "$SKILL_REPO_URL" "$SKILL_REPO_REF"
@@ -723,20 +781,37 @@ except (OSError, yaml.YAMLError):
 PY
 fi
 log "DONE: Acquire $SKILL_NAME skill (elapsed=$((SECONDS - stage_started))s)"
+else
+  log "SKIP: Skill acquisition and $AGENT_LABEL contexts (the '$HARNESS_AGENT' adapter does not support agentic deployment)"
+fi
 
 run_stage "Write remote helper scripts" write_helpers
+fi
 run_stage "Install SSH tunnel service template" write_tunnel_unit
 
-# Profiles first, so they don't clone MCP credentials stored for other nodes.
-for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Configure Hermes profile" setup_profile "$i"; done
+if $DEPLOY; then
+# Contexts first, so they don't clone MCP credentials stored for other nodes.
+if agent_supports deploy; then
+  for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Configure $AGENT_LABEL context" setup_profile "$i"; done
+fi
 for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Prepare node" prepare_node "$i"; done
+else
+  # Connect-only: just SSH access and the MCP credentials. Credentials are retrieved in the foreground so
+  # that a hidden prompt, if ever needed, can use the terminal.
+  for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Check SSH access" ensure_node_ssh "$i"; done
+  for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Retrieve MCP credentials" save_mcp_credentials "$i"; done
+fi
 fi
 [[ $FLEET_STAGE != prepare ]] || exit 0
+if $PREPARE_ONLY; then
+  log "DONE: Nodes prepared (--prepare-only). Deploy the applications yourself, then run with --no-deploy to connect their MCP servers"
+  exit 0
+fi
 if [[ $FLEET_STAGE == all || $FLEET_STAGE == deploy ]]; then
 if $DEPLOY; then
   run_stage "Deploy apps across fleet" deploy_all
 else
-  log "SKIP: App deployment (--no-deploy); checking existing MCP servers"
+  log "SKIP: App deployment (--no-deploy); connecting the MCP servers of the running applications"
 fi
 fi
 [[ $FLEET_STAGE != deploy ]] || exit 0
@@ -763,5 +838,5 @@ for i in "${!NAME[@]}"; do
   printf '%-11s %-15s %-12s %-29s %-14s %ss\n' "${NAME[i]}" "${HOST[i]}" "$(profile_of "${NAME[i]}")" \
     "$MCP_SCHEME://localhost:${LPORT[i]}$MCP_PATH" "${status[$i]}" "${connection_time[$i]}"
 done
-[[ $rc -eq 0 ]] || log "Deployment logs: $HOME/.hermes/logs/weld-fleet/"
+[[ $rc -eq 0 ]] || log "Deployment logs: $(agent_log_dir)/"
 exit "$rc"

@@ -28,7 +28,7 @@ inference, and an agentic VLM pipeline (optionally with an MCP server). Deeper u
 |----------|------------------|------------------------------------------|-------|
 | Default  | `make up`        | `docker-compose.yml`                      | Vision + time-series fusion, no extra hardware gate |
 | vLLM     | `make up_vllm`   | `+ docker-compose-vllm.yml`               | Requires `make check_hardware` + `make check_models` (models pre-staged in `configs/vllm/models`, `configs/vllm/huggingface`) |
-| Agentic  | `make up_agentic`| `+ docker-compose-agentic.yml` + vllm     | Requires `make check_hardware` + `make check_models`; runs `make download_model` first (downloads/converts the LLM, can take minutes) |
+| Agentic  | `make up_agentic`| `+ docker-compose-agentic.yml` + vllm     | Requires `make check_hardware` + `make check_models`; downloads the agentic LLM first (can take minutes) |
 | Agentic + MCP | `make up_agentic MCP=true` | `+ docker-compose-mcp.yml` + agentic + vllm | As Agentic, plus `MCP_USERNAME`/`MCP_PASSWORD` validation and the `/mcp` nginx route. Pipelines do not auto-start; an MCP client starts them with `start_pipeline` |
 
 All `up*` targets run `check_env_variables`, `validate_host_ip`, and `down`
