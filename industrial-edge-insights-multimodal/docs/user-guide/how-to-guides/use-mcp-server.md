@@ -85,12 +85,19 @@ mcp-server/example/.venv/bin/python mcp-server/example/example_client.py start_p
   --arguments '{"vision_inf_device":"CPU","time_series_inf_device":"CPU"}'
 mcp-server/example/.venv/bin/python mcp-server/example/example_client.py list_insights_data \
   --arguments '{"page":1,"page_size":10}'
+
+# Select one of the timestamps from the above results as the value in the place of <timestamp> in the command below
+# Please note the vllm-server container would take around 10 mins to initialize fully, try after this time to run the command below
 mcp-server/example/.venv/bin/python mcp-server/example/example_client.py explain \
-  --arguments '{"selected_time":"2026-10-17T12:00:00Z"}'
+  --arguments '{"selected_time":"<timestamp>"}'
+
 mcp-server/example/.venv/bin/python mcp-server/example/example_client.py run_agent \
   --arguments '{"time_range":"30s"}'
+
+# Select the run id from the previous result and use it as the value in the place of <run-id>
 mcp-server/example/.venv/bin/python mcp-server/example/example_client.py get_run_results \
-  --arguments '{"run_id":"YOUR_RUN_UUID"}'
+  --arguments '{"run_id":"<run-id>"}'
+
 mcp-server/example/.venv/bin/python mcp-server/example/example_client.py stop_pipeline
 ```
 
