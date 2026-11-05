@@ -56,7 +56,10 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
    - `S3_STORAGE_USERNAME`, `S3_STORAGE_PASSWORD`
    - `SEAWEEDFS_WEB_AUTH_USER`, `SEAWEEDFS_WEB_AUTH_PASSWORD`
 
-2. Download the Vision-Language Model (VLM) and LoRA adapter with `make download_model` from the app root (see the [guide](./how-to-deploy-vllm-service.md) for details, including license acceptance). `make up_agentic` also downloads the agentic model.
+2. Review the licenses of the models prior to deployment. `make up_agentic` downloads them automatically on the first run:
+
+   - Vision-Language Model (VLM) and LoRA adapter: see the [guide](./how-to-deploy-vllm-service.md#prerequisites) for the license details.
+   - Agentic LLM set in `LLM_MODEL_NAME`: [OpenVINO/Qwen3.6-35B-A3B-int4-ov](https://huggingface.co/OpenVINO/Qwen3.6-35B-A3B-int4-ov).
 
 ## Deploy the Agentic Workflow
 

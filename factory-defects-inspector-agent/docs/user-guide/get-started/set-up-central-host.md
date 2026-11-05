@@ -18,6 +18,7 @@ The [Agent Harness Installer](https://github.com/open-edge-platform/edge-ai-libr
 - Read the [get-started prerequisites](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/frameworks/agent-harness-install/docs/user-guide/get-started.md) of the installer.
 - For a GPU install, make sure that the Intel GPU driver and compute runtime are installed.
 - Make sure that the host has enough memory and disk space for the model and the container images.
+- Review the license of the [OpenVINO/Qwen3.5-9B-int8-ov](https://huggingface.co/OpenVINO/Qwen3.5-9B-int8-ov) model prior to deployment.
 - For a reproducible deployment, use the reviewed repository revision of your site.
 - If your network needs a proxy, set it in the installer environment before you run the installer.
 
