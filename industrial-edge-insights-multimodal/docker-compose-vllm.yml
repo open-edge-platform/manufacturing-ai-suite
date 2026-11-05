@@ -35,7 +35,7 @@ services:
       # HuggingFace cache
       - ./configs/vllm/huggingface:${VLLM_HOME_DIR}/${VLLM_CACHE_DIR}/huggingface
       # Writable caches
-      - vol_vllm_server_tmpfs:/tmp:rw
+      - vol_vllm_server_tmp:/tmp:rw
       - vol_vllm_server_tmpfs:${VLLM_HOME_DIR}/${VLLM_CACHE_DIR}:rw
       - vol_vllm_server_tmpfs:${VLLM_HOME_DIR}/.config:rw
       - vol_vllm_server_tmpfs:${VLLM_HOME_DIR}/.triton:rw
@@ -70,6 +70,7 @@ services:
       - --no-enable-prefix-caching
       - --trust-remote-code
       - --max-num-batched-tokens=${VLLM_MAX_NUM_BATCHED_TOKENS}
+      - --max-num-seqs=${VLLM_MAX_NUM_SEQS}
       - --max-model-len
       - ${VLLM_MAX_MODEL_LEN}
       - --served-model-name
@@ -176,6 +177,11 @@ volumes:
       type: tmpfs
       device: tmpfs
   vol_vllm_server_tmpfs:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  vol_vllm_server_tmp:
     driver: local
     driver_opts:
       type: tmpfs
