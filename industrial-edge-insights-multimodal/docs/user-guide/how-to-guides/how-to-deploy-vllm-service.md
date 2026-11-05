@@ -143,7 +143,7 @@ make down
 
   > [!NOTE]
   > This only drops clean cached pages, so no data is lost. The cache refills as files are read
-  > again.
+  > again. Use this command also if the cache memory is still blocked after `make down` command execution.
 
 - `Error: configs/vllm/models directory does not exist.`
   Run `make download_model` to download the model and adapter into the expected directories.
