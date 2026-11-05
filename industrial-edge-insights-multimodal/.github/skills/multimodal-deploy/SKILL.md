@@ -340,25 +340,9 @@ Report the script's pass/fail output directly to the user.
 
 ## Step 3b (MCP mode only): Exercise the MCP server
 
-Use the bundled example client (it reads `MCP_USERNAME`, `MCP_PASSWORD`,
-`HOST_IP`, and `GRAFANA_PORT` from the app-root `.env` and always sends the
-Basic auth header):
-
-```bash
-cd mcp-server/example
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python example_client.py --insecure describe              # read-only
-.venv/bin/python example_client.py --insecure start_pipeline \
-    --vision-inf-device CPU --time-series-inf-device CPU            # starts live processing
-.venv/bin/python example_client.py --insecure list_insights_data --page 1 --page-size 10
-.venv/bin/python example_client.py --insecure run_agent --time-range 30s
-.venv/bin/python example_client.py --insecure get_run_results --run-id <RUN_UUID>
-.venv/bin/python example_client.py --insecure stop_pipeline         # stops live processing
-```
-
-`--insecure` is only for the bundled self-signed certificate; `--url
-https://HOST:PORT/mcp` overrides the address from `.env`. Call
+Follow [Use the multimodal MCP server](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/use-mcp-server.html)
+for the certificate setup, client installation, and tool calls. The client
+verifies the gateway certificate; there is no insecure option. Call
 `start_pipeline`/`stop_pipeline`/`run_agent` only after the user confirms.
 After `start_pipeline`, allow time for data to flow before expecting
 results from `list_insights_data`.
