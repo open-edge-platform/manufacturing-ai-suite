@@ -232,7 +232,7 @@ jobs:
   sanity:
     uses: ./.github/workflows/industrial-edge-insights-vision_sanity.yaml
     with:
-      branch:  ${{ github.head_ref }}
+      branch: ${{ github.sha }}
     permissions:
       contents: read           
       packages: write
