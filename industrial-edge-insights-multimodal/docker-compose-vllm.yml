@@ -86,7 +86,7 @@ services:
       - timeseries_network
 
   model-download-vllm:
-    image: ${DOCKER_REGISTRY}${MODEL_DOWLOADER_IMAGE}:${DEPS_IMAGE_SUFFIX:-2026.2.0}
+    image: ${DOCKER_REGISTRY}${MODEL_DOWLOADER_IMAGE}:${IMAGE_SUFFIX}
     container_name: vllm-model-download
     hostname: model-download-vllm
     # Only started by the vLLM branch of `make download_model`; the profile keeps it out of `make up_vllm`.
