@@ -8,7 +8,7 @@ services:
     user: "${TIMESERIES_UID}:${TIMESERIES_UID}"
     container_name: ia-telegraf
     hostname: ia-telegraf
-    image: telegraf:1.39.3-alpine
+    image: telegraf:1.40.3-alpine
     restart: unless-stopped
     depends_on:
       - ia-influxdb
@@ -44,7 +44,7 @@ services:
 
   ia-influxdb:
     user: "${TIMESERIES_UID}:${TIMESERIES_UID}"
-    image: influxdb:1.12.4
+    image: influxdb:1.13.2
     container_name: ia-influxdb
     hostname: ia-influxdb
     restart: unless-stopped
@@ -128,7 +128,7 @@ services:
     - "${DRI_MOUNT_PATH:-/dev/null}:/dev/dri"
 
   ia-grafana:
-    image: grafana/grafana-oss:13.0.2
+    image: grafana/grafana:13.3.0
     container_name: ia-grafana
     hostname: ia-grafana
     user: "${TIMESERIES_UID}:${TIMESERIES_UID}"
@@ -174,7 +174,7 @@ services:
     container_name: ia-mqtt-broker
     hostname: ia-mqtt-broker
     read_only: true
-    image: eclipse-mosquitto:2.0.22
+    image: eclipse-mosquitto:2.1.2-alpine
     restart: unless-stopped
     depends_on:
       - ia-influxdb
@@ -228,7 +228,7 @@ services:
     - timeseries_network
 
   nginx:
-    image: nginx:1.31.4
+    image: nginx:1.31.8
     container_name: nginx_proxy
     read_only: true
     user: "${TIMESERIES_UID}:${TIMESERIES_UID}"
@@ -394,7 +394,7 @@ services:
     - "${ACCEL_MOUNT_PATH:-/dev/null}:/dev/accel"
 
   mediamtx:
-    image: bluenviron/mediamtx:1.20.1
+    image: bluenviron/mediamtx:1.21.3
     container_name: mediamtx
     restart: unless-stopped
     read_only: true
@@ -430,7 +430,7 @@ services:
   # TIMESERIES_UID with read_only root filesystems. Chown them once up front so
   # those services can actually write to their volumes.
   seaweedfs-volumes-init:
-    image: chrislusf/seaweedfs:4.42
+    image: chrislusf/seaweedfs:4.52
     container_name: seaweedfs-volumes-init
     user: "0:0"
     entrypoint: ["sh", "-c"]
@@ -445,7 +445,7 @@ services:
     restart: "no"
 
   seaweedfs-master:
-    image: chrislusf/seaweedfs:4.42
+    image: chrislusf/seaweedfs:4.52
     hostname: seaweedfs-master
     container_name: seaweedfs-master
     read_only: true
@@ -466,7 +466,7 @@ services:
         condition: service_completed_successfully
 
   seaweedfs-volume:
-    image: chrislusf/seaweedfs:4.42
+    image: chrislusf/seaweedfs:4.52
     hostname: seaweedfs-volume
     container_name: seaweedfs-volume
     read_only: true
@@ -491,7 +491,7 @@ services:
         condition: service_completed_successfully
 
   seaweedfs-filer:
-    image: chrislusf/seaweedfs:4.42
+    image: chrislusf/seaweedfs:4.52
     hostname: seaweedfs-filer
     container_name: seaweedfs-filer
     read_only: true
@@ -523,7 +523,7 @@ services:
       start_period: 30s
 
   seaweedfs-s3:
-    image: chrislusf/seaweedfs:4.42
+    image: chrislusf/seaweedfs:4.52
     hostname: seaweedfs-s3
     container_name: seaweedfs-s3
     read_only: true
@@ -556,7 +556,7 @@ services:
       seaweedfs-volumes-init:
         condition: service_completed_successfully
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8333/"]
+      test: ["CMD-SHELL", "curl -fsS --max-time 4 --aws-sigv4 aws:amz:us-east-1:s3 --user \"$${S3_STORAGE_USER}:$${S3_STORAGE_PASS}\" http://localhost:8333/ > /dev/null"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -567,7 +567,7 @@ services:
       - "vol_temp_seaweed_s3:/tmp"
 
   coturn:
-    image: coturn/coturn:4.17.2-alpine
+    image: coturn/coturn:4.18.0-alpine
     container_name: coturn
     read_only: true
     restart: unless-stopped
@@ -576,7 +576,7 @@ services:
     ports:
       - "${HOST_IP:-127.0.0.1}:${COTURN_UDP_PORT}:3478"
       - "${HOST_IP:-127.0.0.1}:${COTURN_UDP_PORT}:3478/udp"
-    command: ["-v", "--external-ip=${HOST_IP}", "--user=${MTX_WEBRTCICESERVERS2_0_USERNAME}:${MTX_WEBRTCICESERVERS2_0_PASSWORD}", "--realm=turn.local", "--no-tls", "--no-dtls", "--lt-cred-mech"]
+    command: ["-v", "--external-ip=${HOST_IP}", "--user=${MTX_WEBRTCICESERVERS2_0_USERNAME}:${MTX_WEBRTCICESERVERS2_0_PASSWORD}", "--realm=turn.local", "--no-tls", "--lt-cred-mech"]
     networks:
     - timeseries_network
 
