@@ -46,14 +46,6 @@ Info available at [third-party-programs.txt](https://github.com/open-edge-platfo
 ---------------------------------------------------------------------------------------------------------------------------
 
 
-time-series-mcp-server:
-=======================
-
-Docker image: intel/ia-time-series-mcp-server:2026.3.0-rc1
-
-----------------------------------------------------------------------
-
-
 apps/wind-turbine-anomaly-detection/training/requirements.txt
 ================================================================
 License-Identifier: Apache-2.0
@@ -75,8 +67,6 @@ setuptools==84.1.0
 
 ia-opcua-server microservice:
 =============================
-
-Docker image: intel/ia-opcua-server:2026.3.0-rc1
 
 1. Base docker image: python:3.14-slim
 License-Identifier: PSF-2.0
@@ -132,8 +122,6 @@ cryptography==50.0.0
 
 ia-mqtt-publisher microservice:
 ===============================
-
-Docker image: intel/ia-mqtt-publisher:2026.3.0-rc1
 
 1. Base docker image: python:3.14-slim
 License-Identifier: PSF-2.0
