@@ -25,6 +25,8 @@ services:
     # render group IDs for ubuntu 24.04 host OS
     - "992"
     - "993"
+    # render group ID for ubuntu 26.04 host OS
+    - "990"
     volumes:
       - ${DRI_MOUNT_PATH:-/dev/null}:/dev/dri:ro
       - "/run/udev:/run/udev:ro"
