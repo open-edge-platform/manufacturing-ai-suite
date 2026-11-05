@@ -314,7 +314,7 @@ Edit `manufacturing-ai-suite/industrial-edge-insights-vision/apps/pallet-defect-
             },
             "parameters": {
                 "detection-properties": {
-                    "model": "/home/pipeline-server/resources/models/pallet-defect-detection/deployment/Detection/model/model.xml",
+                    "model": "/home/pipeline-server/resources/models/pallet-defect-detection/model.xml",
                     "device": "CPU"
                 }
             }

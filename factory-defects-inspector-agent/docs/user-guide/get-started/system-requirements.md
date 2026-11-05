@@ -1,26 +1,34 @@
 # System Requirements
 
+Make sure that each system meets these requirements before you start.
+
 ## Central Hermes host
 
-- A Linux host with a normal interactive login session and working **systemd user services**. Run the installer as the Hermes user, not through `sudo` or inside a container. If user services are unavailable, an administrator may need to enable lingering for that user and have them log in again.
-- Hermes Agent installed and configured with an LLM provider, as described in [Install Hermes on the central host](./install-hermes.md). The `hermes` command must be available to the user running setup.
-- These commands available on the host: `ssh`, `scp`, `ssh-copy-id`, `ssh-keygen`, `curl`, `openssl`, `git`, `base64`, `systemctl`, and `loginctl`.
-- Python 3 and PyYAML to read and validate the YAML inventory. On Debian or Ubuntu, install PyYAML with `sudo apt-get install python3-yaml` if it is missing.
-- The installer files kept together: `fleet-setup.sh` and `fleet_inventory.py`.
-- Network access to the configured Git repositories and to any services used by the skills.
+- A Linux host with an interactive login session and working systemd user services.
+- Run the installer as the Hermes user. Do not use `sudo` or a container.
+- If user services are not available, ask an administrator to enable lingering for that user. Then log in again.
+- Hermes Agent, installed and configured with an LLM provider. See [Install Hermes, Set the Persona, and Bring Up the WebUI](./set-up-central-host.md).
+- The `hermes` command, available to the user who runs the setup.
+- These commands: `ssh`, `scp`, `ssh-copy-id`, `ssh-keygen`, `curl`, `openssl`, `git`, `base64`, `systemctl`, and `loginctl`.
+- Python 3 and PyYAML. On Debian or Ubuntu, run `sudo apt-get install python3-yaml` if PyYAML is not installed.
+- The files `fleet-setup.sh` and `fleet_inventory.py` in the same directory.
+- Network access to the configured Git repositories and to the services that the skills use.
 
 ## Edge nodes
 
-- A supported Intel edge system for the selected application. The included examples expect Intel Panther Lake / Core Ultra 3xx hardware; see the application-specific guide for the current hardware requirements.
-- A dedicated deployment account on each node. The account must accept SSH connections from the central host and have a home directory where the application checkout can be created.
-- Key-based SSH from the central host. The installer can call `ssh-copy-id` on the first run; have the node account's password available at the terminal if the key is not already installed.
-- `make`, `curl`, `git`, Docker Engine, and Docker Compose v2. On apt-based systems, the installer can install missing packages, which requires interactive `sudo` access.
-- The deployment account must be able to use Docker. The installer may add it to the `docker` group using `sudo`; membership in this group is root-equivalent, so use a dedicated account and protect its SSH key.
-- Outbound network access for the application deployment, including image, package, model, or dependency downloads required by the configured skill. With `source_delivery: node_clone`, nodes also need access to the application Git repository; with `central_copy`, the app source is transferred from the central host.
+- A supported Intel edge system for the selected application. The examples need Intel Panther Lake or Core Ultra 3xx hardware. See the guide for the application for the current requirements.
+- A dedicated deployment account on each node. The account must accept SSH connections from the central host. It must have a home directory for the application checkout.
+- Key-based SSH from the central host. If the key is not installed, the installer runs `ssh-copy-id`. Keep the password of the node account ready.
+- `make`, `curl`, `git`, Docker Engine, and Docker Compose v2. On apt-based systems, the installer can install missing packages. This needs interactive `sudo` access.
+- Docker access for the deployment account. The installer can add the account to the `docker` group with `sudo`.
+- Outbound network access to download images, packages, and models.
+- With `source_delivery: node_clone`, access to the application Git repository. With `source_delivery: central_copy`, the central host sends the source to the node.
+
+**Caution:** Use a dedicated deployment account and protect its SSH key. Membership in the `docker` group gives root-equivalent access.
 
 ## Network and ports
 
-- The central host must be able to connect to each node's configured SSH port (port 22 by default).
-- The MCP service is reached on the node's loopback interface through SSH; it does not need to be exposed directly to the network.
-- Each deployment needs a unique, available local tunnel port on the central host. The checked-in inventory uses `13001` and `13002`; change them if they are already in use.
-- Allow the edge nodes to reach the external registries, repositories, and model/package sources needed for deployment. No inbound public access to the MCP service is required.
+- The central host connects to the SSH port of each node. The default is port 22.
+- The MCP service listens on the loopback interface of the node. The central host reaches it through SSH. Do not expose it to the network.
+- Each deployment needs a unique local tunnel port on the central host. The checked-in inventory uses `13001` and `13002`. Change them if they are in use.
+- The nodes need access to the external registries, repositories, and model sources. No inbound public access is necessary.

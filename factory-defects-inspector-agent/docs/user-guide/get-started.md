@@ -1,20 +1,22 @@
 # Get Started
 
-This guide is for the administrator, who owns inventory changes, node preparation, application deployment, MCP registration, and WebUI lifecycle management. Complete the steps on the central Hermes host unless a page says otherwise.
+This guide is for the administrator. Do the tasks in the order below. Do them on the central Hermes host, unless the page says otherwise.
 
-1. [System Requirements](./get-started/system-requirements.md): Prerequisites for the central Hermes host, the edge nodes, and the network.
-2. [Install Hermes, Set the Persona, and Bring Up the WebUI](./get-started/install-hermes.md): Install Hermes on the central host, configure a model, apply the agent persona, and optionally bring up the WebUI.
-3. [Prepare the Edge Nodes](./get-started/prepare-edge-nodes.md): Create the deployment account on each node and configure a proxy if required.
-4. [Configure the Inventory and Deploy](./get-started/deploy-the-fleet.md): Edit the inventory, run preflight validation and the installer, and verify the MCP registration.
+1. [System Requirements](./get-started/system-requirements.md): Check the central host, the edge nodes, and the network.
+2. [Install Hermes, Set the Persona, and Bring Up the WebUI](./get-started/set-up-central-host.md): Install Hermes and a local model. Apply the persona. Optionally start the WebUI.
+3. [Prepare the Edge Nodes](./get-started/prepare-edge-nodes.md): Create the deployment account on each node. Set a proxy if your network needs one.
+4. [Configure the Inventory and Deploy](./get-started/deploy-the-fleet.md): Edit the inventory. Run the installer. Verify the MCP registration.
 
-After deployment, see the [how-to guides](./how-to-guides.md) to hand access to operators. The optional Hermes WebUI bring-up is covered in [Install Hermes, Set the Persona, and Bring Up the WebUI](./get-started/install-hermes.md).
+**Note:** Tasks 2 and 3 do not depend on each other. You can prepare the edge nodes while you set up the central host. Do both before task 4.
+
+When deployment is complete, give access to the operators. See [Use Hermes as an Operator](./how-to-guides/use-hermes-as-operator.md).
 
 <!--hide_directive
 :::{toctree}
 :hidden:
 
 ./get-started/system-requirements
-./get-started/install-hermes
+./get-started/set-up-central-host
 ./get-started/prepare-edge-nodes
 ./get-started/deploy-the-fleet
 
