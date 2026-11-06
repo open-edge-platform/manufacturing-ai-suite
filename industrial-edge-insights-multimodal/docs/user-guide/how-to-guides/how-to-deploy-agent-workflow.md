@@ -55,6 +55,11 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
    - `MTX_WEBRTCICESERVERS2_0_USERNAME`, `MTX_WEBRTCICESERVERS2_0_PASSWORD`
    - `S3_STORAGE_USERNAME`, `S3_STORAGE_PASSWORD`
    - `SEAWEEDFS_WEB_AUTH_USER`, `SEAWEEDFS_WEB_AUTH_PASSWORD`
+   - `VLLM_GPU_MEMORY_UTILIZATION`: fraction of the memory available to the GPU that vLLM preallocates
+   (VRAM on discrete GPU; shared system memory on integrated GPU). Set it to
+   `memory to allocate to vLLM (GB) / total memory available to the GPU (GB)`. For the default
+   setup (Qwen3.5-2B fp8 + LoRA adapter, 8192 max context), vLLM is budgeted 8.5 GB: set `0.27` for
+   32 GB, `0.19` for 45 GB, or `0.13` for 64 GB of memory.
 
 2. Review the licenses of the models prior to deployment. `make up_agentic` downloads them automatically on the first run:
 

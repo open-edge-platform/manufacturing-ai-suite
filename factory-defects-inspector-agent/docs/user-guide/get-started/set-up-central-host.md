@@ -36,8 +36,8 @@ The [Agent Harness Installer](https://github.com/open-edge-platform/edge-ai-libr
    >**Note**: Go with the default values during the `./install.sh` execution
 
    ```bash
-   HARNESS_OVMS_IMAGE=openvino/model_server:2026.4.1-gpu \
-   ./install.sh --harness hermes --model OpenVINO/Qwen3.5-9B-int8-ov
+   export no_proxy="${no_proxy:-${NO_PROXY:-localhost,127.0.0.1,::1}}"
+   HARNESS_OVMS_IMAGE=openvino/model_server:2026.4.1-gpu ./install.sh --harness hermes --model OpenVINO/Qwen3.5-9B-int8-ov
    ```
 
 3. Read the install output. Make sure that the model registration is successful. A completed download is not sufficient.
