@@ -153,7 +153,7 @@ services:
       # ui
 
   apm-metrics:
-    image: ${DOCKER_REGISTRY}${METRICS_MANAGER_IMAGE}
+    image: ${DOCKER_REGISTRY}${METRICS_MANAGER_IMAGE}:${IMAGE_SUFFIX}
     container_name: apm-metrics
     hostname: apm-metrics
     environment:
