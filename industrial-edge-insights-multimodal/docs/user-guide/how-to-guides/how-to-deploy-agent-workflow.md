@@ -29,14 +29,14 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
 | Component    | Minimum Requirement                                 |
 |--------------|-----------------------------------------------------|
 | **Hardware** | Intel® Core™ Ultra Series 3 processor or newer only |
-| **RAM**      | Minimum 32 GB                                       |
-| **Storage**  | Minimum 256 GB (512 GB recommended)                 |
+| **RAM**      | Minimum 48 GB (recommended 64GB)                                      |
+| **Storage**  | Minimum 512 GB                                      |
 
 ### Validated Platforms
 
 | Product / Family                                                            | Validated inference devices |
 |-----------------------------------------------------------------------------|-----------------------------|
-| Intel® Core™ Ultra Processors Series 3 (Intel Core Ultra 7 356H, 16 Cores, 32GB) | CPU, iGPU                   |
+| Intel® Core™ Ultra Processors Series 3 (Intel Core Ultra 7 356H, 16 Cores, 48GB) | CPU, iGPU              |
 
 
 ## Prerequisites
