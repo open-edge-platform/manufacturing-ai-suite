@@ -68,18 +68,21 @@ jobs:
             fi
           done < <(jq -j '.[] | . + "\u0000"' <<< "$CHANGED_FILES")
           : > ./reports/clamav-report.txt
+          infected_count=0
           if [ "${#files[@]}" -gt 0 ]; then
             docker pull clamav/clamav
             docker run --rm -v "$GITHUB_WORKSPACE:/src" clamav/clamav clamscan "${files[@]}" > ./reports/clamav-report.txt || true
+            infected_count=$(awk '/ FOUND$/ { count++ } END { print count + 0 }' reports/clamav-report.txt)
           fi
-        infected_count=$(awk '/ FOUND$/ { count++ } END { print count + 0 }' reports/clamav-report.txt)
         {
           echo "### Virus Scan Results"
           echo "| Metric | Count |"
           echo "|--------|------:|"
           echo "| Infected files | $infected_count |"
           echo ""
-          if [ "$infected_count" -gt 0 ]; then
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No supporting file changes; virus scan passed without running."
+          elif [ "$infected_count" -gt 0 ]; then
             echo "| File | Detection |"
             echo "|------|-----------|"
             awk '/ FOUND$/ { line = $0; sub(/ FOUND$/, "", line); file = line; sub(/: [^:]*$/, "", file); detection = line; sub(/^.*: /, "", detection); printf "| %s | %s |\n", file, detection }' reports/clamav-report.txt
@@ -116,6 +119,7 @@ jobs:
         run: |
           cd manufacturing-ai-suite-repo
           echo "Scanning changed .sh files and running ShellCheck..."
+          scan_status=0
           shell_files=()
           while IFS= read -r -d '' file; do
             if [ -f "$file" ]; then shell_files+=("$file"); fi
@@ -129,7 +133,9 @@ jobs:
             echo "### ShellCheck Results"
             echo "| File | Line | Column | Severity | Code | Finding |"
             echo "|------|-----:|-------:|----------|------|---------|"
-            if [ "$issue_count" -gt 0 ]; then
+            if [ "${#shell_files[@]}" -eq 0 ]; then
+              echo "No supporting file changes; ShellCheck passed without running."
+            elif [ "$issue_count" -gt 0 ]; then
               while IFS=: read -r file line column diagnostic; do
                 severity="${diagnostic# }"
                 severity="${severity%%:*}"
@@ -189,15 +195,22 @@ jobs:
             printf '{"results":[]}\n' > bandit_report.json
           fi
           echo "exit_code=$bandit_exit" >> "$GITHUB_OUTPUT"
+          echo "file_count=${#python_files[@]}" >> "$GITHUB_OUTPUT"
           exit 0
 
       - name: Summarize Bandit findings
         if: always()
+        env:
+          BANDIT_FILE_COUNT: ${{ steps.run_bandit.outputs.file_count }}
         run: |
           echo "## Bandit Scan Results" >> "$GITHUB_STEP_SUMMARY"
           if [ ! -f bandit_report.json ]; then
             echo "Bandit report was not generated." >> "$GITHUB_STEP_SUMMARY"
             exit 1
+          fi
+          if [ "$BANDIT_FILE_COUNT" -eq 0 ]; then
+            echo "No supporting file changes; Bandit scan passed without running." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
           jq -r '"| Severity | Findings |\n|----------|----------|\n| HIGH | \([.results[] | select(.issue_severity == "HIGH")] | length) |\n| MEDIUM | \([.results[] | select(.issue_severity == "MEDIUM")] | length) |\n| LOW | \([.results[] | select(.issue_severity == "LOW")] | length) |"' bandit_report.json >> "$GITHUB_STEP_SUMMARY"
           if jq -e '.results | length > 0' bandit_report.json > /dev/null; then
