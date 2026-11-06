@@ -2,11 +2,13 @@
 
 ## Version 2026.3
 
-**December 2026**
+**Release Date**: December 2026
 
-This initial release introduces **Hermes-based fleet deployment**, **MCP access to remote manufacturing applications**, and **operator workflows for investigating defects across edge nodes**, alongside a reusable persona and optional WebUI.
+This initial release introduces **Hermes-based fleet deployment**, **MCP access to remote manufacturing applications**,
+and **operator workflows for investigating defects across edge nodes**, alongside a reusable
+persona and optional WebUI.
 
-**New**
+**New**:
 
 - **Fleet deployment**: added an installer to prepare edge nodes and deploy selected manufacturing applications across a configured fleet.
 - **Inventory planning**: added YAML-based multi-node, multi-application configuration with preflight validation and options for targeted setup.

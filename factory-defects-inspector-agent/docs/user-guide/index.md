@@ -6,9 +6,23 @@
 
 # Factory Defects Inspector Agent
 
-The Factory Defects Inspector Agent is a [Hermes Agent](https://github.com/NousResearch/hermes-agent) on a central host. It helps people investigate defects and anomalies that manufacturing applications report on remote edge nodes. Examples are weld defect detection and wind-turbine anomaly detection.
+<!--hide_directive
+<div class="component_card_widget">
+  <a class="icon_github" href="https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/factory-defects-inspector-agent">
+     GitHub
+  </a>
+  <a class="icon_document" href="https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/factory-defects-inspector-agent/README.md">
+     Readme
+  </a>
+</div>
+hide_directive-->
 
-**Warning:** The agent supports human decisions. It is not a safety interlock. It does not make final pass/fail decisions.
+The Factory Defects Inspector Agent is a [Hermes Agent](https://github.com/NousResearch/hermes-agent)
+on a central host. It helps investigate defects and anomalies that manufacturing applications
+report on remote edge nodes. Examples are weld defect detection and wind-turbine anomaly detection.
+
+> [!IMPORTANT]
+> The agent supports human decisions. It is not a safety interlock. It does not make final pass or fail decisions.
 
 ## Who uses this guide
 
@@ -31,9 +45,16 @@ The installer is the `fleet-setup.sh` script. For each deployment in the invento
 
 After setup, the operator starts a new Hermes session. Example request:
 
-> Describe node1 and node2, then summarize their status.
+```text
+Describe node1 and node2, then summarize their status.
+```
 
 The inventory defines the available nodes, skills, prompts, and MCP tools.
+
+## See Also
+
+- [Weld Defect Detection](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/weld-defect-detection/index.html)
+- [Wind Turbine Anomaly Detection](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/index.html)
 
 <!--hide_directive
 :::{toctree}
@@ -41,7 +62,7 @@ The inventory defines the available nodes, skills, prompts, and MCP tools.
 
 get-started.md
 how-to-guides.md
-release-notes.md
+Release Notes <./release-notes.md>
 
 :::
 hide_directive-->
