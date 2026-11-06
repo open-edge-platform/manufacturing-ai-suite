@@ -1,17 +1,27 @@
+<!--hide_directive
+```{eval-rst}
+.. meta::
+   :description: Install Hermes with a local model, set the Factory Defects Inspector Agent
+      persona, and bring up the Hermes WebUI on the central host.
+   :keywords: Hermes, OpenVINO Model Server, OVMS, Inference Router, persona, WebUI,
+      central host
+```
+hide_directive-->
+
 # Install Hermes, Set the Persona, and Bring Up the WebUI
 
 Do the tasks on this page on the **central host**. Use the same user account that will run the fleet setup. Do not do them on the edge nodes.
 
 The sections are in order:
 
-1. [Install Hermes with a local model](#install-hermes-with-a-local-model)
-2. [Verify the local model](#verify-the-local-model)
-3. [Set the persona](#set-the-factory-defects-inspector-agent-persona)
-4. [Bring up the Hermes WebUI (optional)](#bring-up-the-hermes-webui-optional)
+1. [Install Hermes with a Local Model](#install-hermes-with-a-local-model)
+2. [Verify the Local Model](#verify-the-local-model)
+3. [Set the Factory Defects Inspector Agent Persona](#set-the-factory-defects-inspector-agent-persona)
+4. [Bring Up the Hermes WebUI (Optional)](#bring-up-the-hermes-webui-optional)
 
-## Install Hermes with a local model
+## Install Hermes with a Local Model
 
-The [Agent Harness Installer](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/frameworks/agent-harness-install) installs Hermes. It also installs a local OpenVINO Model Server (OVMS) and an Inference Router.
+The [Agent Harness Installer](https://github.com/open-edge-platform/edge-ai-libraries/tree/main/frameworks/agent-harness-install) installs Hermes. It also installs a local OpenVINO™ Model Server (OVMS) and an Inference Router.
 
 **Before you start:**
 
@@ -22,7 +32,9 @@ The [Agent Harness Installer](https://github.com/open-edge-platform/edge-ai-libr
 - For a reproducible deployment, use the reviewed repository revision of your site.
 - If your network needs a proxy, set it in the installer environment before you run the installer.
 
-**Caution:** The installer can change the Docker daemon proxy and restart Docker. Run it on a host where a Docker restart does not interrupt other workloads.
+> [!CAUTION]
+> The installer can change the Docker daemon proxy and restart Docker. Run it on a host where
+> a Docker restart does not interrupt other workloads.
 
 1. Clone the installer repository:
 
@@ -33,28 +45,35 @@ The [Agent Harness Installer](https://github.com/open-edge-platform/edge-ai-libr
 
 2. Install Hermes with the OVMS image and the model:
 
-   >**Note**: Go with the default values during the `./install.sh` execution
+   > [!TIP]
+   > Go with the default values during the `./install.sh` execution.
 
    ```bash
    export no_proxy="${no_proxy:-${NO_PROXY:-localhost,127.0.0.1,::1}}"
    HARNESS_OVMS_IMAGE=openvino/model_server:2026.4.1-gpu ./install.sh --harness hermes --model OpenVINO/Qwen3.5-9B-int8-ov
    ```
 
-3. Read the install output. Make sure that the model registration is successful. A completed download is not sufficient.
+3. Read the install output. Make sure that the model registration is successful. A completed
+   download is not sufficient.
 
-OVMS serves the model through the Inference Router. Hermes uses this local model for all inference.
+OVMS serves the model through the Inference Router service. Hermes uses this local model for
+all inference.
 
-The installer prepares the host, starts OVMS and the Inference Router, downloads the model, and installs Hermes. The `OpenVINO/*` models are pre-converted. OVMS serves the model only if the downloaded repository has the `graph.pbtxt` file.
+The installer prepares the host, starts OVMS and the Inference Router, downloads the model,
+and installs Hermes. The `OpenVINO/*` models are pre-converted. OVMS serves the model only if
+the downloaded repository has the `graph.pbtxt` file.
 
-If the model needs access credentials, supply them through environment variables. Do not put them in the command or the inventory.
+If the model needs access credentials, supply them through environment variables. Do not put
+them in the command or the inventory.
 
-## Verify the local model
+## Verify the Local Model
 
-The installer does not configure or test Hermes. Do these steps to configure and test it.
+The installer does not configure or test Hermes — follow these steps to configure and test it:
 
-1. Find the `hermes config set` commands in the installer output. They point Hermes to the Inference Router. Do not use the OVMS endpoint directly.
+1. Find the `hermes config set` commands in the installer output. They point Hermes to the
+   Inference Router. Do not use the OVMS endpoint directly.
 
-2. Run the commands. Example:
+2. Run the commands. For example:
 
    ```bash
    hermes config set model.provider custom
@@ -62,9 +81,11 @@ The installer does not configure or test Hermes. Do these steps to configure and
    hermes config set model.default Qwen3.5-9B-int8-ov
    ```
 
-   Use the values from your installer output. The base URL is the Inference Router and ends in `/v1`. `model.default` is the served model name.
+   Use the values from your installer output. The base URL is the Inference Router and ends in `/v1`.
+   `model.default` is the served model name.
 
-3. If the installer reports that the router needs an API key, set the key as the installer output says. Do not put the key in a file that you commit.
+3. If the installer reports that the router needs an API key, set the key as the installer
+   output says. Do not put the key in a file that you commit.
 
 4. Start a test chat:
 
@@ -76,16 +97,24 @@ The installer does not configure or test Hermes. Do these steps to configure and
 
 If the model does not respond, do not continue. Fix the problem first:
 
-- Run `./install.sh status` in the installer checkout. It shows the health of OVMS, the router, and the agent.
+- Run `./install.sh status` in the installer checkout. It shows the health of OVMS, the router,
+  and the agent.
 - Run `./install.sh models list`. It shows if the model is served.
 
-When the model responds, return to the `factory-defects-inspector-agent` directory of this repository.
+When the model responds, return to the `factory-defects-inspector-agent` directory of this
+repository.
 
-**Note:** The fleet installer clones each node profile from the default profile. The node profiles inherit the model configuration. If you change the default model, run `fleet-setup.sh` again to recreate the node profiles. After deployment, test the MCP tool calls with this model. Tool-calling behavior depends on the model.
+> [!NOTE]
+> The fleet installer clones each node profile from the default profile. The node profiles
+> inherit the model configuration. If you change the default model, run `fleet-setup.sh`
+> again to recreate the node profiles. After deployment, test the Model Context Protocol
+> (MCP) tool calls with this model. Tool-calling behavior depends on the model.
 
-To use a hosted provider, run `hermes setup model`. Get approval for the provider and model from your administrator first. A hosted provider can receive prompts and tool results. Use it only with data that the provider is approved for.
+To use a hosted provider, run `hermes setup model`. Get approval for the provider and model
+from your administrator first. A hosted provider can receive prompts and tool results. Use it
+only with data that the provider is approved for.
 
-## Set the Factory Defects Inspector Agent persona
+## Set the Factory Defects Inspector Agent Persona
 
 `SOUL.md` is the persona template for this agent. It defines these items:
 
@@ -96,7 +125,9 @@ To use a hosted provider, run `hermes setup model`. Get approval for the provide
 
 `SOUL.md` has no node addresses, credentials, or model selections.
 
-**Install the persona before you run the fleet installer.** The installer clones each node profile from the default profile. The clone copies `SOUL.md` at that time. A persona that you install later reaches the node profiles only when you run the installer again.
+**Install the persona before you run the fleet installer.** The installer clones each node
+profile from the default profile. The clone copies `SOUL.md` at that time. A persona that you
+install later reaches the node profiles only when you run the installer again.
 
 1. Read `SOUL.md`.
 
@@ -106,27 +137,38 @@ To use a hosted provider, run `hermes setup model`. Get approval for the provide
    ./hermes-webui.sh persona
    ```
 
-   The command installs `SOUL.md` in the Hermes home. The default is `~/.hermes`. If `HERMES_HOME` is set, it uses that directory. The file has owner-only permissions.
+   The command installs `SOUL.md` in the Hermes home. The default is `~/.hermes`; if `HERMES_HOME`
+   is set, it uses that directory. The file has owner-only permissions.
 
-   If the installed persona is identical, the command does nothing. If it is different, the command saves the old persona to `SOUL.md.backup.<timestamp>` and replaces it.
+   If the installed persona is identical, the command does nothing. If it is different, the
+   command saves the old persona to `SOUL.md.backup.<timestamp>` and replaces it.
 
-3. If the old persona has customizations that you need, merge them into the new file. Keep the backup until you verify the new behavior.
+3. If the old persona has customizations that you need, merge them into the new file. Keep the
+   backup until you verify the new behavior.
 
 4. Start a new chat on the default profile, in the CLI or the WebUI.
 
 5. Ask the agent to explain its role. Ask how it handles a request to stop a pipeline.
 
-6. Make sure that the agent identifies the target and asks for approval. It must not make a change.
+6. Make sure that the agent identifies the target and asks for approval. It must not make a
+   change.
 
-**Note:** The persona is behavioral guidance. It is not access control. The fleet installer never installs or overwrites the persona of the default profile. A change to the template does not change an existing Hermes installation.
+> [!NOTE]
+> The persona is behavioral guidance. It is not access control. The fleet installer never
+> installs or overwrites the persona of the default profile. A change to the template does not
+> change an existing Hermes installation.
 
 `./hermes-webui.sh setup` does the persona installation and the WebUI start in one command.
 
-## Bring up the Hermes WebUI (optional)
+## Bring Up the Hermes WebUI (Optional)
 
-The Hermes WebUI is community software. It gives browser-based chat for the local Hermes installation. It is not a part of the fleet deployment. You can start it now or after the fleet deployment.
+The Hermes WebUI is community software. It gives browser-based chat for the local Hermes installation.
+It is not a part of the fleet deployment. You can start it now or after the fleet deployment.
 
-**Warning:** The WebUI gives terminal and file access with the permissions of the central Hermes user. The administrator and operator roles in this guide are not access-control roles. Give access only to trusted operators. A profile selection is not a security boundary.
+> [!WARNING]
+> The WebUI gives terminal and file access with the permissions of the central Hermes user.
+> The administrator and operator roles in this guide are not access-control roles. Give access
+> only to trusted operators. A profile selection is not a security boundary.
 
 **Before you start, make sure that:**
 
@@ -143,17 +185,20 @@ The Hermes WebUI is community software. It gives browser-based chat for the loca
    ./hermes-webui.sh start
    ```
 
-2. On the first run, the script clones the WebUI to `~/hermes-webui`. It checks out the pinned release `v0.52.492`.
+2. On the first run, the script clones the WebUI to `~/hermes-webui`. It checks out the pinned
+   release `v0.52.492`.
 
-3. When the script asks, enter a password and repeat it. The password must have at least 12 characters. It must not contain quotes. Without a terminal, the script generates a password.
+3. When the script asks, enter a password and repeat it. The password must have at least 12
+   characters. It must not contain quotes. Without a terminal, the script generates a password.
 
-4. Wait for the message that the WebUI is up. The script stores the settings in `~/hermes-webui/.env` with mode `600`. It starts the daemon and checks the `/health` endpoint.
+4. Wait for the message that the WebUI is up. The script stores the settings in `~/hermes-webui/.env`
+   with mode `600`. It starts the daemon and checks the `/health` endpoint.
 
 5. Open <http://127.0.0.1:8787/>.
 
 To choose the bind address, add `--host <ADDR>` to `start` or `setup`.
 
-### Remote access
+### Remote Access
 
 Use loopback with SSH forwarding. Keep password login on.
 
@@ -163,7 +208,10 @@ To set loopback again on an existing installation:
 HERMES_WEBUI_HOST=127.0.0.1 ./hermes-webui.sh restart
 ```
 
-**Caution:** Direct HTTP sends passwords and chat content without encryption. Use a firewall to limit access to authorized clients. Prefer SSH forwarding or a TLS reverse proxy. Do not expose the plain-HTTP service to an untrusted network.
+> [!CAUTION]
+> Direct HTTP sends passwords and chat content without encryption. Use a firewall to limit
+> access to authorized clients. It is best to use SSH forwarding or a TLS reverse proxy. Do
+> not expose the plain-HTTP service to an untrusted network.
 
 To give direct access on a trusted network:
 
@@ -192,4 +240,6 @@ The script saves the bind address for the next starts.
 | `./hermes-webui.sh persona` | Install the persona only. |
 | `./hermes-webui.sh setup` | Install, install the persona, and start. |
 
-To override the defaults, set `HERMES_WEBUI_DIR`, `HERMES_WEBUI_VERSION`, or `HERMES_WEBUI_PORT`. Use a reviewed stable release tag. If you change the port, change the browser URL and the SSH forwarding ports.
+To override the defaults, set `HERMES_WEBUI_DIR`, `HERMES_WEBUI_VERSION`, or `HERMES_WEBUI_PORT`.
+Use a reviewed stable release tag. If you change the port, also change the browser URL and the
+SSH forwarding ports.
