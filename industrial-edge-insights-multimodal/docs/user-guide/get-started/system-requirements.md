@@ -10,7 +10,7 @@ provided as part of Open Edge Platform.
 ## Minimum Requirements
 
 > [!NOTE]
-> The below requirements is for the default deployment as mentioned in the [Get Started](../get-started.md) guide.
+> The requirements below are for the default deployment described in the [Get Started](../get-started.md) guide.
 > For optional deployments, see the hardware requirements in the [vLLM service](../how-to-guides/how-to-deploy-vllm-service.md) and [agentic workflow](../how-to-guides/how-to-deploy-agent-workflow.md) deployment guides.
 
 | Component           | Specification                                                                                   |
