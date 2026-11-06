@@ -124,6 +124,11 @@ Relative to `<skill-dir>`:
    (alphanumeric, 10+ characters, at least one letter and one digit) are also
    required; they are empty in the shipped `.env`. Do not invent
    credentials — ask the user for any that are unset.
+   Validate with `make check_env_variables MCP=true` for MCP deployments
+   (plain `make check_env_variables` otherwise) rather
+   than reading `.env`. Agent harnesses mask secret values in command output
+   as `***`; that mask is not a placeholder and is not a missing credential.
+   Treat a credential as missing only when that check fails.
 3. Confirm `HOST_IP` in `.env` is a valid IPv4 address (default
    `127.0.0.1`). `localhost` is rejected by `make validate_host_ip`; use the
    host's LAN IP when the UI must be reachable from other machines.

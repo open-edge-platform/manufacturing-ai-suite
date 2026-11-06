@@ -52,9 +52,7 @@ if [[ -n ${FLEET_APP_PATH:-} ]]; then
     || { echo "ERROR: invalid app_path: $FLEET_APP_PATH" >&2; exit 2; }
   APP_REL=$FLEET_APP_PATH
 fi
-DEPLOY_PROMPT=${DEPLOY_PROMPT:-"In ~/$APP_REL, Meet prerequisites (ignore accepting licenses for downloading models from HF), build time series analytics microservice, build and deploy the agentic variant with the MCP server (make up_agentic MCP=true), then run the smoke check. Do not edit .env; if a required credential is missing, stop and name it. Do not start or stop pipelines. Use the edge-ai-libraries sparse checkout exactly as the skill's build script creates it; do not initialize or update git submodules, which the build does not need."}
-SMART_POLICY=${SMART_POLICY:-"APPROVE make build, make up_agentic, make down and make status (with or without MCP=true) and .github/skills/multimodal-deploy/scripts/smoke-check.sh when run from ~/$APP_REL. ESCALATE anything that edits .env, uses sudo, runs git submodule commands, or touches paths outside that directory."}
-
+# DEPLOY_PROMPT and SMART_POLICY have no defaults: recipes in hosts.yaml supply them (prompt, approval_policy).
 RUN_STARTED=$SECONDS
 log() { printf '[%(%Y-%m-%dT%H:%M:%S%z)T] [+%ss] %s\n' -1 "$((SECONDS - RUN_STARTED))" "$*" >&2; }
 die() { log "ERROR: $*"; exit 1; }
@@ -295,6 +293,11 @@ trap finish EXIT
 log "Inventory validated: ${#NAME[@]} node(s); deploy=$DEPLOY; interactive=$INTERACTIVE"
 if $DEPLOY && ! $PREPARE_ONLY && ! agent_supports deploy; then
   die "the '$HARNESS_AGENT' adapter does not support agentic deployment; use --prepare-only and deploy the applications yourself, then --no-deploy to connect their MCP servers"
+fi
+if $DEPLOY && agent_supports deploy; then
+  [[ -n ${SMART_POLICY:-} ]] || die "SMART_POLICY is not set; define approval_policy for the recipe in hosts.yaml (or export SMART_POLICY)"
+  $PREPARE_ONLY || [[ -n ${DEPLOY_PROMPT:-} ]] \
+    || die "DEPLOY_PROMPT is not set; define prompt for the recipe in hosts.yaml (or export DEPLOY_PROMPT)"
 fi
 if [[ -n ${FLEET_APP_PATH:-} ]] && $DEPLOY; then
   die "this deployment uses app_path (an application managed outside this installer); run it with --no-deploy"

@@ -120,6 +120,11 @@ Relative to `<skill-dir>`:
    inventing values.
    For `MCP=true`, also confirm `MCP_USERNAME` and `MCP_PASSWORD` are set
    in the process environment or local configuration. Never print them.
+   Validate with `make check_env_variables MCP=true` for MCP deployments
+   (plain `make check_env_variables` otherwise) rather
+   than reading `.env`. Agent harnesses mask secret values in command output
+   as `***`; that mask is not a placeholder and is not a missing credential.
+   Treat a credential as missing only when that check fails.
 3. Confirm `HOST_IP` (default `127.0.0.1`) and `GRAFANA_PORT` (default
    `3000`) in `.env` are correct: `make up_*` uploads the UDF package and
    posts config to `https://${HOST_IP}:${GRAFANA_PORT}/ts-api/...`.

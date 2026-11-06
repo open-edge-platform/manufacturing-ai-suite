@@ -19,13 +19,14 @@ recipes:
       path: industrial-edge-insights-multimodal/.github/skills/multimodal-deploy
       # repository/ref can override the app repository/ref for a separate skill source.
     prompt: >-
-      In ~/manufacturing-ai-suite/industrial-edge-insights-multimodal, meet prerequisites
-      deploy the agentic variant with the MCP server (make up_agentic MCP=true), 
-      then run the smoke check. Do not edit .env; if a required credential is missing, stop and name it.
+      In ~/manufacturing-ai-suite/industrial-edge-insights-multimodal, deploy the agentic variant with the MCP server
+      (make up_agentic MCP=true), then run the smoke check. Do not edit .env; if a required credential is missing, stop and name it.
+      Secret values are masked as *** in command output, so *** is not a placeholder; do not print .env,
+      and check credentials only with make check_env_variables MCP=true.
       Do not start or stop pipelines.
     approval_policy: >-
-      APPROVE make build, make up_agentic, make down and make status (with or without MCP=true)
-      and .github/skills/multimodal-deploy/scripts/smoke-check.sh when run from
+      APPROVE make build, make up_agentic, make down, make status and make check_env_variables
+      (with or without MCP=true) and .github/skills/multimodal-deploy/scripts/smoke-check.sh when run from
       ~/manufacturing-ai-suite/industrial-edge-insights-multimodal.
       ESCALATE anything that edits .env, uses sudo, runs git submodule commands, or touches
       paths outside that directory.
@@ -76,14 +77,15 @@ recipes:
       name: time-series-deploy
       path: industrial-edge-insights-time-series/.github/skills/time-series-deploy
     prompt: >-
-      In ~/manufacturing-ai-suite/industrial-edge-insights-time-series, follow
-      time-series-deploy to meet prerequisites, deploy wind-turbine-anomaly-detection with MQTT
+      In ~/manufacturing-ai-suite/industrial-edge-insights-time-series, deploy wind-turbine-anomaly-detection with MQTT
       ingestion and MCP (make up_mqtt_ingestion app=wind-turbine-anomaly-detection
       MCP=true), then run the skill smoke check with MCP=true. Do not edit .env;
       if a required credential or configuration is missing, stop and report it.
+      Secret values are masked as *** in command output, so *** is not a placeholder; do not print .env,
+      and check credentials only with make check_env_variables MCP=true.
       Do not start or stop the analytics pipeline.
     approval_policy: >-
-      APPROVE make build MCP=true, make status MCP=true and
+      APPROVE make build MCP=true, make status MCP=true, make check_env_variables MCP=true and
       .github/skills/time-series-deploy/scripts/smoke-check.sh (with MCP=true)
       only in ~/manufacturing-ai-suite/industrial-edge-insights-time-series.
       ESCALATE make up_mqtt_ingestion, make down, any .env edits, analytics
