@@ -25,6 +25,8 @@ services:
     # render group IDs for ubuntu 24.04 host OS
     - "992"
     - "993"
+    # render group ID for ubuntu 26.04 host OS
+    - "990"
     volumes:
       - ${DRI_MOUNT_PATH:-/dev/null}:/dev/dri:ro
       - "/run/udev:/run/udev:ro"
@@ -33,7 +35,7 @@ services:
       # HuggingFace cache
       - ./configs/vllm/huggingface:${VLLM_HOME_DIR}/${VLLM_CACHE_DIR}/huggingface
       # Writable caches
-      - vol_vllm_server_tmpfs:/tmp:rw
+      - vol_vllm_server_tmp:/tmp:rw
       - vol_vllm_server_tmpfs:${VLLM_HOME_DIR}/${VLLM_CACHE_DIR}:rw
       - vol_vllm_server_tmpfs:${VLLM_HOME_DIR}/.config:rw
       - vol_vllm_server_tmpfs:${VLLM_HOME_DIR}/.triton:rw
@@ -68,6 +70,7 @@ services:
       - --no-enable-prefix-caching
       - --trust-remote-code
       - --max-num-batched-tokens=${VLLM_MAX_NUM_BATCHED_TOKENS}
+      - --max-num-seqs=${VLLM_MAX_NUM_SEQS}
       - --max-model-len
       - ${VLLM_MAX_MODEL_LEN}
       - --served-model-name
@@ -84,7 +87,7 @@ services:
       - timeseries_network
 
   model-download-vllm:
-    image: ${DOCKER_REGISTRY}${MODEL_DOWLOADER_IMAGE}:${DEPS_IMAGE_SUFFIX:-2026.2.0}
+    image: ${DOCKER_REGISTRY}${MODEL_DOWLOADER_IMAGE}:${IMAGE_SUFFIX}
     container_name: vllm-model-download
     hostname: model-download-vllm
     # Only started by the vLLM branch of `make download_model`; the profile keeps it out of `make up_vllm`.
@@ -174,6 +177,11 @@ volumes:
       type: tmpfs
       device: tmpfs
   vol_vllm_server_tmpfs:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+  vol_vllm_server_tmp:
     driver: local
     driver_opts:
       type: tmpfs

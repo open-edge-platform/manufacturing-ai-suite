@@ -9,7 +9,7 @@ services:
     user: "${TIMESERIES_UID}:${TIMESERIES_UID}"
     container_name: ia-telegraf
     hostname: ia-telegraf
-    image: telegraf:1.39.3-alpine
+    image: telegraf:1.40.3-alpine
     restart: unless-stopped
     depends_on:
       - ia-influxdb
@@ -45,7 +45,7 @@ services:
 
   ia-influxdb:
     user: "${TIMESERIES_UID}:${TIMESERIES_UID}"
-    image: influxdb:1.12.4
+    image: influxdb:1.13.2
     container_name: ia-influxdb
     hostname: ia-influxdb
     restart: unless-stopped
@@ -126,13 +126,15 @@ services:
     # render group IDs for ubuntu 24.04 host OS
     - "992"
     - "993"
+    # render group ID for ubuntu 26.04 host OS
+    - "990"
     devices:
       # Following devices under /dev filesystem will be needed based on usecase
       # dri - GPU
     - ${DRI_MOUNT_PATH:-/dev/null}:/dev/dri
 
   ia-grafana:
-    image: grafana/grafana-oss:13.0.2
+    image: grafana/grafana:13.3.0
     container_name: ia-grafana
     hostname: ia-grafana
     user: "${TIMESERIES_UID}:${TIMESERIES_UID}"
@@ -176,7 +178,7 @@ services:
     container_name: ia-mqtt-broker
     hostname: ia-mqtt-broker
     read_only: true
-    image: eclipse-mosquitto:2.0.22
+    image: eclipse-mosquitto:2.1.2-alpine
     restart: unless-stopped
     depends_on:
       - ia-influxdb
@@ -256,7 +258,7 @@ services:
     - ./apps/${SAMPLE_APP}/simulation-data:/simulation-data
 
   nginx:
-    image: nginx:1.31.4
+    image: nginx:1.31.8
     container_name: nginx_proxy
     read_only: true
     user: "${TIMESERIES_UID}:${TIMESERIES_UID}"

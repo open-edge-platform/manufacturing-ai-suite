@@ -18,42 +18,40 @@ Docker images pulled from docker hub:
 ====================================
 
 License-Identifier: MIT
-- telegraf:1.39.3-alpine
-- influxdb:1.12.4
-- bluenviron/mediamtx:1.20.1
+- telegraf:1.40.3-alpine
+- influxdb:1.13.2
+- bluenviron/mediamtx:1.21.3
 ----------------------------------------------------------------------
 
 License-Identifier: AGPL-3.0-only
-- grafana/grafana-oss:13.0.2
+- grafana/grafana:13.3.0
 ----------------------------------------------------------------------
 
 License-Identifier: EPL-2.0 OR EPL-1.0
-- eclipse-mosquitto:2.0.22
+- eclipse-mosquitto:2.1.2-alpine
 ----------------------------------------------------------------------
 
 License-Identifier: BSD-2-Clause
-- nginx:1.31.4
+- nginx:1.31.8
 ----------------------------------------------------------------------
 
 License-Identifier: Apache-2.0
 - intel/dlstreamer-pipeline-server:2026.3.0-ubuntu24
-- chrislusf/seaweedfs:4.42
+- chrislusf/seaweedfs:4.52
 - intel/vllm:0.21.0-ubuntu24.04
 - openvino/model_server:2026.4.1-gpu
 - prom/prometheus:v2.53.4
-- intel/agent-quality-handler:2026.3
+- intel/agent-quality-handler:2026.3.0
 - intel/model-download:2026.3.0
 - intel/metrics-manager:2026.3.0
-- intel/ia-multimodal-fusion-analytics:2026.3.0
-- intel/ia-weld-data-simulator:2026.3.0
 - intel/multimodal-agentic-ui:2026.3.0
+- intel/ia-weld-data-simulator:2026.3.0
+- intel/ia-multimodal-fusion-analytics:2026.3.0
 - intel/multimodal-mcp-server:2026.3.0
 ----------------------------------------------------------------------
 
 License-Identifier: BSD 3-Clause License (also known as the "New BSD License" or "Modified BSD License").
-- coturn/coturn:4.17.2-alpine
-
----------------------------------------------------------------------------------------------------------------------------
+- coturn/coturn:4.18.0-alpine
 
 
 ia-time-series-analytics-microservice:
@@ -63,6 +61,7 @@ Info available at [third-party-programs.txt](https://github.com/open-edge-platfo
 
 ----------------------------------------------------------------------
 
+ia-mqtt-publisher microservice:
 
 ia-weld-data-simulator:
 ===============================

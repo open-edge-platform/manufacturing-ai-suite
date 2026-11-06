@@ -92,6 +92,7 @@ The installer uses `hosts.yaml` by default. It validates the inventory and check
 - On apt-based systems, install missing packages. Add the deployment account to the `docker` group. These steps can ask for `sudo`.
 - Install the deployment skill. Prepare the application checkout and environment. Run the deployment prompt and the smoke check of the recipe.
 - Open a user-level SSH tunnel. Pin the TLS certificate of the MCP server. Register the server and the allowed tools with Hermes. Test the connection.
+- Enable user lingering for the central-host user with `loginctl enable-linger`. See [Restore user lingering](../how-to-guides/admin-redeploy-and-handle-credentials.md#restore-user-lingering).
 
 ### Installer options
 

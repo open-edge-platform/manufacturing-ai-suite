@@ -537,7 +537,7 @@ class Backend:
     ) -> dict[str, Any]:
         """Use a look-ahead row instead of an unbounded total-count query."""
         return {
-            "window": window.model_dump(mode="json"),
+            "window": window.model_dump(mode="json", exclude_none=True),
             "items": rows[:page_size],
             "page": page,
             "page_size": page_size,
@@ -615,7 +615,7 @@ class Backend:
         counts = [int(rows[0].get("count") or 0) if rows else 0 for rows in results]
         processed, analysed, anomalous, low, medium, high = counts
         return {
-            "window": window.model_dump(mode="json"),
+            "window": window.model_dump(mode="json", exclude_none=True),
             "processed_points": processed,
             "analysed_points": analysed,
             "unanalysed_points": processed - analysed,
@@ -669,7 +669,7 @@ class Backend:
         latency = results[2][0] if results[2] else {}
         minutes = (window.end_time - window.start_time).total_seconds() / 60
         return {
-            "window": window.model_dump(mode="json"),
+            "window": window.model_dump(mode="json", exclude_none=True),
             "ingested_points": ingested,
             "processed_points": processed,
             "ingestion_points_per_minute": ingested / minutes,

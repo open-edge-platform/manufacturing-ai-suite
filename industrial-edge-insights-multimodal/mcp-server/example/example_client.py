@@ -4,87 +4,92 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-"""Call one tool on a deployed weld-analysis MCP server.
-
-Install requirements from mcp-server/requirements.txt, then run
-python3 mcp-server/example/example_client.py --insecure describe from the project root.
-To control a test deployment, run either command independently:
-python3 mcp-server/example/example_client.py --insecure start_pipeline
-python3 mcp-server/example/example_client.py --insecure stop_pipeline
-These commands affect live processing.
-"""
+"""Call one tool on an authenticated multimodal MCP deployment."""
 
 import argparse
 import asyncio
 import base64
 import json
+import os
 from pathlib import Path
+import ssl
+import sys
 
+from dotenv import dotenv_values
+from fastmcp import Client
+from fastmcp.client.transports import StreamableHttpTransport
+from fastmcp.exceptions import ToolError
+import httpx
+from mcp.shared.exceptions import MCPError
 
 ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 
-async def exercise(args: argparse.Namespace) -> None:
-    from dotenv import dotenv_values
-    from fastmcp import Client
-    from fastmcp.client.transports import StreamableHttpTransport
-
-    credentials = dotenv_values(ENV_FILE)
-    username = credentials.get("MCP_USERNAME")
-    password = credentials.get("MCP_PASSWORD")
-    if not username or not password:
-        raise ValueError(f"Set MCP_USERNAME and MCP_PASSWORD in {ENV_FILE}")
-
-    encoded = base64.b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
-    host_ip = credentials.get("HOST_IP") or "localhost"
-    port = credentials.get("GRAFANA_PORT") or "3000"
-    transport = StreamableHttpTransport(
-        url=args.url or f"https://{host_ip}:{port}/mcp",
-        headers={"Authorization": f"Basic {encoded}"},
-        verify=not args.insecure,
+async def main():
+    """Read settings from the environment or project .env and verify the server certificate."""
+    try:
+        env_file_values = dotenv_values(ENV_FILE)
+    except (OSError, UnicodeDecodeError) as error:
+        print(f"Ignoring unreadable {ENV_FILE} ({type(error).__name__})", file=sys.stderr)
+        env_file_values = {}
+    settings = {**env_file_values, **os.environ}
+    default_url = (
+        f"https://{settings.get('HOST_IP') or '127.0.0.1'}:{settings.get('GRAFANA_PORT') or '3000'}/mcp"
     )
-    tool_arguments = vars(args).copy()
-    for option in ("url", "insecure", "tool"):
-        tool_arguments.pop(option)
-
-    async with Client(transport, mode="legacy") as client:
-        result = await client.call_tool(args.tool, tool_arguments)
-        if result.is_error:
-            raise RuntimeError(f"{args.tool} failed: {result.content}")
-        print(json.dumps(result.data, indent=2))
-
-
-def create_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--url", help="Override the gateway URL from the project .env")
-    parser.add_argument("--insecure", action="store_true", help="Trust the local self-signed HTTPS certificate")
-    tools = parser.add_subparsers(dest="tool", required=True)
-    tools.add_parser("describe", help="Describe the MCP server and its tools")
-    tools.add_parser("get_pipeline_status", help="Get time-series and DL Streamer pipeline statuses")
-
-    insights = tools.add_parser("list_insights_data", help="List fusion results")
-    insights.add_argument("--page", type=int, default=1)
-    insights.add_argument("--page-size", type=int, default=10)
-
-    explain = tools.add_parser("explain", help="Explain a fused detection")
-    explain.add_argument("--selected-time", required=True, help="ISO-8601 fusion timestamp")
-
-    agent = tools.add_parser("run_agent", help="Start an agentic analysis run")
-    agent.add_argument("--time-range", choices=("30s", "1m", "5m", "10m", "30m"), default="30s")
-
-    results = tools.add_parser("get_run_results", help="Inspect one agent run")
-    results.add_argument("--run-id", required=True)
-
-    start = tools.add_parser("start_pipeline", help="Start live detection")
-    start.add_argument("--vision-inf-device", choices=("CPU", "GPU", "NPU"), default="CPU")
-    start.add_argument("--time-series-inf-device", choices=("CPU", "GPU"), default="CPU")
-    tools.add_parser("stop_pipeline", help="Stop live detection")
-    return parser
-
-
-def main() -> None:
-    asyncio.run(exercise(create_parser().parse_args()))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("tool", help="Tool name, for example describe or get_pipeline_status")
+    parser.add_argument("--arguments", default="{}", help="JSON object containing tool arguments")
+    parser.add_argument("--url", default=settings.get("MCP_URL") or default_url)
+    parser.add_argument(
+        "--ca-file", default=settings.get("MCP_CA_FILE"), help="Trusted gateway CA or certificate"
+    )
+    args = parser.parse_args()
+    username = settings.get("MCP_USERNAME")
+    password = settings.get("MCP_PASSWORD")
+    if not username or not password:
+        parser.error(f"Set MCP_USERNAME and MCP_PASSWORD in the environment or {ENV_FILE}")
+    if not args.url.startswith("https://"):
+        parser.error("Use an HTTPS MCP URL")
+    try:
+        arguments = json.loads(args.arguments)
+    except json.JSONDecodeError:
+        parser.error("--arguments must be valid JSON")
+    if not isinstance(arguments, dict):
+        parser.error("--arguments must be a JSON object")
+    authorization = base64.b64encode(f"{username}:{password}".encode()).decode()
+    try:
+        context = ssl.create_default_context(cafile=args.ca_file)
+    except (OSError, ssl.SSLError) as error:
+        parser.error(f"Cannot load the CA file {args.ca_file}: {error.__class__.__name__}")
+    transport = StreamableHttpTransport(
+        args.url,
+        headers={"Authorization": "Basic " + authorization},
+        verify=context,
+    )
+    try:
+        async with Client(transport, mode="legacy", timeout=300) as client:
+            result = await client.call_tool(args.tool, arguments)
+            if result.is_error:
+                raise ToolError(result.content)
+            print(json.dumps(result.data, indent=2))
+    except ToolError as error:
+        print(f"MCP tool failed: {error}", file=sys.stderr)
+        return 1
+    except (httpx.HTTPError, MCPError, RuntimeError) as error:
+        print(
+            f"MCP call failed ({type(error).__name__}); "
+            "check the endpoint, certificate, credentials and tool arguments.",
+            file=sys.stderr,
+        )
+        return 1
+    except Exception as error:  # noqa: BLE001 - last resort so the CLI never prints a traceback
+        print(f"Unexpected error ({type(error).__name__}) while calling the MCP server.", file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        sys.exit(asyncio.run(main()))
+    except KeyboardInterrupt:
+        sys.exit(130)

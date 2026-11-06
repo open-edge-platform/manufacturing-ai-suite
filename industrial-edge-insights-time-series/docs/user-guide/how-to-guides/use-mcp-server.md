@@ -79,8 +79,7 @@ The local gateway creates a self-signed certificate with `localhost` and `HOST_I
 Obtain this certificate through a trusted local connection:
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose-mcp.yml \
-  exec -T nginx cat /opt/nginx/certs/cert.pem > ./mcp-gateway-ca.pem
+docker exec nginx_proxy cat /opt/nginx/certs/cert.pem > ./mcp-gateway-ca.pem
 export MCP_CA_FILE="$PWD/mcp-gateway-ca.pem"
 export MCP_URL="https://127.0.0.1:3000/mcp"
 ```
@@ -92,11 +91,16 @@ For production, provision an organization-trusted certificate and key instead of
 
 ## Use the example client
 
+The client reads `MCP_USERNAME`, `MCP_PASSWORD`, `HOST_IP`, and `GRAFANA_PORT` from the component `.env`
+and connects to `https://HOST_IP:GRAFANA_PORT/mcp` by default.
+Environment variables, including `MCP_URL` and `MCP_CA_FILE`, override values from `.env`.
+Run the client with `--help` to see all options; `--url` overrides `MCP_URL` and `--ca-file` overrides `MCP_CA_FILE`.
+
 From the component root:
 
 ```bash
 python3 -m venv mcp-server/example/.venv
-mcp-server/example/.venv/bin/pip install -r mcp-server/requirements.txt
+mcp-server/example/.venv/bin/pip install -r mcp-server/example/requirements.txt
 mcp-server/example/.venv/bin/python mcp-server/example/example_client.py describe
 mcp-server/example/.venv/bin/python mcp-server/example/example_client.py get_pipeline_status
 mcp-server/example/.venv/bin/python mcp-server/example/example_client.py start_pipeline \
@@ -139,6 +143,9 @@ Use an explicit, fixed window while paging through results.
 List tools accept `page` and `page_size`, with at most 100 entries per page.
 They return `has_more` and `next_page`, not an expensive unrestricted total count.
 Point, summary, and metrics tools support an exact `source` filter.
+Use `list_sources` to find valid identifiers, then pass one as `--arguments '{"source":"<source-id>"}'`.
+Without a filter, results cover all sources, and the `window` object in the response omits `source`;
+it appears there only when a filter was applied.
 Source identifiers support up to 128 letters, digits, underscores, dots, colons, and hyphens.
 `list_insights_data` supports `all`, `anomaly`, `normal`, `low`, `medium`, and `high` severity filters.
 

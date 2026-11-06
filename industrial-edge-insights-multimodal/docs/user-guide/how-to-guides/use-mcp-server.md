@@ -50,32 +50,58 @@ Use it only on a deployment that you intend to replace.
    Both are done by the `start_pipeline` tool.
    Without `MCP=true`, `make up_agentic` retains the automatic startup and does not deploy the MCP server.
 
+## Trust the gateway certificate
+
+All MCP requests require Basic authentication over verified HTTPS, including initialization and discovery.
+There is no insecure client option.
+
+The local gateway creates a self-signed certificate with `localhost` and `HOST_IP` subject alternative names.
+Obtain this certificate through a trusted local connection:
+
+```bash
+docker exec nginx_proxy cat /opt/nginx/certs/cert.pem > ./mcp-gateway-ca.pem
+export MCP_CA_FILE="$PWD/mcp-gateway-ca.pem"
+```
+
+Store the certificate outside version control.
+The gateway regenerates its certificate on restart; obtain the new certificate after a restart.
+For production, provision an organization-trusted certificate and key instead of the local certificate-generation step.
+
 ## Use the example client
 
-The example client reads `MCP_USERNAME`, `MCP_PASSWORD`, `HOST_IP`, and `GRAFANA_PORT` from `.env`
-and connects to `https://HOST_IP:GRAFANA_PORT/mcp`.
+The client reads `MCP_USERNAME`, `MCP_PASSWORD`, `HOST_IP`, and `GRAFANA_PORT` from the component `.env`
+and connects to `https://HOST_IP:GRAFANA_PORT/mcp` by default.
+Environment variables, including `MCP_URL` and `MCP_CA_FILE`, override values from `.env`.
+Run the client with `--help` to see all options; `--url` overrides `MCP_URL` and `--ca-file` overrides `MCP_CA_FILE`.
 
 From the component root:
 
 ```bash
 python3 -m venv mcp-server/example/.venv
 mcp-server/example/.venv/bin/pip install -r mcp-server/example/requirements.txt
-mcp-server/example/.venv/bin/python mcp-server/example/example_client.py --insecure describe
-mcp-server/example/.venv/bin/python mcp-server/example/example_client.py --insecure start_pipeline \
-  --vision-inf-device CPU --time-series-inf-device CPU
-mcp-server/example/.venv/bin/python mcp-server/example/example_client.py --insecure list_insights_data \
-  --page 1 --page-size 10
-mcp-server/example/.venv/bin/python mcp-server/example/example_client.py --insecure explain \
-  --selected-time 2026-10-17T12:00:00Z
-mcp-server/example/.venv/bin/python mcp-server/example/example_client.py --insecure run_agent --time-range 30s
-mcp-server/example/.venv/bin/python mcp-server/example/example_client.py --insecure get_run_results \
-  --run-id YOUR_RUN_UUID
-mcp-server/example/.venv/bin/python mcp-server/example/example_client.py --insecure stop_pipeline
+mcp-server/example/.venv/bin/python mcp-server/example/example_client.py describe
+mcp-server/example/.venv/bin/python mcp-server/example/example_client.py get_pipeline_status
+mcp-server/example/.venv/bin/python mcp-server/example/example_client.py start_pipeline \
+  --arguments '{"vision_inf_device":"CPU","time_series_inf_device":"CPU"}'
+mcp-server/example/.venv/bin/python mcp-server/example/example_client.py list_insights_data \
+  --arguments '{"page":1,"page_size":10}'
+
+# Select one of the timestamps from the above results as the value in the place of <timestamp> in the command below
+# Please note the vllm-server container would take around 10 mins to initialize fully, try after this time to run the command below
+mcp-server/example/.venv/bin/python mcp-server/example/example_client.py explain \
+  --arguments '{"selected_time":"<timestamp>"}'
+
+mcp-server/example/.venv/bin/python mcp-server/example/example_client.py run_agent \
+  --arguments '{"time_range":"30s"}'
+
+# Select the run id from the previous result and use it as the value in the place of <run-id>
+mcp-server/example/.venv/bin/python mcp-server/example/example_client.py get_run_results \
+  --arguments '{"run_id":"<run-id>"}'
+
+mcp-server/example/.venv/bin/python mcp-server/example/example_client.py stop_pipeline
 ```
 
-The local gateway uses a self-signed certificate, so the example client needs `--insecure`.
-Use `--url https://HOST:PORT/mcp` to override the address from `.env`.
-For production, provision an organization-trusted certificate and key, and do not use `--insecure`.
+Use a timestamp from the `list_insights_data` results for `selected_time`, and the run ID returned by `run_agent` for `run_id`.
 
 `start_pipeline` selects the vision device (`CPU`, `GPU`, or `NPU`) and the time-series device (`CPU` or `GPU`) independently.
 The MCP container itself does not require a GPU or NPU.

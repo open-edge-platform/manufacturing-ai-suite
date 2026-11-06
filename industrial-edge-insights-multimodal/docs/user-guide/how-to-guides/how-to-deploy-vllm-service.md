@@ -23,12 +23,23 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
 ## Prerequisites
 
 1. Ensure the `.env` file is configured with valid values for:
+
+   > [!NOTE]
+   >
+   > - If you are trying to deploy it on Ubuntu 26.04, update the `DLSTREAMER_PIPELINE_SERVER_IMAGE` value in .env
+   >   to `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu26-rc1` before deployment.
+
    - `HOST_IP`
    - `INFLUXDB_USERNAME`, `INFLUXDB_PASSWORD`
    - `VISUALIZER_GRAFANA_USER`, `VISUALIZER_GRAFANA_PASSWORD`
    - `MTX_WEBRTCICESERVERS2_0_USERNAME`, `MTX_WEBRTCICESERVERS2_0_PASSWORD`
    - `S3_STORAGE_USERNAME`, `S3_STORAGE_PASSWORD`
    - `SEAWEEDFS_WEB_AUTH_USER`, `SEAWEEDFS_WEB_AUTH_PASSWORD`
+   - `VLLM_GPU_MEMORY_UTILIZATION`: fraction of the memory available to the GPU that vLLM preallocates
+     (VRAM on discrete GPU; shared system memory on integrated GPU). Set it to
+     `memory to allocate to vLLM (GB) / total memory available to the GPU (GB)`. For the default
+     setup (Qwen3.5-2B fp8 + LoRA adapter, 8192 max context), vLLM is budgeted 8.5 GB: set `0.27` for
+     32 GB, `0.19` for 45 GB, or `0.13` for 64 GB of memory.
 
 2. Review the [Unsloth Qwen3.5-2B license](https://huggingface.co/unsloth/Qwen3.5-2B/blob/main/LICENSE) prior to deployment.
 
@@ -36,12 +47,6 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
    > The [Low-Rank Adaptation (LoRA) adapter](https://huggingface.co/Intel/qwen3.5-2b-vlm-weld-explainability-lora) was specifically trained on a subset of the [Intel Robotic Welding Multimodal Dataset](https://huggingface.co/datasets/IntelLabs/Intel_Robotic_Welding_Multimodal_Dataset) and may not generalize to generic weld datasets.
 
 ## Deploy the vLLM Service
-
-> [!NOTE]
-> vLLM preallocates GPU-addressable memory up to the limit specified by
-> `VLLM_GPU_MEMORY_UTILIZATION` (VRAM on discrete GPU; shared system memory on integrated GPU).
-> Since the optimal value varies between platforms, update `VLLM_GPU_MEMORY_UTILIZATION` in
-> the `.env` file to match your target hardware.
 
 1. Run the Makefile target:
 
@@ -126,6 +131,19 @@ make down
 - `vllm-server` startup delay after deployment
   The `vllm-server` service can take about 10 minutes to fully come up after `make up_vllm`.
   This is expected as the model initializes and loads into memory.
+
+- `vllm-server` fails to start with a free or insufficient memory error, or `free -h` shows most memory as `buff/cache`
+  Reading the model files fills the Linux page cache. The kernel can reclaim it, but vLLM checks
+  the free memory at startup, so cached pages can make that check fail. Free the page cache and
+  run `make up_vllm` again:
+
+  ```bash
+  sync; echo 3 | sudo tee /proc/sys/vm/drop_caches
+  ```
+
+  > [!NOTE]
+  > This only drops clean cached pages, so no data is lost. The cache refills as files are read
+  > again. Use this command also if the cache memory is still blocked after `make down` command execution.
 
 - `Error: configs/vllm/models directory does not exist.`
   Run `make download_model` to download the model and adapter into the expected directories.
