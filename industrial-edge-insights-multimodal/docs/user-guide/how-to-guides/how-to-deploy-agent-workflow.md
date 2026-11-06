@@ -29,7 +29,7 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
 | Component    | Minimum Requirement                                 |
 |--------------|-----------------------------------------------------|
 | **Hardware** | Intel® Core™ Ultra Series 3 processor or newer only |
-| **RAM**      | Minimum 48 GB                                       |
+| **RAM**      | Minimum 48 GB (recommended 64GB)                                      |
 | **Storage**  | Minimum 512 GB                                      |
 
 ### Validated Platforms
