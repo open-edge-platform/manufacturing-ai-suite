@@ -14,8 +14,9 @@ Grafana, the data ingestion paths, and the agentic UI remain unchanged.
 
 ## Deploy
 
-**Caution:** `make up_agentic` stops the existing stack and removes its volumes.
-Use it only on a deployment that you intend to replace.
+> [!CAUTION]
+> `make up_agentic` stops the existing stack and removes its volumes.
+> Use it only on a deployment that you intend to replace.
 
 1. Set MCP credentials in `.env`:
 
@@ -106,13 +107,14 @@ Use a timestamp from the `list_insights_data` results for `selected_time`, and t
 `start_pipeline` selects the vision device (`CPU`, `GPU`, or `NPU`) and the time-series device (`CPU` or `GPU`) independently.
 The MCP container itself does not require a GPU or NPU.
 
-**Caution:** `start_pipeline`, `stop_pipeline`, and `run_agent` affect live processing.
-Use them only on a deployment that you intend to control.
+> [!CAUTION]
+> `start_pipeline`, `stop_pipeline`, and `run_agent` affect live processing.
+> Use them only on a deployment that you intend to control.
 
 ## Tools
 
 | Tool | Result |
-|---|---|
+| --- | --- |
 | `describe` | Registered tools, input schemas, and operational guidance |
 | `start_pipeline` | Uploads the time-series UDF package, applies its config, waits until the task is enabled, then starts the weld classification pipeline |
 | `stop_pipeline` | Stops all queued or running DL Streamer pipelines and disables the weld time-series task |

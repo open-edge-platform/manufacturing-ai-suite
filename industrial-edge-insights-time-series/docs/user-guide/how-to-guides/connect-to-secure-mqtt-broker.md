@@ -164,6 +164,7 @@ Edit your Telegraf configuration file:
 ```
 
 **Replace:**
+
 - `<YOUR_MQTT_BROKER_IP>` with your broker's IP or hostname
 - `<MQTT_PORT>` with your broker's TLS port
 
@@ -222,7 +223,7 @@ Edit your sample app config file:
 
 If you are using Mosquitto as your external broker, configure it to use the certificates:
 
-```
+```text
 # /etc/mosquitto/mosquitto.conf
 
 # Secure listener
