@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+name: weld-defect-detection
+description: >-
+  Alert on a defective weld only when the camera and the welder sensors agree,
+  and log each confirmed defect as a quality issue in OpenMES.
+tags:
+  - weld-quality
+  - multimodal
+  - manufacturing-ai-app-builder
+  - intel
+prompt: |
+  I want to catch defective welds. I have a camera on the weld and
+  pressure and gas-flow sensors on the welder, and I only want an alert when
+  both agree there is a problem. Each confirmed defect should also be logged
+  as a quality issue in our OpenMES.
+
+  Use the manufacturing-ai-app-builder skill to guide this process. Install
+  and invoke it:
+
+  npx skills@1.7.4 add https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/.github/skills/manufacturing-ai-app-builder

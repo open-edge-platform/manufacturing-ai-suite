@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+name: pump-failure-prediction
+description: >-
+  Get an alert before a pump fails, based on its vibration sensor readings,
+  and follow the trend on a live dashboard.
+tags:
+  - predictive-maintenance
+  - time-series
+  - manufacturing-ai-app-builder
+  - intel
+prompt: |
+  I want to be alerted when one of my pumps is about to fail, based on its
+  vibration sensor readings, and see it on a dashboard.
+
+  Use the manufacturing-ai-app-builder skill to guide this process. Install
+  and invoke it:
+
+  npx skills@1.7.4 add https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/.github/skills/manufacturing-ai-app-builder
