@@ -51,13 +51,16 @@ The edge node requirements depend on the application that you deploy:
 - Key-based SSH from the central host. If the key is not installed, the installer runs `ssh-copy-id`. Keep the password of the node account ready.
 - With `source_delivery: node_clone`, access to the application Git repository. With `source_delivery: central_copy`, the central host sends the source to the node.
 
-**Caution:** Use a dedicated deployment account and protect its SSH key. Membership in the `docker` group gives root-equivalent access.
+> [!CAUTION]
+> Use a dedicated deployment account and protect its SSH key. Membership in the `docker` group
+> gives root-equivalent access.
 
 ## Network and Ports
 
 - Network access from the central host to the configured Git repositories and to the services that the skills use.
 - The central host connects to the SSH port of each node. The default is port 22.
-- The MCP service listens on the loopback interface of the node. The central host reaches it through SSH. Do not expose it to the network.
+- The Model Context Protocol (MCP) service listens on the loopback interface of the node.
+  The central host reaches it through SSH. Do not expose it to the network.
 - Each deployment needs a unique local tunnel port on the central host. The checked-in inventory uses `13001` and `13002`. Change them if they are in use.
 - The nodes need access to the external registries, repositories, and model sources. No inbound public access is necessary.
 

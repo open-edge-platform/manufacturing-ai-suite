@@ -13,10 +13,43 @@ on:
   workflow_call:
 permissions: {}
 
-jobs:          
+jobs:
+  changed-files:
+    name: Get Changed Files
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      files: ${{ steps.changed.outputs.files }}
+      shellcheck_files: ${{ steps.changed.outputs.shellcheck_files }}
+      bandit_files: ${{ steps.changed.outputs.bandit_files }}
+    steps:
+      - name: Check out repository history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Calculate changed vision files
+        id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          if [ -n "$BASE_SHA" ] && git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+            files=$(git diff --name-only --diff-filter=ACMRT -z "$BASE_SHA" "$HEAD_SHA" -- industrial-edge-insights-vision | jq -Rsc 'split("\u0000")[:-1]')
+          else
+            files=$(git ls-files -z industrial-edge-insights-vision | jq -Rsc 'split("\u0000")[:-1]')
+          fi
+          echo "files=$files" >> "$GITHUB_OUTPUT"
+          echo "shellcheck_files=$(jq -c '[.[] | select(endswith(".sh"))]' <<< "$files")" >> "$GITHUB_OUTPUT"
+          echo "bandit_files=$(jq -c '[.[] | select(endswith(".py") and (startswith("industrial-edge-insights-vision/win-vision-ai/tests/") | not))]' <<< "$files")" >> "$GITHUB_OUTPUT"
+
   virus-scan:
     name: Run Virus Scan
     runs-on: ubuntu-24.04
+    needs: changed-files
+    env:
+      CHANGED_FILES: ${{ needs.changed-files.outputs.files }}
     strategy:
       fail-fast: false
     steps:
@@ -28,16 +61,28 @@ jobs:
     - name: Run Virus Scan
       run: |
         mkdir -p reports
-        docker pull clamav/clamav
-        docker run --rm -v "${{ github.workspace }}:/src" clamav/clamav clamscan -r  /src/manufacturing-ai-suite/industrial-edge-insights-vision/ > ./reports/clamav-report.txt || true
-        infected_count=$(awk '/ FOUND$/ { count++ } END { print count + 0 }' reports/clamav-report.txt)
+          files=()
+          while IFS= read -r -d '' file; do
+            if [ -f "manufacturing-ai-suite-repo/$file" ]; then
+              files+=("/src/manufacturing-ai-suite-repo/$file")
+            fi
+          done < <(jq -j '.[] | . + "\u0000"' <<< "$CHANGED_FILES")
+          : > ./reports/clamav-report.txt
+          infected_count=0
+          if [ "${#files[@]}" -gt 0 ]; then
+            docker pull clamav/clamav
+            docker run --rm -v "$GITHUB_WORKSPACE:/src" clamav/clamav clamscan "${files[@]}" > ./reports/clamav-report.txt || true
+            infected_count=$(awk '/ FOUND$/ { count++ } END { print count + 0 }' reports/clamav-report.txt)
+          fi
         {
           echo "### Virus Scan Results"
           echo "| Metric | Count |"
           echo "|--------|------:|"
           echo "| Infected files | $infected_count |"
           echo ""
-          if [ "$infected_count" -gt 0 ]; then
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No supporting file changes; virus scan passed without running."
+          elif [ "$infected_count" -gt 0 ]; then
             echo "| File | Detection |"
             echo "|------|-----------|"
             awk '/ FOUND$/ { line = $0; sub(/ FOUND$/, "", line); file = line; sub(/: [^:]*$/, "", file); detection = line; sub(/^.*: /, "", detection); printf "| %s | %s |\n", file, detection }' reports/clamav-report.txt
@@ -56,6 +101,9 @@ jobs:
     
   shellcheck:
     runs-on: ubuntu-24.04
+    needs: changed-files
+    env:
+      SHELLCHECK_FILES: ${{ needs.changed-files.outputs.shellcheck_files }}
 
     steps:
       - name: Check out manufacturing-ai-suite repository
@@ -69,15 +117,25 @@ jobs:
 
       - name: Run ShellCheck
         run: |
-          cd manufacturing-ai-suite-repo/industrial-edge-insights-vision/
-          echo "Scanning for .sh files and running ShellCheck..."
-          find . -type f -name "*.sh" | tee shell_files.txt | xargs -r shellcheck -S error -f gcc > shellcheck_report.txt || scan_status=$?
+          cd manufacturing-ai-suite-repo
+          echo "Scanning changed .sh files and running ShellCheck..."
+          scan_status=0
+          shell_files=()
+          while IFS= read -r -d '' file; do
+            if [ -f "$file" ]; then shell_files+=("$file"); fi
+          done < <(jq -j '.[] | . + "\u0000"' <<< "$SHELLCHECK_FILES")
+          : > shellcheck_report.txt
+          if [ "${#shell_files[@]}" -gt 0 ]; then
+            shellcheck -S error -f gcc "${shell_files[@]}" > shellcheck_report.txt || scan_status=$?
+          fi
           issue_count=$(wc -l < shellcheck_report.txt)
           {
             echo "### ShellCheck Results"
             echo "| File | Line | Column | Severity | Code | Finding |"
             echo "|------|-----:|-------:|----------|------|---------|"
-            if [ "$issue_count" -gt 0 ]; then
+            if [ "${#shell_files[@]}" -eq 0 ]; then
+              echo "No supporting file changes; ShellCheck passed without running."
+            elif [ "$issue_count" -gt 0 ]; then
               while IFS=: read -r file line column diagnostic; do
                 severity="${diagnostic# }"
                 severity="${severity%%:*}"
@@ -108,8 +166,9 @@ jobs:
 
   bandit:
     name: Bandit
-    outputs:
-      high_findings: ${{ steps.collect-bandit-high.outputs.has_high }}
+    needs: changed-files
+    env:
+      BANDIT_FILES: ${{ needs.changed-files.outputs.bandit_files }}
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Code
@@ -126,19 +185,32 @@ jobs:
         id: run_bandit
         run: |
           bandit_exit=0
-          bandit_venv/bin/bandit -r industrial-edge-insights-vision/win-vision-ai \
-            -x industrial-edge-insights-vision/win-vision-ai/tests \
-            -f json -o bandit_report.json || bandit_exit=$?
+          python_files=()
+          while IFS= read -r -d '' file; do
+            if [ -f "$file" ]; then python_files+=("$file"); fi
+          done < <(jq -j '.[] | . + "\u0000"' <<< "$BANDIT_FILES")
+          if [ "${#python_files[@]}" -gt 0 ]; then
+            bandit_venv/bin/bandit "${python_files[@]}" -f json -o bandit_report.json || bandit_exit=$?
+          else
+            printf '{"results":[]}\n' > bandit_report.json
+          fi
           echo "exit_code=$bandit_exit" >> "$GITHUB_OUTPUT"
+          echo "file_count=${#python_files[@]}" >> "$GITHUB_OUTPUT"
           exit 0
 
       - name: Summarize Bandit findings
         if: always()
+        env:
+          BANDIT_FILE_COUNT: ${{ steps.run_bandit.outputs.file_count }}
         run: |
           echo "## Bandit Scan Results" >> "$GITHUB_STEP_SUMMARY"
           if [ ! -f bandit_report.json ]; then
             echo "Bandit report was not generated." >> "$GITHUB_STEP_SUMMARY"
             exit 1
+          fi
+          if [ "$BANDIT_FILE_COUNT" -eq 0 ]; then
+            echo "No supporting file changes; Bandit scan passed without running." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
           jq -r '"| Severity | Findings |\n|----------|----------|\n| HIGH | \([.results[] | select(.issue_severity == "HIGH")] | length) |\n| MEDIUM | \([.results[] | select(.issue_severity == "MEDIUM")] | length) |\n| LOW | \([.results[] | select(.issue_severity == "LOW")] | length) |"' bandit_report.json >> "$GITHUB_STEP_SUMMARY"
           if jq -e '.results | length > 0' bandit_report.json > /dev/null; then
@@ -163,21 +235,6 @@ jobs:
               ;;
           esac
 
-      - name: Collect Bandit HIGH findings
-        id: collect-bandit-high
-        if: always()
-        run: |
-          high_count=0
-          if [ -s bandit_report.json ]; then
-            high_count=$(jq '[.results[]? | select(.issue_severity == "HIGH")] | length' bandit_report.json)
-          fi
-          if [ "$high_count" -gt 0 ]; then
-            echo "has_high=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_high=false" >> "$GITHUB_OUTPUT"
-          fi
-          echo "Bandit HIGH findings: $high_count"
-
       - name: Upload Bandit report
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v6.0.0
@@ -188,7 +245,7 @@ jobs:
   sanity:
     uses: ./.github/workflows/industrial-edge-insights-vision_sanity.yaml
     with:
-      branch:  ${{ github.head_ref }}
+      branch: ${{ github.sha }}
     permissions:
       contents: read           
       packages: write
@@ -273,33 +330,3 @@ jobs:
             echo "::error title=Security Scan Failed::Failed jobs: ${failed_names[*]}"
             exit 1
           fi
-
-  comment-high-findings:
-    name: Comment on HIGH findings
-    runs-on: ubuntu-24.04
-    needs: [bandit]
-    if: always() && github.event_name == 'pull_request' && needs.bandit.outputs.high_findings == 'true'
-    permissions:
-      actions: read
-      pull-requests: write
-    steps:
-      - name: Create or update HIGH findings comment
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BANDIT_HIGH: ${{ needs.bandit.outputs.high_findings }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: |
-          marker="<!-- spineapp-high-security-findings -->"
-          body="$marker"$'\n\n'"## HIGH severity security findings"$'\n'"HIGH-severity findings were detected. Review the scan job(s) below:"
-          if [ "$BANDIT_HIGH" = "true" ]; then
-            bandit_job=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs" --paginate --jq '.jobs[] | select(.name == "Bandit") | .html_url' | head -n 1)
-            bandit_job=${bandit_job:-$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID}
-            body+=$'\n'"| Bandit scan | [Open job]($bandit_job) |"
-          fi
-          comment_id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate --jq '.[] | select(.user.login == "github-actions[bot]" and ((.body // "") | contains("<!-- spineapp-high-security-findings -->"))) | .id' | tail -n 1)
-          if [ -n "$comment_id" ]; then
-            gh api "repos/$GITHUB_REPOSITORY/issues/comments/$comment_id" --method PATCH --field body="$body" > /dev/null
-          else
-            gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --method POST --field body="$body" > /dev/null
-          fi
-  

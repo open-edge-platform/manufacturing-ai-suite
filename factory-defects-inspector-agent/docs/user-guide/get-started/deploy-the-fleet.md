@@ -1,3 +1,12 @@
+<!--hide_directive
+```{eval-rst}
+.. meta::
+   :description: Configure the inventory, deploy the edge nodes with the fleet installer, and
+      verify the Model Context Protocol registration.
+   :keywords: inventory, hosts.yaml, fleet-setup.sh, installer, SSH tunnel, MCP, Hermes
+```
+hide_directive-->
+
 # Configure the Inventory and Deploy
 
 Do the tasks on this page on the central host. Do them in this order:
@@ -5,32 +14,44 @@ Do the tasks on this page on the central host. Do them in this order:
 1. [Prepare the inventory](#prepare-the-inventory)
 2. [Validate the inventory](#validate-the-inventory)
 3. [Run the installer](#run-the-installer)
-4. [Verify the MCP registration](#verify-the-mcp-registration)
+4. [Verify the Model Context Protocol (MCP) registration](#verify-the-mcp-registration)
 
-To connect an application that you deploy yourself, see [Connect applications that are already running](#connect-applications-that-are-already-running).
+To connect an application that you deploy yourself, see
+[Connect applications that are already running](#connect-applications-that-are-already-running).
 
 **Before you start, make sure that:**
 
-- Hermes uses the local model. See [Install Hermes, Set the Persona, and Bring Up the WebUI](set-up-central-host.md).
+- Hermes uses the local model. See
+  [Install Hermes, Set the Persona, and Bring Up the WebUI](set-up-central-host.md).
 - The `SOUL.md` persona is installed on the default profile.
 - The edge nodes are ready. See [Prepare the Edge Nodes](prepare-edge-nodes.md).
 
-The installer recreates each node profile as a clone of the default profile. The node profiles inherit its model configuration and persona. The chat history of a node profile is not kept between runs.
+The installer recreates each node profile as a clone of the default profile. The node
+profiles inherit its model configuration and persona. The chat history of a node profile
+is not kept between runs.
 
-## Prepare the inventory
+## Prepare the Inventory
 
-**Caution:** A recipe deployment removes and recreates its managed checkout. Back up local files and manually supplied credentials in the checkout before you deploy again.
+> [!CAUTION]
+> A recipe deployment removes and recreates its managed checkout. Back up local files and
+> manually supplied credentials in the checkout before you deploy again.
 
 1. Open `hosts.yaml`.
-2. Replace `node1.example.invalid` and `node2.example.invalid` with the real addresses of your edge nodes. These `.invalid` names are placeholders.
-3. Under `defaults`, check the deployment user, the SSH port, and the private-key path. Override a value for a node only when it is different.
-4. Give each deployment a stable and unique `name`. The name identifies the Hermes profile and the MCP server.
+2. Replace `node1.example.invalid` and `node2.example.invalid` with the real addresses of
+   your edge nodes. These `.invalid` names are placeholders.
+3. Under `defaults`, check the deployment user, the SSH port, and the private-key path.
+   Override a value for a node only when it is different.
+4. Give each deployment a stable and unique `name`. The name identifies the Hermes profile
+   and the MCP server.
 5. Give each deployment a unique `local_port`.
-6. Review the recipe: repository, branch, application directory, skill, prompt, environment updates, and MCP certificate settings.
+6. Review the recipe: repository, branch, application directory, skill, prompt, environment
+   updates, and MCP certificate settings.
 
-Do not put passwords, tokens, or other secrets in the inventory. The installer creates missing application credentials. It sends them to the node over SSH. It asks for an SSH password only to install a key.
+Do not put passwords, tokens, or other secrets in the inventory. The installer creates
+missing application credentials. It sends them to the node over SSH. It asks for an SSH
+password only to install a key.
 
-## Validate the inventory
+## Validate the Inventory
 
 This command does not connect to nodes. It does not change anything.
 
@@ -49,15 +70,18 @@ To use a different inventory file, add `--hosts`:
 ./fleet-setup.sh --hosts /path/to/hosts.yaml --list
 ```
 
-## Run the installer
+## Run the Installer
 
-Run the installer in an interactive terminal. Use the same user that installed and configured Hermes.
+Run the installer in an interactive terminal. Use the same user that installed and
+configured Hermes.
 
 ![Central host and edge node deployment](../_assets/fdi-deployment-architecture.drawio.svg)
 
-The diagram shows `./fleet-setup.sh` without options. The installer reaches each node over SSH. The agent reaches each MCP server through an SSH tunnel. The node applications are not exposed to the network.
+The diagram shows `./fleet-setup.sh` without options. The installer reaches each node over SSH.
+The agent reaches each MCP server through an SSH tunnel. The node applications are not exposed
+to the network.
 
-The arrows have these colors:
+The arrow colors mean:
 
 - Dashed gray: one-time provisioning.
 - Blue: SSH preparation and deployment.
@@ -66,7 +90,7 @@ The arrows have these colors:
 
 | Arrows | Phase | What happens |
 | --- | --- | --- |
-| 1–2 | Provision (one time) | The administrator installs Hermes, the Inference Router, and OVMS on the central host. See [Install Hermes with a local model](./set-up-central-host.md#install-hermes-with-a-local-model). |
+| 1–2 | Provision (one time) | The administrator installs Hermes, the Inference Router, and OpenVINO™ Model Server (OVMS) on the central host. See [Install Hermes with a local model](./set-up-central-host.md#install-hermes-with-a-local-model). |
 | 3 | Deploy | The administrator runs `fleet-setup.sh`. |
 | 4 | Deploy | `fleet-setup.sh` creates one profile for each node. It clones the default profile. Each profile has an SSH terminal for its node, the deployment skill, and an approval policy. |
 | 5 | Deploy | `fleet-setup.sh` prepares each node over SSH. It installs packages, gets the application checkout, and generates credentials. The node profile then builds and starts the application and its MCP server. |
@@ -86,15 +110,21 @@ To run the installer, do these steps:
 3. Wait for the connection summary.
 4. If a step fails, read the error and the stage output. Then run the installer again.
 
-The installer uses `hosts.yaml` by default. It validates the inventory and checks the central host. Then, for each deployment, it can do these tasks:
+The installer uses `hosts.yaml` by default. It validates the inventory and checks the
+central host. Then, for each deployment, it can do these tasks:
 
-- Create or use the SSH key. Run `ssh-copy-id` to install the public key on the node. Enter the node password in the terminal. Never enter it in a Hermes chat.
-- On apt-based systems, install missing packages. Add the deployment account to the `docker` group. These steps can ask for `sudo`.
-- Install the deployment skill. Prepare the application checkout and environment. Run the deployment prompt and the smoke check of the recipe.
-- Open a user-level SSH tunnel. Pin the TLS certificate of the MCP server. Register the server and the allowed tools with Hermes. Test the connection.
-- Enable user lingering for the central-host user with `loginctl enable-linger`. See [Restore user lingering](../how-to-guides/admin-redeploy-and-handle-credentials.md#restore-user-lingering).
+- Create or use the SSH key. Run `ssh-copy-id` to install the public key on the node.
+  Enter the node password in the terminal. **Do not** enter it in a Hermes chat.
+- On apt-based systems, install missing packages. Add the deployment account to the
+  `docker` group. These steps can ask for `sudo`.
+- Install the deployment skill. Prepare the application checkout and environment. Run the
+  deployment prompt and the smoke check of the recipe.
+- Open a user-level SSH tunnel. Pin the TLS certificate of the MCP server. Register the
+  server and the allowed tools with Hermes. Test the connection.
+- Enable user lingering for the central-host user with `loginctl enable-linger`. See
+  [Restore user lingering](../how-to-guides/admin-redeploy-and-handle-credentials.md#restore-user-lingering).
 
-### Installer options
+### Installer Options
 
 | Option | Purpose |
 | --- | --- |
@@ -108,9 +138,11 @@ The installer uses `hosts.yaml` by default. It validates the inventory and check
 | `--user NAME` | Set the default SSH user when the inventory has none. |
 | `--skip-platform-check` | Skip the hardware check. Use only for CI or validation. Do not use it to bypass production hardware requirements. |
 
-If you give no `--node` or `--recipe`, the installer processes every assignment in the inventory.
+If you give no `--node` or `--recipe`, the installer processes every assignment in the
+inventory.
 
-Example: deploy one node in an interactive session. The checked-in inventory has one deployment for `node1`:
+Example: deploy one node in an interactive session. The checked-in inventory has one
+deployment for `node1`:
 
 ```bash
 ./fleet-setup.sh --node node1 --interactive
@@ -118,13 +150,16 @@ Example: deploy one node in an interactive session. The checked-in inventory has
 
 If a node has more than one deployment, add `--recipe` with the recipe identifier.
 
-### Agent adapters
+### Agent Adapters
 
-The `HARNESS_AGENT` environment variable selects the agent adapter. The adapter is the file `agents/<name>.sh`. The default and only adapter is `hermes`. The adapter contract is in `agents/hermes.sh`.
+The `HARNESS_AGENT` environment variable selects the agent adapter. The adapter is the
+file `agents/<name>.sh`. The default and only adapter is `hermes`. The adapter contract is
+in `agents/hermes.sh`.
 
-Agentic deployment needs an adapter that declares the `deploy` capability. Other adapters can run only `--prepare-only` and `--no-deploy`.
+Agentic deployment needs an adapter that declares the `deploy` capability. Other adapters
+can run only `--prepare-only` and `--no-deploy`.
 
-## Verify the MCP registration
+## Verify the MCP Registration
 
 1. For each deployment, run `hermes mcp test` with its `name` from the inventory:
 
@@ -144,9 +179,12 @@ Agentic deployment needs an adapter that declares the `deploy` capability. Other
 
 The tunnel and the MCP server must be available for the test to pass.
 
-**Caution:** Do not disable certificate verification to fix a TLS error. The installer pins the certificate. If the application runs with a regenerated certificate, run `./fleet-setup.sh --no-deploy`. This command renews the pin and the registration. It does not redeploy the application.
+> [!CAUTION]
+> Do not disable certificate verification to fix a TLS error. The installer pins the certificate.
+> If the application runs with a regenerated certificate, run `./fleet-setup.sh --no-deploy`.
+> This command renews the pin and the registration. It does not redeploy the application.
 
-## Connect applications that are already running
+## Connect Applications That Are Already Running
 
 Two options let you deploy an application yourself and still use the agent. Choose one:
 
@@ -157,7 +195,7 @@ Two options let you deploy an application yourself and still use the agent. Choo
 
 You cannot use `--prepare-only` and `--no-deploy` in the same command.
 
-### Option 1: Connect an application that already runs
+### Option 1: Connect an Application That Already Runs
 
 #### Before you connect
 
@@ -165,15 +203,24 @@ Do these checks before you run `--no-deploy`:
 
 1. Make sure that the application runs on the node.
 2. Find the location of the application:
-   - If the application is in the managed checkout `~/fleet-deployments/<deployment name>/checkout`, do nothing. Do not set `app_path`.
-   - If the application is in a different location, set `app_path` on its deployment in `hosts.yaml`. Use a path relative to the home directory of the node user, for example `apps/weld`. Do not use an absolute path, `~`, `.`, or `..`. The installer rejects them.
+   - If the application is in the managed checkout
+     `~/fleet-deployments/<deployment name>/checkout`, do nothing. Do not set `app_path`.
+   - If the application is in a different location, set `app_path` on its deployment in
+     `hosts.yaml`. Use a path relative to the home directory of the node user, for example
+     `apps/weld`. Do not use an absolute path, `~`, `.`, or `..`. The installer rejects them.
 
-   **Note:** A deployment that has `app_path` is connect-only. Deploy and `--prepare-only` runs refuse it. A deployment in the managed checkout can use all the installer modes.
+   > [!NOTE]
+   > A deployment that has `app_path` is connect-only. Deploy and `--prepare-only` runs refuse it.
+   > A deployment in the managed checkout can use all the installer modes.
 
-3. Make sure that the `.env` file of the application has `MCP_USERNAME` and `MCP_PASSWORD` (or the token of the recipe). The installer reads them from this file.
-4. If the `.env` file has no credentials, the installer uses the credentials that it stored on the central host. In a terminal, it can ask for them with hidden input. Otherwise it stops and names the missing credential.
+3. Make sure that the `.env` file of the application has `MCP_USERNAME` and `MCP_PASSWORD`
+   (or the token of the recipe). The installer reads them from this file.
+4. If the `.env` file has no credentials, the installer uses the credentials that it
+   stored on the central host. In a terminal, it can ask for them with hidden input.
+   Otherwise it stops and names the missing credential.
 
-**Caution:** Never put credentials in `hosts.yaml`, on the command line, or in a chat.
+> [!CAUTION]
+> Never put credentials in `hosts.yaml`, on the command line, or in a chat.
 
 #### Run the connect command
 
@@ -196,9 +243,11 @@ The command does these steps:
 | 5 | Registers the MCP server and its allowed tools. | The default Hermes profile |
 | 6 | Tests the connection. | `hermes mcp test` |
 
-The command does not touch packages, source code, the application `.env`, node profiles, or running containers. It does not need `sudo`. It restarts the tunnel and rewrites the registration, so it is not read-only.
+The command does not touch packages, source code, the application `.env`, node profiles,
+or running containers. It does not need `sudo`. It restarts the tunnel and rewrites the
+registration, so it is not read-only.
 
-### Option 2: Deploy the application yourself, then connect it
+### Option 2: Deploy the Application Yourself, Then Connect It
 
 1. On the central host, prepare the node:
 
@@ -206,7 +255,10 @@ The command does not touch packages, source code, the application `.env`, node p
    ./fleet-setup.sh --node node1 --prepare-only
    ```
 
-   This command installs missing packages. It adds the deployment user to the `docker` group and can ask for `sudo`. It puts the recipe source in `~/fleet-deployments/<deployment name>/checkout`. It generates missing credentials in the `.env` file of the application. It creates the node profile. Then it stops.
+   This command installs missing packages. It adds the deployment user to the `docker`
+   group and can ask for `sudo`. It puts the recipe source in
+   `~/fleet-deployments/<deployment name>/checkout`. It generates missing credentials in the
+   `.env` file of the application. It creates the node profile. Then it stops.
 
 2. On the node, connect as the deployment user. Go to the application directory:
 
@@ -217,9 +269,10 @@ The command does not touch packages, source code, the application `.env`, node p
 
 3. Deploy the application. Follow the user guide of the application.
 
-4. Make sure that the application runs. On the central host, do the steps in [Run the connect command](#run-the-connect-command).
+4. Make sure that the application runs. On the central host, do the steps in
+   [Run the connect command](#run-the-connect-command).
 
-### Change the credentials later
+### Change the Credentials Later
 
 1. Change the credentials in the `.env` file of the application.
 2. Redeploy the application.

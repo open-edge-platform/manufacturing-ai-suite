@@ -17,8 +17,9 @@ It does not require the newer microservice `/pipeline_status` or `/stop_pipeline
 
 ## Deploy
 
-**Caution:** Deployment targets stop the existing stack and remove its volumes.
-Use them only on a deployment that you intend to replace.
+> [!CAUTION]
+> Deployment targets stop the existing stack and remove its volumes.
+> Use them only on a deployment that you intend to replace.
 
 1. Set MCP credentials in the same shell:
 
@@ -118,15 +119,16 @@ The MCP container itself does not require a GPU.
 Device changes retain the active alert configuration.
 The server rejects control requests when a different UDF task is configured.
 
-**Caution:** `stop_pipeline` disables analytics only.
-Sensor ingestion and containers continue running.
-Streaming input received while analytics is disabled is not replayed automatically.
-One-shot simulators can exhaust their input before analytics starts; use continuous ingestion for interactive demonstrations.
+> [!CAUTION]
+> `stop_pipeline` disables analytics only.
+> Sensor ingestion and containers continue running.
+> Streaming input received while analytics is disabled is not replayed automatically.
+> One-shot simulators can exhaust their input before analytics starts; use continuous ingestion for interactive demonstrations.
 
 ## Tool data contract
 
 | Tool | Result |
-|---|---|
+| --- | --- |
 | `describe` | Tools, schemas, processing mode, classification codes, and operational guidance |
 | `get_pipeline_status` | Daemon health and selected task state, including `not_configured` |
 | `start_pipeline` | Verified enabled state, selected device, and change indicator |

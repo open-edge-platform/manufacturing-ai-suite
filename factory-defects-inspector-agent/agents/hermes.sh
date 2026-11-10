@@ -72,10 +72,23 @@ agent_env_set() {
 
 agent_env_has() { grep -q "^$1=." "$AGENT_STATE_DIR/.env" 2>/dev/null; }
 
+# Hermes puts its SSH ControlMaster socket under $TMPDIR; a deep TMPDIR exceeds the ~104-byte
+# Unix socket path limit ("unix_listener: path too long"), so tasks run with a short private one.
+short_tmpdir() {
+  local d="${XDG_RUNTIME_DIR:-/tmp}/hermes-fleet-$(id -u)"
+  [[ ${#d} -le 40 ]] || d="/tmp/hermes-fleet-$(id -u)"
+  install -d -m 0700 "$d"
+  printf '%s' "$d"
+}
+
+profile_listed() {
+  awk -v p="$1" '{ for (i = 1; i <= NF; i++) if ($i == p) found = 1 } END { exit !found }' <<<"$2"
+}
+
 agent_context_recreate() {
   local name=$1 description=$2 profiles
   profiles=$(hermes profile list 2>/dev/null || true)
-  if awk -v p="$name" '{ for (i = 1; i <= NF; i++) if ($i == p) found = 1 } END { exit !found }' <<<"$profiles"; then
+  if profile_listed "$name" "$profiles"; then
     # Recreate rather than reuse: --clone snapshots the default profile only at
     # creation time, so a reused profile would silently keep the model/provider
     # configuration of an older default (e.g. from before a backend change).
@@ -83,8 +96,11 @@ agent_context_recreate() {
     # registry, so only the CLI can delete one; removing the profile home
     # by hand desyncs the registry and breaks the create below.
     log "[$name] Removing existing $AGENT_LABEL profile (it is recreated from the current default profile)"
-    hermes profile delete -y "$name" >/dev/null \
-      || die "[$name] could not delete the existing $AGENT_LABEL profile; inspect with 'hermes profile show $name', resolve, and re-run"
+    # Hermes can exit non-zero when its post-delete identity purge fails even though the
+    # profile is gone, so success is judged by the profile list, not the exit code.
+    hermes profile delete -y "$name" >/dev/null || true
+    profile_listed "$name" "$(hermes profile list 2>/dev/null || true)" \
+      && die "[$name] could not delete the existing $AGENT_LABEL profile; inspect with 'hermes profile show $name', resolve, and re-run"
   fi
   log "[$name] Creating $AGENT_LABEL profile from the current default profile"
   hermes profile create "$name" --clone --description "$description"
@@ -119,11 +135,11 @@ agent_skill_install() {
 }
 
 agent_task_run() {
-  hermes -p "$1" chat -s "$2" --oneshot -q "$3"
+  TMPDIR=$(short_tmpdir) hermes -p "$1" chat -s "$2" --oneshot -q "$3"
 }
 
 agent_task_run_interactive() {
-  hermes -p "$1" chat -s "$2" -q "$3"
+  TMPDIR=$(short_tmpdir) hermes -p "$1" chat -s "$2" -q "$3"
 }
 
 agent_mcp_register() {

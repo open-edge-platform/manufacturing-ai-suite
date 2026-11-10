@@ -68,6 +68,23 @@ class ExplainRequest(BaseModel):
     selected_time: str
 
 
+class EmptyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class ListInsightsDataRequest(BaseModel):
+    page: int = 1
+    page_size: int = 10
+
+
+class RunAgentRequest(BaseModel):
+    time_range: Literal["30s", "1m", "5m", "10m", "30m"] = "30s"
+
+
+class GetRunResultsRequest(BaseModel):
+    run_id: str
+
+
 class PipelineControlError(RuntimeError):
     def __init__(self, message: str, completed: dict[str, Any], failed: dict[str, str]) -> None:
         super().__init__(message)
@@ -183,7 +200,7 @@ async def start_pipeline(
         ) from error
     pipeline_result = response.json()
     if isinstance(pipeline_result, str):
-        pipeline_result = {"dlsps_pipeline_id": pipeline_result}
+        pipeline_result = {"dlsps_pipeline_id": pipeline_result, "dlsps_inf_device": payload["parameters"]["classification-properties"]["device"]}
 
     return {
         **pipeline_result,
@@ -269,6 +286,17 @@ async def get_pipeline_status() -> dict[str, Any]:
 @mcp.tool()
 async def explain(selected_time: str) -> dict[str, Any]:
     """Explain one fused weld detection by its ISO-8601 timestamp."""
+    try:
+        health_response = await _request(
+            "GET", f"{EXPLAIN_API_URL}/insights-ui/api/vllm/health", timeout=10
+        )
+        accessible = health_response.json().get("accessible") is True
+    except httpx.HTTPStatusError as error:
+        if error.response.status_code != 503:
+            raise
+        accessible = False
+    if not accessible:
+        return {"status": "loading", "message": "VLM model is loading. Please wait for some time and try again."}
     response = await _request(
         "POST",
         f"{EXPLAIN_API_URL}/insights-ui/api/explain",
@@ -383,6 +411,31 @@ async def http_stop_pipeline(request: Request) -> JSONResponse:
 @mcp.custom_route("/explain", methods=["POST"])
 async def http_explain(request: Request) -> JSONResponse:
     return await _http_tool(request, ExplainRequest, explain)
+
+
+@mcp.custom_route("/get_pipeline_status", methods=["POST"])
+async def http_get_pipeline_status(request: Request) -> JSONResponse:
+    return await _http_tool(request, EmptyRequest, get_pipeline_status, allow_empty_body=True)
+
+
+@mcp.custom_route("/list_insights_data", methods=["POST"])
+async def http_list_insights_data(request: Request) -> JSONResponse:
+    return await _http_tool(request, ListInsightsDataRequest, list_insights_data, allow_empty_body=True)
+
+
+@mcp.custom_route("/run_agent", methods=["POST"])
+async def http_run_agent(request: Request) -> JSONResponse:
+    return await _http_tool(request, RunAgentRequest, run_agent, allow_empty_body=True)
+
+
+@mcp.custom_route("/get_run_results", methods=["POST"])
+async def http_get_run_results(request: Request) -> JSONResponse:
+    return await _http_tool(request, GetRunResultsRequest, get_run_results)
+
+
+@mcp.custom_route("/describe", methods=["POST"])
+async def http_describe(request: Request) -> JSONResponse:
+    return await _http_tool(request, EmptyRequest, describe, allow_empty_body=True)
 
 
 if __name__ == "__main__":
