@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+name: pcb-solder-inspection
+description: >-
+  Spot defective solder joints on printed circuit boards from an inspection
+  camera and review the results on a dashboard.
+tags:
+  - pcb-inspection
+  - computer-vision
+  - manufacturing-ai-app-builder
+  - intel
+prompt: |
+  I want to spot defective solder joints on PCBs from my inspection camera
+  and see the results on a dashboard. No other sensors are involved.
+
+  Use the manufacturing-ai-app-builder skill to guide this process. Install
+  and invoke it:
+
+  npx skills@1.7.4 add https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/.github/skills/manufacturing-ai-app-builder

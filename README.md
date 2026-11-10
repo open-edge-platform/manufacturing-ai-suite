@@ -62,6 +62,11 @@ application and are indexed by its `skill-catalog.json`.
 | [onboarding-validation](.github/skills/onboarding-validation/SKILL.md) | Validates the get-started experience of Open Edge Platform components by following the documented path exactly and producing a structured pass/fail report. |
 | [security-review](.github/skills/security-review/SKILL.md) | On-demand security review for code, containers, Docker Compose, Helm/Kubernetes configuration and CI/CD workflows. |
 
+To start from a business goal, such as "alert me before a pump fails", copy a ready-made prompt from
+[`skills/prompts/`](skills/prompts/) into your AI agent. Each prompt hands off to
+`manufacturing-ai-app-builder`. For details, see the
+[Manufacturing Application Builder guide](skills/docs/user-guide/index.md).
+
 ### Application skills
 
 | Skill | Application | Description |

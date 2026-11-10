@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+name: production-line-early-warning
+description: >-
+  Start from a broad goal, catching problems early on a production line, and
+  let the builder ask whether the signal is seen, measured, or both.
+tags:
+  - quality-monitoring
+  - predictive-maintenance
+  - manufacturing-ai-app-builder
+  - intel
+prompt: |
+  I want to catch problems early on my production line before they become
+  expensive failures.
+
+  Use the manufacturing-ai-app-builder skill to guide this process. Install
+  and invoke it:
+
+  npx skills@1.7.4 add https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/.github/skills/manufacturing-ai-app-builder
