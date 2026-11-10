@@ -17,7 +17,7 @@ The deployment has two kinds of systems:
 
 The edge node requirements depend on the application that you deploy:
 
-- [Industrial Edge Insights Multimodal](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-multimodal/docs/user-guide/get-started/system-requirements.md)
+- [Industrial Edge Insights Multimodal](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-multimodal/docs/user-guide/get-started/system-requirements.md). The checked-in `weld` recipe deploys the agentic variant; follow its [minimum system requirements](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-multimodal/docs/user-guide/how-to-guides/how-to-deploy-agent-workflow.md#minimum-system-requirements): Intel® Core™ Ultra Series 3 or newer, at least 48 GB RAM, and 512 GB storage.
 - [Industrial Edge Insights Time Series](https://github.com/open-edge-platform/manufacturing-ai-suite/blob/main/industrial-edge-insights-time-series/docs/user-guide/get-started/system-requirements.md)
 
 ## Software Requirements
