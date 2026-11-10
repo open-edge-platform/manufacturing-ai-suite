@@ -300,6 +300,13 @@ class Backend:
         if not config.get("udfs", {}).get("name"):
             return {"health": health, "task_id": self.settings.task_id, "status": "not_configured"}
         self.check_task(config)
+        if health.get("status") == "Kapacitor daemon is not running":
+            return {
+                "health": health,
+                "task_id": self.settings.task_id,
+                "status": "stopped",
+                "execution_error": False,
+            }
         status = await self.task_status()
         return {"health": health, **status}
 
@@ -396,10 +403,10 @@ class Backend:
                     "A different UDF task is configured; "
                     "stop and reconcile it before deploying this task"
                 )
-            config = copy.deepcopy(baseline)
+            config = copy.deepcopy(active if active_task else baseline)
             initial_last_enabled = None
-            if active_task:
-                config = copy.deepcopy(active)
+            health = await self.request("GET", "/health", accepted_statuses=(503,))
+            if active_task and health.get("status") != "Kapacitor daemon is not running":
                 try:
                     state, initial_last_enabled = await self.task_snapshot()
                 except AnalyticsError as error:
@@ -418,6 +425,7 @@ class Backend:
                         }
             device_changed = (
                 active_task == self.settings.task_id
+                and health.get("status") == "Kapacitor daemon is running"
                 and config["udfs"].get("device") != time_series_inf_device
             )
             config["udfs"]["device"] = time_series_inf_device
@@ -481,7 +489,7 @@ class Backend:
                 ) from error
 
     async def stop_pipeline(self) -> dict[str, Any]:
-        """Disable analytics only. Containers and ingestion keep running; no replay occurs."""
+        """Stop Kapacitor completely. Containers and ingestion keep running; no replay occurs."""
         async with self.control_lock:
             config = await self.request("GET", "/config", params={"restart": "false"})
             if not config.get("udfs", {}).get("name"):
@@ -491,22 +499,35 @@ class Backend:
                     "changed": False,
                 }
             self.check_task(config)
-            state = await self.task_status()
-            if state.get("status") == "disabled":
-                return {**state, "changed": False}
+            health = await self.request("GET", "/health", accepted_statuses=(503,))
+            if health.get("status") == "Kapacitor daemon is not running":
+                return {
+                    "task_id": self.settings.task_id,
+                    "status": "stopped",
+                    "execution_error": False,
+                    "changed": False,
+                }
             await self.request(
-                "PATCH",
-                f"/kapacitor/v1/tasks/{self.settings.task_id}",
-                kapacitor=True,
-                json={"status": "disabled"},
+                "POST",
+                "/stop_pipeline",
+                params={"expected_task_id": self.settings.task_id},
             )
-            state = await self.task_status()
-            if state.get("status") != "disabled":
-                raise ToolError(
-                    "Stop requested but the task is not disabled; "
-                    "check pipeline status before retrying"
-                )
-            return {**state, "changed": True}
+            deadline = asyncio.get_running_loop().time() + self.settings.ready_timeout
+            while True:
+                health = await self.request("GET", "/health", accepted_statuses=(503,))
+                if health.get("status") == "Kapacitor daemon is not running":
+                    return {
+                        "task_id": self.settings.task_id,
+                        "status": "stopped",
+                        "execution_error": False,
+                        "changed": True,
+                    }
+                if asyncio.get_running_loop().time() >= deadline:
+                    raise ToolError(
+                        "Stop requested but the Kapacitor daemon is still running or its "
+                        "state is unknown; verify that the microservice supports complete shutdown"
+                    )
+                await asyncio.sleep(2)
 
     async def list_sources(
         self,
@@ -755,7 +776,7 @@ def create_server(settings: Settings, client: httpx.AsyncClient | None = None) -
             "severity_codes": SEVERITIES,
             "guidance": [
                 "All MCP connections require HTTP Basic authentication over verified HTTPS.",
-                "Stopping analytics does not stop ingestion; streaming data is not replayed.",
+                "Stopping analytics shuts down Kapacitor, not ingestion; streaming data is not replayed.",
                 "Batch results use a 20-minute window.",
                 "Severity codes are not confidence scores. Model predictions are advisory.",
                 "No vision, fusion, LLM explanation, host control, "

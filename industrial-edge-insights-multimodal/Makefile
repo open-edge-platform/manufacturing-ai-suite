@@ -294,7 +294,7 @@ check_hardware:
 
 .PHONY: up_vllm
 up_vllm: check_hardware check_env_variables validate_host_ip down
-	$(MAKE) download_model || exit 1; \
+	@$(MAKE) download_model || exit 1; \
 	export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
 	export NGINX_PROFILE=vllm; \
 	export AGENTIC_UI_ENABLED=false MQTT_DISABLED=true; \

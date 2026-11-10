@@ -72,7 +72,9 @@ raw commands ad hoc.
 - `TIME_SERIES_MCP_IMAGE` — optional MCP image repository, default
   `industrial-edge-insights-time-series-mcp`; tag `2026.1.0`.
 - MCP backend settings are supplied by the overlay. Native Kapacitor task APIs
-  support status/stop on images without microservice control endpoints.
+  support running-task status. Complete stop requires a microservice
+  `/stop_pipeline` endpoint that shuts down the daemon; task-only images must be rebuilt.
+  Status reports `stopped` while the configured daemon is down; start retains config.
 
 ## Useful Commands
 

@@ -10,10 +10,13 @@ Grafana and the sensor ingestion paths remain unchanged.
 - Use Python 3.12 or later for the example client.
 - Set the existing database and Grafana credentials.
 - Set `HOST_IP` to the gateway's IPv4 address.
-- Use an analytics image with `/config`, `/udfs/package`, and the native Kapacitor task API.
+- Use an analytics image with `/config`, `/udfs/package`, the native Kapacitor task API,
+  and a `/stop_pipeline` endpoint that shuts down the Kapacitor daemon.
 
-The server uses Kapacitor directly for task status and stop operations.
-It does not require the newer microservice `/pipeline_status` or `/stop_pipeline` endpoints.
+The server uses Kapacitor directly for running-task status and the microservice's
+`/stop_pipeline` endpoint for complete shutdown. Images whose stop endpoint only
+disables a task must be rebuilt with complete daemon shutdown support, together
+with the MCP image. The server verifies daemon shutdown before reporting success.
 
 ## Deploy
 
@@ -118,8 +121,11 @@ The MCP container itself does not require a GPU.
 Device changes retain the active alert configuration.
 The server rejects control requests when a different UDF task is configured.
 
-**Caution:** `stop_pipeline` disables analytics only.
+**Caution:** `stop_pipeline` shuts down the Kapacitor daemon and stops all analytics tasks.
 Sensor ingestion and containers continue running.
+The UDF configuration and assets are retained. `get_pipeline_status` reports `stopped`
+and daemon health reports that Kapacitor is not running. Repeated stops make no change.
+Use `start_pipeline` to restart Kapacitor and enable analytics again.
 Streaming input received while analytics is disabled is not replayed automatically.
 One-shot simulators can exhaust their input before analytics starts; use continuous ingestion for interactive demonstrations.
 
@@ -128,9 +134,9 @@ One-shot simulators can exhaust their input before analytics starts; use continu
 | Tool | Result |
 |---|---|
 | `describe` | Tools, schemas, processing mode, classification codes, and operational guidance |
-| `get_pipeline_status` | Daemon health and selected task state, including `not_configured` |
+| `get_pipeline_status` | Daemon health and selected task state, including `not_configured` and `stopped` |
 | `start_pipeline` | Verified enabled state, selected device, and change indicator |
-| `stop_pipeline` | Verified disabled state or an explicit unconfigured state |
+| `stop_pipeline` | Verified daemon shutdown (`stopped`) or an explicit unconfigured state |
 | `list_sources` | Paginated source identifiers observed in the requested time window |
 | `list_insights_data` | Paginated points, classification, analysis flag, and timing values in seconds |
 | `get_anomaly_summary` | Processed, analysed, unanalysed, anomalous, and per-severity counts |

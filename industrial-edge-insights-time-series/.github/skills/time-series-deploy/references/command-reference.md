@@ -74,7 +74,9 @@ and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
   Set `MCP_USERNAME` and `MCP_PASSWORD` first.
   Deploy with the `batch` goal to select the batch UDF.
   Use authenticated MCP `start_pipeline` to activate analytics.
-  The server uses native Kapacitor task APIs for status and stop.
+  The server uses native Kapacitor task APIs for running-task status and the
+  microservice `/stop_pipeline` endpoint for verified daemon shutdown.
+  Rebuild task-only analytics images with complete shutdown support.
   Read `docs/user-guide/how-to-guides/use-mcp-server.md` for verified TLS
   and the warning about input received while analytics is stopped.
 
