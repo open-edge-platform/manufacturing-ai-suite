@@ -75,11 +75,12 @@
     }
 
     function titleFromName(name) {
+        var acronyms = { pcb: "PCB" };
         return String(name || "")
             .split("-")
             .filter(Boolean)
             .map(function (w) {
-                return w.charAt(0).toUpperCase() + w.slice(1);
+                return acronyms[w] || w.charAt(0).toUpperCase() + w.slice(1);
             })
             .join(" ");
     }
@@ -91,12 +92,14 @@
         ta.style.opacity = "0";
         document.body.appendChild(ta);
         ta.select();
+        var ok = false;
         try {
-            document.execCommand("copy");
+            ok = document.execCommand("copy");
         } catch (e) {
-            /* Copy is best effort; the prompt text stays visible. */
+            ok = false;
         }
         document.body.removeChild(ta);
+        return ok;
     }
 
     function buildOverlay() {
@@ -105,10 +108,11 @@
         overlay.setAttribute("hidden", "");
         overlay.setAttribute("role", "dialog");
         overlay.setAttribute("aria-modal", "true");
+        overlay.setAttribute("aria-labelledby", "prompt-modal-title");
         overlay.innerHTML =
             '<div class="prompt-modal">' +
             '  <div class="prompt-modal-header">' +
-            '    <h3 class="prompt-modal-title"></h3>' +
+            '    <h3 class="prompt-modal-title" id="prompt-modal-title"></h3>' +
             "  </div>" +
             '  <div class="prompt-modal-body"><pre class="prompt-modal-text"></pre></div>' +
             '  <div class="prompt-modal-footer">' +
@@ -123,12 +127,20 @@
         var copyBtn = overlay.querySelector(".prompt-btn-copy");
         var closeBtn = overlay.querySelector(".prompt-btn-close");
 
+        var opener = null;
+        copyBtn.setAttribute("aria-live", "polite");
+
         function close() {
             overlay.setAttribute("hidden", "");
             copyBtn.textContent = "Copy";
+            if (opener) {
+                opener.focus();
+                opener = null;
+            }
         }
 
-        function open(title, text) {
+        function open(title, text, openerEl) {
+            opener = openerEl || null;
             titleEl.textContent = title;
             textEl.textContent = text;
             copyBtn.textContent = "Copy";
@@ -138,17 +150,20 @@
 
         copyBtn.addEventListener("click", function () {
             var text = textEl.textContent;
-            var done = function () {
-                copyBtn.textContent = "Copied!";
+            var done = function (ok) {
+                copyBtn.textContent = ok ? "Copied!" : "Copy failed. Select the text and copy it manually.";
             };
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(done, function () {
-                    fallbackCopy(text);
-                    done();
-                });
+                navigator.clipboard.writeText(text).then(
+                    function () {
+                        done(true);
+                    },
+                    function () {
+                        done(fallbackCopy(text));
+                    }
+                );
             } else {
-                fallbackCopy(text);
-                done();
+                done(fallbackCopy(text));
             }
         });
 
@@ -159,8 +174,25 @@
             }
         });
         document.addEventListener("keydown", function (e) {
-            if (e.key === "Escape" && !overlay.hasAttribute("hidden")) {
+            if (overlay.hasAttribute("hidden")) {
+                return;
+            }
+            if (e.key === "Escape") {
                 close();
+            } else if (e.key === "Tab") {
+                // Keep keyboard focus inside the modal while it is open.
+                var first = copyBtn;
+                var last = closeBtn;
+                if (e.shiftKey && document.activeElement === first) {
+                    e.preventDefault();
+                    last.focus();
+                } else if (!e.shiftKey && document.activeElement === last) {
+                    e.preventDefault();
+                    first.focus();
+                } else if (!overlay.contains(document.activeElement)) {
+                    e.preventDefault();
+                    first.focus();
+                }
             }
         });
 
@@ -185,7 +217,7 @@
         card.appendChild(desc);
         card.appendChild(cta);
         card.addEventListener("click", function () {
-            overlay.open(item.title, item.prompt);
+            overlay.open(item.title, item.prompt, card);
         });
         return card;
     }
@@ -215,15 +247,23 @@
 
         var overlay = buildOverlay();
 
+        // Prompt YAML embedded in the page at build time; falls back to fetching it.
+        function loadYaml(slug) {
+            var embedded = document.querySelector('script[data-prompt-slug="' + slug + '"]');
+            if (embedded) {
+                return Promise.resolve(embedded.textContent);
+            }
+            return fetch(basePath + slug + ".yaml").then(function (res) {
+                if (!res.ok) {
+                    throw new Error("HTTP " + res.status);
+                }
+                return res.text();
+            });
+        }
+
         Promise.all(
             slugs.map(function (slug) {
-                return fetch(basePath + slug + ".yaml")
-                    .then(function (res) {
-                        if (!res.ok) {
-                            throw new Error("HTTP " + res.status);
-                        }
-                        return res.text();
-                    })
+                return loadYaml(slug)
                     .then(function (text) {
                         var parsed = parsePromptYaml(text);
                         return {

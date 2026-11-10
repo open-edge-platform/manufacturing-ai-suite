@@ -24,6 +24,7 @@ jobs:
       industrial-edge-insights-multimodal_changed: ${{ steps.filter.outputs.industrial-edge-insights-multimodal }}
       edge-insights-time-series_changed: ${{ steps.filter.outputs.edge-insights-time-series }}
       edge-insights-vision_changed: ${{ steps.filter.outputs.edge-insights-vision }}
+      skills_changed: ${{ steps.filter.outputs.skills }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -44,6 +45,10 @@ jobs:
               - 'industrial-edge-insights-time-series/docs/user-guide/**'
             edge-insights-vision:
               - 'industrial-edge-insights-vision/docs/user-guide/**'
+            skills:
+              - 'skills/docs/user-guide/**'
+              - 'skills/docs/prompt-library-files/**'
+              - 'skills/prompts/**'
 
   build-factory-defects-inspector-agent:
     permissions:
@@ -89,3 +94,12 @@ jobs:
     uses: $/.github/workflows/docs-reusable-workflow.yaml
     with:
       docs_directory: industrial-edge-insights-vision
+
+  build-skills:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.skills_changed == 'true' }}
+    uses: $/.github/workflows/docs-reusable-workflow.yaml
+    with:
+      docs_directory: skills
