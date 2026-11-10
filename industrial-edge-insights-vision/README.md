@@ -26,7 +26,7 @@ It consists of the following microservices:
 </div>
 
 > [!NOTE]
-> Although not part of the application configuration files such as Docker Compose templates, Model Download microservice helps downloading OpenVINO™ and Geti™ trained models that are used by DL Streamer Pipeline Server to demonstrate MLOps flow.
+> Although not part of the application configuration files such as Docker Compose templates, Model Download microservice helps downloading OpenVINO™ and Geti™ trained models that are used by DL Streamer Pipeline Server to demonstrate MLOps flow in the Pallet Defect Detection sample application.
 
 ### Directory structure
 

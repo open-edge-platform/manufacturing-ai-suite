@@ -124,6 +124,11 @@ Relative to `<skill-dir>`:
    (alphanumeric, 10+ characters, at least one letter and one digit) are also
    required; they are empty in the shipped `.env`. Do not invent
    credentials — ask the user for any that are unset.
+   Validate with `make check_env_variables MCP=true` for MCP deployments
+   (plain `make check_env_variables` otherwise) rather
+   than reading `.env`. Agent harnesses mask secret values in command output
+   as `***`; that mask is not a placeholder and is not a missing credential.
+   Treat a credential as missing only when that check fails.
 3. Confirm `HOST_IP` in `.env` is a valid IPv4 address (default
    `127.0.0.1`). `localhost` is rejected by `make validate_host_ip`; use the
    host's LAN IP when the UI must be reachable from other machines.
@@ -254,9 +259,13 @@ make status                # containers + recent error-log scan
   not add authentication to `/mcp`. The server requires HTTP Basic auth
   (`MCP_USERNAME`/`MCP_PASSWORD`) for every HTTP request, including MCP
   initialization, discovery, and all tools.
-- The server also has plain-HTTP routes `/start_pipeline`, `/stop_pipeline`,
-  and `/explain` on port 8000, but nginx proxies only `/mcp`; those routes
-  are reachable only from the Docker network.
+- The server also has a POST route for each tool on port 8000:
+  `/start_pipeline`, `/stop_pipeline`, `/get_pipeline_status`,
+  `/list_insights_data`, `/explain`, `/run_agent`, `/get_run_results`,
+  and `/describe`. These routes require Basic authentication and JSON bodies.
+  Parameterless routes accept empty bodies. `/list_insights_data` and
+  `/run_agent` use their defaults when the body is empty.
+  nginx proxies only `/mcp`; these routes are reachable only from the Docker network.
 
 ## Step 2a: Build the Time Series Analytics microservice from source (explicit request only)
 
@@ -335,6 +344,8 @@ From the app root, run `<skill-dir>/scripts/smoke-check.sh` (or set
   `.env`) to `https://${HOST_IP}:${GRAFANA_PORT}/mcp` and
   requires HTTP 200 with the `describe` tool in the response. This probe is
   read-only; it does not start or stop pipelines.
+
+The gateway probe does not check the internal custom HTTP routes on port 8000.
 
 Report the script's pass/fail output directly to the user.
 

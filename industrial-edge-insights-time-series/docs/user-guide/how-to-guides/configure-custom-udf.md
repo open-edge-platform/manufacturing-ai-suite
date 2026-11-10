@@ -44,6 +44,7 @@ This guide provides instructions for setting up a custom UDF deployment package 
               .measurement('opcua')
               .retentionPolicy('autogen')
       ```
+
        - Key sections:
          - **Input**: Fetch data from Telegraf (stream).
          - **Processing**: Apply UDFs for analytics.
@@ -61,7 +62,7 @@ This guide provides instructions for setting up a custom UDF deployment package 
 > [!NOTE]
 > Follow the [Get started](../get-started.md) guide to deploy the `Wind Turbine Anomaly Detection` sample app.
 
-The UDF deployment package (UDFs, TICKscripts, models) and `config.json` for each sample app are uploaded into the Time Series Analytics Microservice container via `manufacturing-ai-suite/industrial-edge-insights-time-series/Makefile`:
+The UDF deployment package (UDFs, TICKscripts, models) and `config.json` for the sample app is uploaded into the Time Series Analytics Microservice container via `manufacturing-ai-suite/industrial-edge-insights-time-series/Makefile`:
 
 - **Wind Turbine Anomaly Detection**: `manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config`
 
@@ -92,6 +93,5 @@ To apply changes to the UDF deployment package or `config.json`, update the file
      -d @config.json \
      -k
    ```
-
 
 For more details, refer to the Time Series Analytics Microservice API documentation on [updating the config](./update-config.md).

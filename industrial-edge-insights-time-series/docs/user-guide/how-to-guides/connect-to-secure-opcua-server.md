@@ -26,6 +26,7 @@ EXTERNAL_OPCUA_SERVER_HOST=<YOUR_OPCUA_SERVER_IP>
 ```
 
 ### Generate CA Certificate
+
 ```bash
 # Generate CA private key (3072-bit for better security)
 openssl genrsa -out ca.key 3072
@@ -39,6 +40,7 @@ cp ca_cert.pem ca_certificate.pem
 ```
 
 ### Generate Server Certificate
+
 ```bash
 # Generate server private key
 openssl genrsa -out opcua_server.key 3072
@@ -68,6 +70,7 @@ openssl x509 -req -in server.csr -CA ca_certificate.pem -CAkey ca.key \
 ```
 
 ### Generate Client Certificate
+
 ```bash
 # Generate client private key
 openssl genrsa -out opcua_client.key 3072
@@ -227,6 +230,7 @@ Edit your Telegraf configuration file:
 ```
 
 **Replace:**
+
 - `YOUR_OPCUA_SERVER_IP` with your OPC UA server's IP or hostname
 - `NAMESPACE` with your OPC UA server namespace
 - `IDENTIFIER` with your OPC UA server node identifier
@@ -241,7 +245,7 @@ Edit your Telegraf configuration file:
 Edit your sample app config file if you want to send alerts to OPC UA server:
 `manufacturing-ai-suite/industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection/time-series-analytics-config/config.json`
 
-```
+```text
 {
   "alerts": {
     "opcua": {
@@ -254,6 +258,7 @@ Edit your sample app config file if you want to send alerts to OPC UA server:
 ```
 
 **Replace:**
+
 - `YOUR_OPCUA_SERVER` with your OPC UA server's endpoint URL
 - `NAMESPACE` with your OPC UA server namespace
 - `NODE_ID` with your OPC UA server node identifier

@@ -4,21 +4,21 @@ The Time Series Analytics Microservice provides an interactive Swagger UI at `ht
 
 ## Accessing the Swagger UI
 
-### To view the current configuration:
+### View the current configuration
 
 1. Open the Swagger UI in your browser.
 2. Locate the `GET /config` endpoint.
 3. Expand the endpoint and click **Execute**.
 4. The response will display the current configuration of the Time Series Analytics Microservice.
 
-### To activate the new UDF deployment package
+### Activate the new UDF deployment package
 
 1. Open the Swagger UI in your browser.
 2. Locate the `GET /config` endpoint.
 3. Expand the endpoint, set the `restart` option to `true` in the request body, and click **Execute**.
 4. The response will display the current configuration and activate the new UDF deployment of the Time Series Analytics Microservice.
 
-### To update the current configuration:
+### Update the current configuration
 
 1. Open the Swagger UI in your browser.
 2. Find the `POST /config` endpoint.

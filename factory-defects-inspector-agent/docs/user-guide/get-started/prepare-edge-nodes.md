@@ -1,13 +1,25 @@
+<!--hide_directive
+```{eval-rst}
+.. meta::
+   :description: Prepare edge nodes for the Factory Defects Inspector Agent by creating or
+      reusing the deployment account and configuring proxies.
+   :keywords: edge node, deployment account, Docker, proxy, apt, Git
+```
+hide_directive-->
+
 # Prepare the Edge Nodes
 
-Do the tasks on this page on each edge node. Use an existing administrator account. Do not use the central Hermes host.
+Do the tasks on this page on each edge node. Use an existing administrator account. Do not
+use the central Hermes host.
 
-1. [Create or reuse the deployment account](#create-or-reuse-the-deployment-account)
-2. [Configure a proxy](#configure-a-proxy-only-if-required) (only if your network needs one)
+1. [Create or Reuse the Deployment Account](#create-or-reuse-the-deployment-account)
+2. [Configure a Proxy](#configure-a-proxy-only-if-required) (only if your network needs one)
 
-## Create or reuse the deployment account
+## Create or Reuse the Deployment Account
 
-**Caution:** Do not delete and recreate an existing deployment account. This removes its home directory, keys, configuration, and application data.
+> [!CAUTION]
+> Do not delete and recreate an existing deployment account. This removes its home
+> directory, keys, configuration, and application data.
 
 1. Check if the account exists:
 
@@ -15,7 +27,8 @@ Do the tasks on this page on each edge node. Use an existing administrator accou
    id deploy
    ```
 
-2. If the account does not exist, create it. Enter the password when the command asks for it. Do not put the password in a script or a chat.
+2. If the account does not exist, create it. Do not put the password in a script or a
+   chat. Enter the password when the command asks for it:
 
    ```bash
    sudo useradd -m -s /bin/bash deploy
@@ -30,7 +43,10 @@ Do the tasks on this page on each edge node. Use an existing administrator accou
 
 4. If the installer must install packages, give the account `sudo` access. Follow the policy of your site.
 
-   **Caution:** The next command gives broad administrative access. If possible, install the packages and configure Docker access yourself. Remove the `sudo` access after preparation.
+   > [!CAUTION]
+   > The next command gives broad administrative access. If possible, install the
+   > packages and configure Docker access yourself. Remove the `sudo` access after
+   > preparation.
 
    On Ubuntu or Debian, this command gives temporary access:
 
@@ -38,7 +54,8 @@ Do the tasks on this page on each edge node. Use an existing administrator accou
    sudo usermod -aG sudo deploy
    ```
 
-5. Open a login session so that the new group memberships apply. Do not use `su deploy`. It can keep the working directory and environment of the previous user.
+5. Do not use `su deploy`. It can keep the working directory and environment of the
+   previous user. Open a login session so that the new group memberships apply:
 
    ```bash
    sudo -iu deploy
@@ -49,15 +66,17 @@ Do the tasks on this page on each edge node. Use an existing administrator accou
 
 6. Make sure that the commands succeed. Then run `exit` to return to the administrator session.
 
-**Caution:** Do not do these actions during routine preparation:
+> [!CAUTION]
+> Do not do these actions during routine preparation:
+>
+> - Kill all processes of `deploy`.
+> - Delete the account.
+> - Remove all Docker containers and images.
+>
+> These actions can stop other workloads and destroy data. Plan, back up, and limit each
+> reset to the intended deployment resources.
 
-- Kill all processes of `deploy`.
-- Delete the account.
-- Remove all Docker containers and images.
-
-These actions can stop other workloads and destroy data. Plan, back up, and limit each reset to the intended deployment resources.
-
-## Configure a proxy (only if required)
+## Configure a Proxy (Only If Required)
 
 Skip this section if the node has direct outbound access.
 
@@ -65,12 +84,12 @@ In the examples, replace `proxy.example.invalid` and port `8080` with the approv
 
 Do the steps in this order:
 
-1. [Set the shell proxy](#set-the-shell-proxy)
-2. [Set the Docker client proxy](#set-the-docker-client-proxy)
-3. [Set the Docker daemon proxy](#set-the-docker-daemon-proxy)
-4. [Set the apt and Git proxy](#set-the-apt-and-git-proxy)
+1. [Set the Shell Proxy](#set-the-shell-proxy)
+2. [Set the Docker Client Proxy](#set-the-docker-client-proxy)
+3. [Set the Docker Daemon Proxy](#set-the-docker-daemon-proxy)
+4. [Set the Apt and Git Proxy](#set-the-apt-and-git-proxy)
 
-### Set the shell proxy
+### Set the Shell Proxy
 
 1. Run these commands as `deploy`:
 
@@ -85,9 +104,12 @@ Do the steps in this order:
 
 2. Add node hostnames and internal service destinations to `NO_PROXY` as your network needs.
 
-**Note:** These settings apply only to this shell and its child processes. Later SSH sessions, Hermes commands, `sudo`, system services, and containers do not inherit them. Configure each of these contexts separately.
+> [!NOTE]
+> These settings apply only to this shell and its child processes. Later SSH sessions,
+> Hermes commands, `sudo`, system services, and containers do not inherit them. Configure
+> each of these contexts separately.
 
-### Set the Docker client proxy
+### Set the Docker Client Proxy
 
 This setting affects new containers and Docker build arguments. It does not affect image pulls, existing containers, host package managers, or Git.
 
@@ -97,7 +119,9 @@ This setting affects new containers and Docker build arguments. It does not affe
    install -d -m 0700 "$HOME/.docker"
    ```
 
-2. Add this `proxies` object to `$HOME/.docker/config.json`. If the file exists, merge the object into it. Do not overwrite registry credentials or credential-helper settings.
+2. Add this `proxies` object to `$HOME/.docker/config.json`. If the file exists, merge the
+   object into it. Do not overwrite registry credentials or credential-helper settings.
+   Use:
 
    ```json
    {
@@ -117,13 +141,17 @@ This setting affects new containers and Docker build arguments. It does not affe
    chmod 600 "$HOME/.docker/config.json"
    ```
 
-### Set the Docker daemon proxy
+### Set the Docker Daemon Proxy
 
-The Docker daemon pulls the images. It does not read the client configuration. Use a systemd drop-in file.
+The Docker daemon pulls the images. It does not read the client configuration. Use a
+systemd drop-in file.
 
-**Caution:** Restarting Docker stops the running containers, unless live restore is on. Do this when it does not interrupt running workloads.
+> [!CAUTION]
+> Restarting Docker stops the running containers, unless live restore is on. Do this when
+> it does not interrupt running workloads.
 
-1. Create the drop-in file as an administrator. If the file exists, edit it. Do not overwrite it.
+1. If the drop-in file exists, edit it. Do not overwrite it. Otherwise, create the drop-in file as
+   an administrator:
 
    ```bash
    sudo mkdir -p /etc/systemd/system/docker.service.d
@@ -150,7 +178,7 @@ The Docker daemon pulls the images. It does not read the client configuration. U
 
 For more information, see [Docker daemon proxy configuration](https://docs.docker.com/engine/daemon/proxy/#systemd-unit-file).
 
-### Set the apt and Git proxy
+### Set the apt and Git Proxy
 
 1. If the node installs packages through the proxy, configure `apt` as an administrator:
 

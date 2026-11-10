@@ -387,6 +387,13 @@ _download_agentic_model:
 _download_vllm_models:
 	@echo "Starting Model Download Service for the VLM models..."; \
 	mkdir -p configs/vllm || exit 1; \
+	if [ ! -w configs/vllm ]; then \
+		echo "configs/vllm is not writable; restoring ownership to $$(id -un)."; \
+		docker run --rm --user 0:0 --entrypoint sh \
+			-v "$$PWD/configs/vllm:/opt/models" \
+			$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+			-c 'chown "$$1" /opt/models' sh "$$(id -u):$$(id -g)" || exit 1; \
+	fi; \
 	staging_dir=$$(mktemp -d configs/vllm/.download.XXXXXX) || exit 1; \
 	staging_name=$${staging_dir##*/}; \
 	echo "Staging downloads in $$staging_dir (retained on failure)."; \

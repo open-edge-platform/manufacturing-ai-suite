@@ -89,7 +89,7 @@ check_mcp() {
       -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' 2>/dev/null || true)"
     if [ "$code" = "200" ] && grep -q '"name":"describe"' "$body"; then
       rm -f "$body"
-      echo "OK: $url answered tools/list"
+      echo "OK: $url answered tools/list (internal custom HTTP routes are not checked)"
       return 0
     fi
     i=$((i + 1))
