@@ -39,7 +39,7 @@ The [Agent Harness Installer](https://github.com/open-edge-platform/edge-ai-libr
 1. Clone the installer repository:
 
    ```bash
-   git clone https://github.com/open-edge-platform/edge-ai-libraries.git
+   git clone https://github.com/open-edge-platform/edge-ai-libraries.git -b release-2026.3.0
    cd edge-ai-libraries/frameworks/agent-harness-install
    ```
 
