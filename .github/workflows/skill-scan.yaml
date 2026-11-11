@@ -45,18 +45,24 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
-      - name: Find all .github/skills and skills directories
+      - name: Find all .github/skills and skills directories containing a SKILL.md
         id: find-paths
         run: |
           paths=$( { find . -path '*/.github/skills' -type d; find . -path '*/skills' -type d; } \
             | sed 's|^\./||' \
             | sort -u \
+            | while IFS= read -r dir; do
+                if [ -n "$(find "$dir" -name SKILL.md -print -quit)" ]; then
+                  echo "$dir"
+                fi
+              done \
             | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "matrix=$paths" >> "$GITHUB_OUTPUT"
 
   skillspector-scan:
     name: SkillSpector security scan (${{ matrix.skills-path }})
     needs: discover-skills
+    if: needs.discover-skills.outputs.matrix != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -82,6 +88,7 @@ jobs:
   skill-validator-scan:
     name: skill-validator scan (${{ matrix.skills-path }})
     needs: discover-skills
+    if: needs.discover-skills.outputs.matrix != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
