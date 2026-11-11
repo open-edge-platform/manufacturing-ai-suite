@@ -73,7 +73,9 @@ technical decision to the orchestrator skill.
 The orchestrator is a skill that runs in an AI coding agent. You need:
 
 - An AI agent tool that supports skills, such as GitHub Copilot in Visual Studio Code.
-- Node.js 22.20 or later, `git`, and internet access to install skills with `npx`.
+- Node.js 22.20 or later and internet access to install skills with `npx`. After you approve
+  the plan, the orchestrator installs any missing delegate skill, including
+  `manufacturing-app-recipe`, with `npx skills`. You don't need to clone this repository.
 - Docker with Docker Compose v2 on the host where the application runs. The orchestrator lists
   any further requirements, such as free ports and Intel GPU access, in the plan.
 
