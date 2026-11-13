@@ -10,7 +10,7 @@ supported; there are no Helm targets.
 This file only catalogues Make targets. For system requirements,
 prerequisites (including how to stage the VLM models), and step-by-step
 deployment procedures, use the app's published user guide at
-<https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/index.html>
+<https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/index.html>
 (see "Normative references" in `SKILL.md`).
 
 ## The `MCP` flag
