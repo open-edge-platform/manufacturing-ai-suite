@@ -53,8 +53,8 @@ The inventory defines the available nodes, skills, prompts, and MCP tools.
 
 ## See Also
 
-- [Weld Defect Detection](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/weld-defect-detection/index.html)
-- [Wind Turbine Anomaly Detection](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/index.html)
+- [Weld Defect Detection](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/weld-defect-detection/index.html)
+- [Wind Turbine Anomaly Detection](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/index.html)
 
 <!--hide_directive
 :::{toctree}

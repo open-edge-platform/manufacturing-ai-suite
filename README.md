@@ -25,13 +25,13 @@ It includes:
 
 |              |             |            |
 |:-------------|:------------|:-----------|
-| [HMI Augmented worker](./hmi-augmented-worker/)                                           | A RAG-enabled HMI application deployable on type-2 hypervisors.                                 | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/hmi-augmented-worker/index.html)                                                          |
-| [Pallet Defect Detection](./industrial-edge-insights-vision/apps/pallet-defect-detection) | Real-time pallet condition monitoring via multiple AI models.                                   | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-vision/pallet-defect-detection/index.html)                       |
-| [PCB Anomaly Detection](./industrial-edge-insights-vision/apps/pcb-anomaly-detection)     | Real-time anomaly detection in printed circuit boards (PCB) with AI vision systems.             | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-vision/pcb-anomaly-detection/index.html)                         |
-| [Win Vision AI](./industrial-edge-insights-vision/win-vision-ai/) | A Windows application for running any Vision workloads on DL Streamer-supported models.                     | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-vision/win-vision-ai/index.html)                  |
-| [Wind Turbine Anomaly Detection](./industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection) | A time series use case of detecting anomalous power generation patterns relative to wind speed. | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/index.html) |
-| [Multimodal Weld Defect Detection](./industrial-edge-insights-multimodal/) | A multimodal use case combining vision and sensor data analysis to identify anomalies in welding data. | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/index.html) |
-| [Factory Defects Inspector Agent](./factory-defects-inspector-agent/) | A Hermes agent that investigates defects and anomalies reported by manufacturing applications on remote edge nodes. | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/factory-defects-inspector-agent/index.html) |
+| [HMI Augmented worker](./hmi-augmented-worker/)                                           | A RAG-enabled HMI application deployable on type-2 hypervisors.                                 | [Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/hmi-augmented-worker/index.html)                                                          |
+| [Pallet Defect Detection](./industrial-edge-insights-vision/apps/pallet-defect-detection) | Real-time pallet condition monitoring via multiple AI models.                                   | [Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-vision/pallet-defect-detection/index.html)                       |
+| [PCB Anomaly Detection](./industrial-edge-insights-vision/apps/pcb-anomaly-detection)     | Real-time anomaly detection in printed circuit boards (PCB) with AI vision systems.             | [Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-vision/pcb-anomaly-detection/index.html)                         |
+| [Win Vision AI](./industrial-edge-insights-vision/win-vision-ai/) | A Windows application for running any Vision workloads on DL Streamer-supported models.                     | [Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-vision/win-vision-ai/index.html)                  |
+| [Wind Turbine Anomaly Detection](./industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection) | A time series use case of detecting anomalous power generation patterns relative to wind speed. | [Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/index.html) |
+| [Multimodal Weld Defect Detection](./industrial-edge-insights-multimodal/) | A multimodal use case combining vision and sensor data analysis to identify anomalies in welding data. | [Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/index.html) |
+| [Factory Defects Inspector Agent](./factory-defects-inspector-agent/) | A Hermes agent that investigates defects and anomalies reported by manufacturing applications on remote edge nodes. | [Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/factory-defects-inspector-agent/index.html) |
 
 **Main tools and AI Libraries the Suite uses**
 
@@ -84,7 +84,7 @@ For support, submit your bug report and feature request to [Github Issues](https
 
 ## License
 
-The **Manufacturing AI Suite** project is licensed under the [APACHE 2.0](LICENSE).  
+The **Manufacturing AI Suite** project is licensed under the [APACHE 2.0](LICENSE).
 
 ## Intended Use
 
@@ -94,5 +94,5 @@ Certain features, such as authentication, TLS termination, and external access c
 assumed to be covered at the infrastructure level.
 
 For more information, refer to the
-[Notes on Usage](https://docs.openedgeplatform.intel.com/dev/OEP-articles/notes-on-usage.html)
+[Notes on Usage](https://docs.openedgeplatform.intel.com/2026.3/OEP-articles/notes-on-usage.html)
 document.

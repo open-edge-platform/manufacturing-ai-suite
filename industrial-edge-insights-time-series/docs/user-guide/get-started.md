@@ -53,7 +53,7 @@ To configure Docker:
 
 Go to the target directory of your choice and clone the suite.
 If you want to clone a specific release branch, replace `main` with the desired tag.
-To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/dev/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
+To learn more on partial cloning, check the [Repository Cloning guide](https://docs.openedgeplatform.intel.com/2026.3/OEP-articles/contribution-guide.html#repository-cloning-partial-cloning).
 
 ```bash
 git clone --filter=blob:none --sparse --branch release-2026.3.0 https://github.com/open-edge-platform/manufacturing-ai-suite.git

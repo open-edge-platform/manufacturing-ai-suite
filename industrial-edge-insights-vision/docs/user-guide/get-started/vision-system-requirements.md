@@ -45,7 +45,7 @@ See the list of certified edge AI systems as enabled through the  Intel® Edge S
 
 > [!NOTE]
 > You can also create apps tailored to your use case using models supported by DL Streamer.
-> Check [the list of supported models](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/supported_models.html) for the latest information.
+> Check [the list of supported models](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/dlstreamer/supported_models.html) for the latest information.
 
 ## Validation
 
