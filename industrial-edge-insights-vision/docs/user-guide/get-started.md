@@ -219,6 +219,9 @@ If not, follow the [installation guide for docker engine](https://docs.docker.co
    > The pipeline uses the pre-trained model downloaded during setup. To replace it with a custom model trained on your own data using Geti™, follow [Generate a Model with Geti™](./pallet-defect-detection/how-to-guides/generate-model-with-geti.md) and replace the `model.xml` and `model.bin` files in your resources accordingly.
 
    > [!NOTE]
+   > The sample payload runs inference on `CPU`. To run on Intel® GPU or NPU, see [Use GPU for inference](./how-to-evaluate-accelerate/use-gpu-for-inference.md) and [Use NPU for inference](./how-to-evaluate-accelerate/use-npu-for-inference.md).
+
+   > [!NOTE]
    > This will start the pipeline. To view the inference stream on WebRTC, open a browser and navigate to the application URL below.
    > If you are running multiple instances of the application, provide the `NGINX_HTTPS_PORT` number in the URL for the application instance, i.e., replace `<HOST_IP>` with `<HOST_IP>:<NGINX_HTTPS_PORT>`.
    > If you are running a single instance and using an `NGINX_HTTPS_PORT` other than the default 443, replace 443 with `<NGINX_HTTPS_PORT>`.
@@ -314,6 +317,8 @@ If not, follow the [installation guide for docker engine](https://docs.docker.co
 
 ## Further Reading
 
+- [Use GPU for inference](./how-to-evaluate-accelerate/use-gpu-for-inference.md)
+- [Use NPU for inference](./how-to-evaluate-accelerate/use-npu-for-inference.md)
 - [Run multiple AI pipelines](./how-to-customize/run-multiple-ai-pipelines.md)
 - [Enable MLOps](./how-to-extend-functionality/enable-mlops.md)
 - [Publish frames to S3 storage pipelines](./how-to-extend-functionality/store-frames-in-s3.md)
