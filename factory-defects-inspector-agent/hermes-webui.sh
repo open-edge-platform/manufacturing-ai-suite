@@ -36,7 +36,7 @@ PROXY_PORT="${HERMES_WEBUI_PROXY_PORT:-8443}"
 PROXY_BIND="${HERMES_WEBUI_PROXY_BIND:-0.0.0.0}"
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIND_CHANGED=0
+CONFIG_CHANGED=0
 
 die() { echo "error: $*" >&2; exit 1; }
 
@@ -81,7 +81,7 @@ install() {
       echo "No terminal: generated a random WebUI password. Read it with: grep PASSWORD $env_file"
     fi
     ( umask 077
-      printf "HERMES_WEBUI_HOST=127.0.0.1\nHERMES_WEBUI_PORT=%s\nHERMES_WEBUI_PASSWORD='%s'\n" "$PORT" "$pw" > "$env_file" )
+      printf "HERMES_WEBUI_HOST=127.0.0.1\nHERMES_WEBUI_PORT=%s\nHERMES_WEBUI_SECURE=1\nHERMES_WEBUI_PASSWORD='%s'\n" "$PORT" "$pw" > "$env_file" )
     unset pw pw2
     echo "Saved settings to $env_file (mode 600)"
   fi
@@ -114,20 +114,31 @@ persona_install() {
 
 env_value() { sed -n "s/^$1=//p" "$DIR/.env" | tail -1; }
 
-# Decide the bind address, save it to .env, and export it (ctl.sh lets the shell environment win).
-configure_bind() {
-  local env_file="$DIR/.env" current
+# Keep the backend loopback-only and ensure session cookies are marked Secure.
+configure_backend() {
+  local env_file="$DIR/.env" current_host current_secure
+  CONFIG_CHANGED=0
   [[ -n $(env_value HERMES_WEBUI_PASSWORD) ]] || die "no HERMES_WEBUI_PASSWORD in $env_file; run '$0 install'"
-  current=$(env_value HERMES_WEBUI_HOST)
-  if [[ $current != 127.0.0.1 ]]; then
+  current_host=$(env_value HERMES_WEBUI_HOST)
+  if [[ $current_host != 127.0.0.1 ]]; then
     if grep -q '^HERMES_WEBUI_HOST=' "$env_file"; then
       sed -i 's/^HERMES_WEBUI_HOST=.*/HERMES_WEBUI_HOST=127.0.0.1/' "$env_file"
     else
       printf 'HERMES_WEBUI_HOST=127.0.0.1\n' >> "$env_file"
     fi
-    BIND_CHANGED=1
+    CONFIG_CHANGED=1
+  fi
+  current_secure=$(env_value HERMES_WEBUI_SECURE)
+  if [[ $current_secure != 1 ]]; then
+    if grep -q '^HERMES_WEBUI_SECURE=' "$env_file"; then
+      sed -i 's/^HERMES_WEBUI_SECURE=.*/HERMES_WEBUI_SECURE=1/' "$env_file"
+    else
+      printf 'HERMES_WEBUI_SECURE=1\n' >> "$env_file"
+    fi
+    CONFIG_CHANGED=1
   fi
   export HERMES_WEBUI_HOST=127.0.0.1
+  export HERMES_WEBUI_SECURE=1
 }
 
 wait_healthy() {
@@ -146,9 +157,9 @@ wait_healthy() {
 }
 
 start_webui() {
-  configure_bind
-  if (( BIND_CHANGED )); then
-    "$DIR/ctl.sh" restart   # apply the new bind address to a running instance
+  configure_backend
+  if (( CONFIG_CHANGED )); then
+    "$DIR/ctl.sh" restart   # apply changed backend settings to a running instance
   else
     "$DIR/ctl.sh" start     # no-op if already running
   fi
@@ -163,10 +174,9 @@ proxy_start() {
   check_proxy_prereqs
   [[ -f $DIR/.env ]] || die "not installed; run '$0 install'"
 
-  local current_host up_port ip san
-  current_host=$(env_value HERMES_WEBUI_HOST)
-  configure_bind
-  if [[ $current_host != 127.0.0.1 ]]; then
+  local up_port ip san
+  configure_backend
+  if (( CONFIG_CHANGED )); then
     "$DIR/ctl.sh" restart
     wait_healthy
   fi
@@ -244,6 +254,7 @@ EOF
   else
     "${ngx[@]}"
   fi
+  wait_proxy_healthy
 
   echo "HTTPS proxy is up (self-signed certificate; the browser shows a warning until you trust it):"
   if [[ $PROXY_BIND == 0.0.0.0 ]]; then
@@ -258,6 +269,26 @@ EOF
 check_proxy_prereqs() {
   command -v nginx >/dev/null || die "nginx is required (for example: sudo apt install nginx)"
   command -v openssl >/dev/null || die "openssl is required"
+}
+
+proxy_endpoint_healthy() {
+  local probe_host expected_fingerprint actual_fingerprint
+  probe_host=$PROXY_BIND
+  [[ $probe_host != 0.0.0.0 ]] || probe_host=127.0.0.1
+  curl --noproxy '*' -kfsS --connect-timeout 1 --max-time 2 \
+    "https://$probe_host:$PROXY_PORT/health" >/dev/null 2>&1 || return 1
+  expected_fingerprint=$(openssl x509 -in "$PROXY_DIR/cert.pem" -noout -fingerprint -sha256 | sed 's/^[^=]*=//') || return 1
+  actual_fingerprint=$(openssl s_client -connect "$probe_host:$PROXY_PORT" -servername localhost </dev/null 2>/dev/null \
+    | openssl x509 -noout -fingerprint -sha256 | sed 's/^[^=]*=//') || return 1
+  [[ -n $expected_fingerprint && $actual_fingerprint == "$expected_fingerprint" ]]
+}
+
+wait_proxy_healthy() {
+  for _ in $(seq 1 10); do
+    proxy_endpoint_healthy && return 0
+    sleep 0.5
+  done
+  die "HTTPS proxy did not become healthy on $PROXY_BIND:$PROXY_PORT; see $PROXY_DIR/error.log"
 }
 
 proxy_stop() {
@@ -314,7 +345,7 @@ case "$cmd" in
   restart)
     [[ -x $DIR/ctl.sh && -f $DIR/.env ]] || die "not installed; run '$0 install'"
     check_proxy_prereqs
-    configure_bind
+    configure_backend
     "$DIR/ctl.sh" restart
     wait_healthy
     proxy_auto

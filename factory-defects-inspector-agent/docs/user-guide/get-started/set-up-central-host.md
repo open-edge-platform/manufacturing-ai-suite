@@ -209,6 +209,7 @@ By default, its HTTP backend listens on `127.0.0.1:8787` (`HERMES_WEBUI_PORT` ca
 port). Nginx connects to that backend locally. Port `8787` is not reachable from other machines;
 clients connect through the HTTPS proxy on port `8443` (or the configured
 `HERMES_WEBUI_PROXY_PORT`).
+The launcher enables Secure session cookies so browsers send them only over HTTPS.
 
 | Setting | Description or default |
 | --- | --- |
