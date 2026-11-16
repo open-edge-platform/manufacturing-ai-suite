@@ -7,10 +7,15 @@ normal queries.
 ## Open the WebUI
 
 1. Get the WebUI password from the administrator.
-2. On the central host, open <http://127.0.0.1:8787/>.
+2. On the central host, open <https://127.0.0.1:8443/>. If the administrator turned the proxy off,
+   open <http://127.0.0.1:8787/>.
 3. Log in with the password.
 
-To open the WebUI from your workstation:
+To open the WebUI from another machine, use `https://<central-host-ip>:8443/`. The administrator
+uses a self-signed certificate by default, so the browser shows a warning. Accept it only after
+the administrator confirms the certificate.
+
+To open the WebUI from your workstation over SSH instead:
 
 1. Open an SSH tunnel to the central host:
 
