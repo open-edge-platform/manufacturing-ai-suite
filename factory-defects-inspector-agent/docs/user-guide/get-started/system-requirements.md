@@ -35,7 +35,7 @@ The edge node requirements depend on the application that you deploy:
 
 **Optional Software**:
 
-- `nginx`, for the [HTTPS reverse proxy](./set-up-central-host.md#https-reverse-proxy) that `hermes-webui.sh` starts by default. Without it, the WebUI runs on loopback only. On Debian or Ubuntu, run `sudo apt-get install nginx`. The proxy runs as the Hermes user, so you do not need to enable the system `nginx` service.
+- `nginx`, for the [HTTPS proxy](./set-up-central-host.md#https-reverse-proxy) of the WebUI. On Debian or Ubuntu, run `sudo apt-get install nginx`.
 
 **Account requirements**:
 

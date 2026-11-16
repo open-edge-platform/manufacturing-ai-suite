@@ -176,9 +176,7 @@ It is not a part of the fleet deployment. You can start it now or after the flee
 - The host can reach the WebUI Git repository.
 - `~/.hermes/config.yaml` exists. If `HERMES_HOME` is set, check that directory.
 - Local port `8787` is free.
-- For the HTTPS proxy, `nginx` and `openssl` are installed and local port `8443` is free. See
-  [HTTPS Reverse Proxy](#https-reverse-proxy). Without them, the script skips the proxy and the
-  WebUI stays on loopback.
+- For the HTTPS proxy: `nginx` and `openssl` are installed, and local port `8443` is free.
 
 **Start the WebUI:**
 
@@ -195,19 +193,15 @@ It is not a part of the fleet deployment. You can start it now or after the flee
    characters. It must not contain quotes. Without a terminal, the script generates a password.
 
 4. Wait for the message that the WebUI is up. The script stores the settings in `~/hermes-webui/.env`
-   with mode `600`. It starts the daemon and checks the `/health` endpoint. It then starts the
-   HTTPS proxy and prints its URLs.
+   with mode `600`. It starts the daemon and checks the `/health` endpoint.
 
-5. Open <https://127.0.0.1:8443/> through the proxy, or <http://127.0.0.1:8787/> directly on the
-   central host.
+5. Open <https://127.0.0.1:8443/>.
 
-To choose the bind address, add `--host <ADDR>` to `start` or `setup`. To start only the WebUI,
-add `--no-proxy` or set `HERMES_WEBUI_PROXY=0`.
+To choose the bind address, add `--host <ADDR>` to `start` or `setup`.
 
 ### Remote Access
 
-Use the [HTTPS proxy](#https-reverse-proxy), which starts by default, or loopback with SSH
-forwarding. Keep password login on.
+Use the [HTTPS proxy](#https-reverse-proxy) or loopback with SSH forwarding. Keep password login on.
 
 To set loopback again on an existing installation:
 
@@ -217,10 +211,10 @@ HERMES_WEBUI_HOST=127.0.0.1 ./hermes-webui.sh restart
 
 > [!CAUTION]
 > Direct HTTP sends passwords and chat content without encryption. Use a firewall to limit
-> access to authorized clients. Prefer the HTTPS proxy or SSH forwarding. Do
+> access to authorized clients. It is best to use SSH forwarding or a TLS reverse proxy. Do
 > not expose the plain-HTTP service to an untrusted network.
 
-To give direct HTTP access on a trusted network instead of the proxy:
+To give direct access on a trusted network:
 
 1. Set `HERMES_WEBUI_HOST` to an IPv4 address of the central host. Use `0.0.0.0` for all IPv4 interfaces:
 
@@ -236,35 +230,21 @@ The script saves the bind address for the next starts.
 
 ### HTTPS Reverse Proxy
 
-To give remote users encrypted access, the script puts an nginx TLS proxy in front of the WebUI
-and keeps the WebUI on loopback. `start`, `setup`, and `restart` start the proxy by default. The
-proxy runs as the current user, so it needs no root access. If `nginx` or `openssl` is missing,
-the script prints a note and skips the proxy.
+`start`, `setup`, and `restart` also start an nginx HTTPS proxy on port `8443`. It uses a
+self-signed certificate in `~/.hermes-webui-proxy`. If `nginx` or `openssl` is missing, the
+script skips the proxy.
 
-**Before you start, make sure that:**
+Open `https://<central-host-ip>:8443/`. Keep the WebUI on loopback and allow only port `8443` in
+the firewall.
 
-- The WebUI is installed. See [Bring Up the Hermes WebUI (Optional)](#bring-up-the-hermes-webui-optional).
-- `nginx` and `openssl` are installed. On Debian or Ubuntu, run `sudo apt-get install nginx openssl`.
-- Local port `8443` is free, or you set `HERMES_WEBUI_PROXY_PORT` to a free port from `1024` to `65535`.
-- The firewall allows clients to reach the proxy port.
+| Setting | Default |
+| --- | --- |
+| `--no-proxy` or `HERMES_WEBUI_PROXY=0` | Proxy on |
+| `HERMES_WEBUI_PROXY_PORT` | `8443` |
+| `HERMES_WEBUI_PROXY_BIND` | `0.0.0.0` |
+| `HERMES_WEBUI_PROXY_DIR` | `~/.hermes-webui-proxy` |
 
-1. Keep the WebUI on loopback:
-
-   ```bash
-   ./hermes-webui.sh --host 127.0.0.1 restart
-   ```
-
-   This also starts the proxy. To start only the proxy, run `./hermes-webui.sh proxy`.
-
-2. Open `https://<central-host-ip>:8443/`. The script generates a self-signed certificate in
-   `~/.hermes-webui-proxy`, so the browser shows a warning until you trust it.
-
-The proxy listens on all IPv4 interfaces by default. To limit it, set `HERMES_WEBUI_PROXY_BIND`
-to one address, for example `127.0.0.1`. Use a firewall to allow only the proxy port (`8443`),
-not `8787`. To change the other proxy settings, set `HERMES_WEBUI_PROXY_PORT` or
-`HERMES_WEBUI_PROXY_DIR`. To turn the proxy off, use `--no-proxy` or `HERMES_WEBUI_PROXY=0`.
 To use your own certificate, replace `cert.pem` and `key.pem` in the proxy directory.
-Manage the proxy with `./hermes-webui.sh proxy status` and `./hermes-webui.sh proxy stop`.
 
 ### Manage the WebUI
 
@@ -272,13 +252,13 @@ Manage the proxy with `./hermes-webui.sh proxy status` and `./hermes-webui.sh pr
 | --- | --- |
 | `./hermes-webui.sh status` | Show the status. |
 | `./hermes-webui.sh logs` | Show the logs. |
-| `./hermes-webui.sh restart` | Restart the daemon and the proxy. |
-| `./hermes-webui.sh stop` | Stop the daemon and the proxy. |
-| `./hermes-webui.sh start` | Install if necessary, then start the daemon and the proxy. |
+| `./hermes-webui.sh restart` | Restart the daemon. |
+| `./hermes-webui.sh stop` | Stop the daemon. |
+| `./hermes-webui.sh start` | Install if necessary, then start. |
 | `./hermes-webui.sh install` | Install or update to the pinned release. Does not start. |
 | `./hermes-webui.sh persona` | Install the persona only. |
-| `./hermes-webui.sh setup` | Install, install the persona, and start the daemon and the proxy. |
-| `./hermes-webui.sh proxy [start\|stop\|status]` | Manage the HTTPS reverse proxy. |
+| `./hermes-webui.sh setup` | Install, install the persona, and start. |
+| `./hermes-webui.sh proxy [start\|stop\|status]` | Manage the HTTPS proxy. |
 
 To override the defaults, set `HERMES_WEBUI_DIR`, `HERMES_WEBUI_VERSION`, or `HERMES_WEBUI_PORT`.
 Use a reviewed stable release tag. If you change the port, also change the browser URL and the

@@ -8,27 +8,25 @@
 #
 # Usage: ./hermes-webui.sh [--host ADDR] [--no-proxy] [setup|install|persona|start|stop|restart|status|logs|proxy]
 #   (default: start)
-#   setup    install if needed, install the SOUL.md persona, then start the daemon and the HTTPS proxy
+#   setup    install if needed, install the SOUL.md persona, then start the daemon and the proxy
 #   install  clone or update the pinned release and create .env (asks for a password, or generates
 #            one when there is no terminal)
 #   persona  copy this directory's SOUL.md into the Hermes home (an existing persona is backed up
 #            to SOUL.md.backup.<timestamp> first; merge manual customizations from the backup)
-#   start    install if needed, then start the daemon and the HTTPS proxy (restart does the same;
-#            stop stops both)
-#   proxy [start|stop|status]  run a user-level nginx HTTPS reverse proxy (self-signed certificate,
-#            no root needed) in front of the WebUI, which stays on 127.0.0.1. start, setup and
-#            restart run it by default when nginx and openssl are installed; otherwise they
-#            skip it with a note.
+#   start    install if needed, then start the daemon and the proxy (restart does the same; stop
+#            stops both)
+#   proxy [start|stop|status]  user-level nginx HTTPS proxy with a self-signed certificate; start,
+#            setup and restart run it when nginx and openssl are installed
 #   Others pass through to the WebUI's ctl.sh.
-#   --no-proxy  do not start the proxy with start, setup or restart (or set HERMES_WEBUI_PROXY=0)
+#   --no-proxy  skip the proxy (or set HERMES_WEBUI_PROXY=0)
 #   --host ADDR  bind address: 127.0.0.1 (default), 0.0.0.0 (all interfaces), or one of this
 #            host's IPv4 addresses; saved in .env and kept until set again. Equivalent to the
 #            HERMES_WEBUI_HOST environment variable.
 #
 # Environment: HERMES_WEBUI_DIR (default ~/hermes-webui), HERMES_WEBUI_VERSION (default v0.52.492),
 #              HERMES_WEBUI_PORT (default 8787), HERMES_WEBUI_HOST (see --host above),
-#              HERMES_WEBUI_PROXY (default 1; 0 disables the proxy),
-#              HERMES_WEBUI_PROXY_PORT (default 8443), HERMES_WEBUI_PROXY_BIND (default 0.0.0.0),
+#              HERMES_WEBUI_PROXY (default 1), HERMES_WEBUI_PROXY_PORT (default 8443),
+#              HERMES_WEBUI_PROXY_BIND (default 0.0.0.0),
 #              HERMES_WEBUI_PROXY_DIR (default ~/.hermes-webui-proxy).
 set -euo pipefail
 
