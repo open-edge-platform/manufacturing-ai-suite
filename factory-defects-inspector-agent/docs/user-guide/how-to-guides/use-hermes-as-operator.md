@@ -10,27 +10,6 @@ normal queries.
 2. On the central host, open <https://127.0.0.1:8443/>.
 3. Log in with the password.
 
-To open the WebUI from another machine, use `https://<central-host-ip>:8443/`. The browser shows a
-certificate warning for the default self-signed certificate.
-
-To open the WebUI from your workstation over SSH instead:
-
-1. Open an SSH tunnel to the central host:
-
-   ```bash
-   ssh -L 8787:127.0.0.1:8787 <user>@<central-host>
-   ```
-
-2. Keep the SSH session open.
-3. On your workstation, open <http://127.0.0.1:8787/>.
-
-   > [!NOTE]
-   > If local port `8787` is in use, use a different local port. For example, use
-   > `-L 8788:127.0.0.1:8787` and open <http://127.0.0.1:8788/>.
-
-This tunnel is not the same as the MCP tunnels to the edge nodes. The administrator manages
-the MCP tunnels.
-
 ## Choose the profile
 
 | Profile | Use |

@@ -6,7 +6,7 @@
 # against the local Hermes Agent (~/.hermes). Password login is always on. By default it
 # listens on 127.0.0.1 only.
 #
-# Usage: ./hermes-webui.sh [--host ADDR] [--no-proxy] [setup|install|persona|start|stop|restart|status|logs|proxy]
+# Usage: ./hermes-webui.sh [--host ADDR] [setup|install|persona|start|stop|restart|status|logs|proxy]
 #   (default: start)
 #   setup    install if needed, install the SOUL.md persona, then start the daemon and the proxy
 #   install  clone or update the pinned release and create .env (asks for a password, or generates
@@ -15,17 +15,14 @@
 #            to SOUL.md.backup.<timestamp> first; merge manual customizations from the backup)
 #   start    install if needed, then start the daemon and the proxy (restart does the same; stop
 #            stops both)
-#   proxy [start|stop|status]  user-level nginx HTTPS proxy with a self-signed certificate; start,
-#            setup and restart run it when nginx and openssl are installed
+#   proxy [start|stop|status]  user-level nginx HTTPS proxy with a self-signed certificate
 #   Others pass through to the WebUI's ctl.sh.
-#   --no-proxy  skip the proxy (or set HERMES_WEBUI_PROXY=0)
-#   --host ADDR  bind address: 127.0.0.1 (default), 0.0.0.0 (all interfaces), or one of this
-#            host's IPv4 addresses; saved in .env and kept until set again. Equivalent to the
-#            HERMES_WEBUI_HOST environment variable.
+#   --host ADDR  bind address for the HTTPS proxy (default: 0.0.0.0); also settable with
+#            HERMES_WEBUI_PROXY_BIND. The WebUI's plain-HTTP backend always listens on loopback.
 #
 # Environment: HERMES_WEBUI_DIR (default ~/hermes-webui), HERMES_WEBUI_VERSION (default v0.52.492),
-#              HERMES_WEBUI_PORT (default 8787), HERMES_WEBUI_HOST (see --host above),
-#              HERMES_WEBUI_PROXY (default 1), HERMES_WEBUI_PROXY_PORT (default 8443),
+#              HERMES_WEBUI_PORT (default 8787),
+#              HERMES_WEBUI_PROXY_PORT (default 8443),
 #              HERMES_WEBUI_PROXY_BIND (default 0.0.0.0),
 #              HERMES_WEBUI_PROXY_DIR (default ~/.hermes-webui-proxy).
 set -euo pipefail
@@ -34,9 +31,7 @@ REPO_URL="https://github.com/nesquena/hermes-webui.git"
 VERSION="${HERMES_WEBUI_VERSION:-v0.52.492}"
 DIR="${HERMES_WEBUI_DIR:-$HOME/hermes-webui}"
 PORT="${HERMES_WEBUI_PORT:-8787}"
-REQ_HOST="${HERMES_WEBUI_HOST:-}"
 PROXY_DIR="${HERMES_WEBUI_PROXY_DIR:-$HOME/.hermes-webui-proxy}"
-PROXY_ENABLED="${HERMES_WEBUI_PROXY:-1}"
 PROXY_PORT="${HERMES_WEBUI_PROXY_PORT:-8443}"
 PROXY_BIND="${HERMES_WEBUI_PROXY_BIND:-0.0.0.0}"
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
@@ -49,7 +44,6 @@ die() { echo "error: $*" >&2; exit 1; }
 [[ $PORT =~ ^[0-9]{4,5}$ ]] && (( PORT >= 1024 && PORT <= 65535 )) || die "HERMES_WEBUI_PORT must be 1024-65535"
 [[ $PROXY_PORT =~ ^[0-9]{4,5}$ ]] && (( PROXY_PORT >= 1024 && PROXY_PORT <= 65535 )) \
   || die "HERMES_WEBUI_PROXY_PORT must be 1024-65535"
-[[ $PROXY_BIND =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] || die "HERMES_WEBUI_PROXY_BIND must be an IPv4 address"
 
 check_prereqs() {
   command -v git >/dev/null || die "git is required"
@@ -122,58 +116,27 @@ env_value() { sed -n "s/^$1=//p" "$DIR/.env" | tail -1; }
 
 # Decide the bind address, save it to .env, and export it (ctl.sh lets the shell environment win).
 configure_bind() {
-  local env_file="$DIR/.env" current host
+  local env_file="$DIR/.env" current
   [[ -n $(env_value HERMES_WEBUI_PASSWORD) ]] || die "no HERMES_WEBUI_PASSWORD in $env_file; run '$0 install'"
   current=$(env_value HERMES_WEBUI_HOST)
-  host="${REQ_HOST:-${current:-127.0.0.1}}"
-  case "$host" in
-    127.0.0.1 | 0.0.0.0) ;;
-    *)
-      [[ $host =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] \
-        && ip -4 -o addr show | awk '{split($4, a, "/"); print a[1]}' | grep -qxF "$host" \
-        || die "HERMES_WEBUI_HOST must be 127.0.0.1, 0.0.0.0, or an IPv4 address of this host"
-      ;;
-  esac
-  if [[ $host != "$current" ]]; then
+  if [[ $current != 127.0.0.1 ]]; then
     if grep -q '^HERMES_WEBUI_HOST=' "$env_file"; then
-      sed -i "s/^HERMES_WEBUI_HOST=.*/HERMES_WEBUI_HOST=$host/" "$env_file"
+      sed -i 's/^HERMES_WEBUI_HOST=.*/HERMES_WEBUI_HOST=127.0.0.1/' "$env_file"
     else
-      printf 'HERMES_WEBUI_HOST=%s\n' "$host" >> "$env_file"
+      printf 'HERMES_WEBUI_HOST=127.0.0.1\n' >> "$env_file"
     fi
     BIND_CHANGED=1
   fi
-  export HERMES_WEBUI_HOST="$host"
-  if [[ $host != 127.0.0.1 ]]; then
-    cat >&2 <<EOF
-WARNING: Hermes WebUI will listen on $host (plain HTTP). The password and chats cross the network
-unencrypted, and anyone who logs in gets a terminal and file access as $(id -un). Use it only on a
-trusted network, limit the port with a firewall, and prefer SSH port forwarding or a TLS proxy.
-EOF
-  fi
+  export HERMES_WEBUI_HOST=127.0.0.1
 }
 
 wait_healthy() {
-  local port host probe
+  local port
   port="${HERMES_WEBUI_PORT:-$(env_value HERMES_WEBUI_PORT)}"
   port="${port:-$PORT}"
-  host=$(env_value HERMES_WEBUI_HOST)
-  case "$host" in 0.0.0.0 | 127.0.0.1 | "") probe=127.0.0.1 ;; *) probe=$host ;; esac
   for _ in $(seq 1 30); do
-    if curl -fsS -o /dev/null "http://$probe:$port/health" 2>/dev/null; then
-      echo "Hermes WebUI is up on $host:$port"
-      case "$host" in
-        127.0.0.1 | "")
-          echo "  http://127.0.0.1:$port/"
-          echo "  From another machine: ssh -N -L $port:127.0.0.1:$port $(id -un)@$(hostname)"
-          ;;
-        0.0.0.0)
-          local ip
-          for ip in 127.0.0.1 $(hostname -I); do
-            [[ $ip == *:* ]] || echo "  http://$ip:$port/"
-          done
-          ;;
-        *) echo "  http://$host:$port/" ;;
-      esac
+    if curl -fsS -o /dev/null "http://127.0.0.1:$port/health" 2>/dev/null; then
+      echo "Hermes WebUI is healthy on its local backend port $port"
       return 0
     fi
     sleep 2
@@ -197,17 +160,18 @@ proxy_running() {
 }
 
 proxy_start() {
-  command -v nginx >/dev/null || die "nginx is required (for example: sudo apt install nginx)"
-  command -v openssl >/dev/null || die "openssl is required"
+  check_proxy_prereqs
   [[ -f $DIR/.env ]] || die "not installed; run '$0 install'"
 
-  local up_host up_port ip san
-  up_host=$(env_value HERMES_WEBUI_HOST)
-  case "$up_host" in 0.0.0.0 | "") up_host=127.0.0.1 ;; esac
+  local current_host up_port ip san
+  current_host=$(env_value HERMES_WEBUI_HOST)
+  configure_bind
+  if [[ $current_host != 127.0.0.1 ]]; then
+    "$DIR/ctl.sh" restart
+    wait_healthy
+  fi
   up_port="${HERMES_WEBUI_PORT:-$(env_value HERMES_WEBUI_PORT)}"
   up_port="${up_port:-$PORT}"
-  [[ $up_host == 127.0.0.1 ]] \
-    || echo "WARNING: the WebUI listens on $up_host in plain HTTP; run '$0 --host 127.0.0.1 restart' so only the proxy is reachable." >&2
 
   command install -d -m 0700 "$PROXY_DIR"
   if [[ ! -f $PROXY_DIR/cert.pem || ! -f $PROXY_DIR/key.pem ]]; then
@@ -254,7 +218,7 @@ http {
         add_header X-Frame-Options SAMEORIGIN;
 
         location / {
-            proxy_pass http://$up_host:$up_port;
+            proxy_pass http://127.0.0.1:$up_port;
             proxy_http_version 1.1;
             proxy_set_header Host \$http_host;
             proxy_set_header Upgrade \$http_upgrade;
@@ -291,6 +255,11 @@ EOF
   fi
 }
 
+check_proxy_prereqs() {
+  command -v nginx >/dev/null || die "nginx is required (for example: sudo apt install nginx)"
+  command -v openssl >/dev/null || die "openssl is required"
+}
+
 proxy_stop() {
   if proxy_running; then
     kill -QUIT "$(cat "$PROXY_DIR/nginx.pid")"
@@ -309,31 +278,28 @@ proxy_cmd() {
   esac
 }
 
-# Default-on proxy for start/setup/restart; missing nginx or openssl is a note, not an error.
+# The HTTPS proxy is required for every WebUI start.
 proxy_auto() {
-  [[ $PROXY_ENABLED == 1 ]] || return 0
-  if command -v nginx >/dev/null && command -v openssl >/dev/null; then
-    proxy_start
-  else
-    echo "Note: nginx or openssl is missing, so the HTTPS proxy was not started. Install both and run '$0 proxy'." >&2
-  fi
+  proxy_start
 }
 
 ARGS=()
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --host) [[ $# -ge 2 ]] || die "--host needs an address"; REQ_HOST=$2; shift 2 ;;
-    --no-proxy) PROXY_ENABLED=0; shift ;;
+    --host) [[ $# -ge 2 ]] || die "--host needs an address"; PROXY_BIND=$2; shift 2 ;;
     *) ARGS+=("$1"); shift ;;
   esac
 done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
+[[ $PROXY_BIND =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]] \
+  || die "--host and HERMES_WEBUI_PROXY_BIND must be an IPv4 address"
 
 cmd="${1:-start}"
 case "$cmd" in
   setup)
     install
     persona_install
+    check_proxy_prereqs
     start_webui
     proxy_auto
     ;;
@@ -341,11 +307,13 @@ case "$cmd" in
   persona) persona_install ;;
   start)
     [[ -d $DIR/.git && -f $DIR/.env ]] || install
+    check_proxy_prereqs
     start_webui
     proxy_auto
     ;;
   restart)
     [[ -x $DIR/ctl.sh && -f $DIR/.env ]] || die "not installed; run '$0 install'"
+    check_proxy_prereqs
     configure_bind
     "$DIR/ctl.sh" restart
     wait_healthy

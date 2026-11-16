@@ -173,10 +173,11 @@ It is not a part of the fleet deployment. You can start it now or after the flee
 **Before you start, make sure that:**
 
 - `git`, Python 3, and `curl` are installed.
+- `nginx` and `openssl` are installed for the mandatory HTTPS proxy.
 - The host can reach the WebUI Git repository.
 - `~/.hermes/config.yaml` exists. If `HERMES_HOME` is set, check that directory.
 - Local port `8787` is free.
-- For the HTTPS proxy: `nginx` and `openssl` are installed, and local port `8443` is free.
+- Local port `8443` is free.
 
 **Start the WebUI:**
 
@@ -197,51 +198,22 @@ It is not a part of the fleet deployment. You can start it now or after the flee
 
 5. Open <https://127.0.0.1:8443/>.
 
-To choose the bind address, add `--host <ADDR>` to `start` or `setup`.
-
-### Remote Access
-
-Use the [HTTPS proxy](#https-reverse-proxy) or loopback with SSH forwarding. Keep password login on.
-
-To set loopback again on an existing installation:
-
-```bash
-HERMES_WEBUI_HOST=127.0.0.1 ./hermes-webui.sh restart
-```
-
-> [!CAUTION]
-> Direct HTTP sends passwords and chat content without encryption. Use a firewall to limit
-> access to authorized clients. It is best to use SSH forwarding or a TLS reverse proxy. Do
-> not expose the plain-HTTP service to an untrusted network.
-
-To give direct access on a trusted network:
-
-1. Set `HERMES_WEBUI_HOST` to an IPv4 address of the central host. Use `0.0.0.0` for all IPv4 interfaces:
-
-   ```bash
-   HERMES_WEBUI_HOST=0.0.0.0 ./hermes-webui.sh restart
-   ```
-
-   The option `--host 0.0.0.0` does the same.
-
-2. Open `http://<central-host-ip>:8787/` from the remote system. `0.0.0.0` is not a browser address.
-
-The script saves the bind address for the next starts.
-
 ### HTTPS Reverse Proxy
 
-`start`, `setup`, and `restart` also start an nginx HTTPS proxy on port `8443`. It uses a
-self-signed certificate in `~/.hermes-webui-proxy`. If `nginx` or `openssl` is missing, the
-script skips the proxy.
+`start`, `setup`, and `restart` start the required nginx HTTPS proxy on port `8443`. It uses a
+self-signed certificate in `~/.hermes-webui-proxy`. The command fails if `nginx` or `openssl` is
+missing; the WebUI backend remains bound to loopback.
 
-Open `https://<central-host-ip>:8443/`. Keep the WebUI on loopback and allow only port `8443` in
-the firewall.
+The WebUI is available locally at <https://127.0.0.1:8443/>.
+By default, its HTTP backend listens on `127.0.0.1:8787` (`HERMES_WEBUI_PORT` can change the
+port). Nginx connects to that backend locally. Port `8787` is not reachable from other machines;
+clients connect through the HTTPS proxy on port `8443` (or the configured
+`HERMES_WEBUI_PROXY_PORT`).
 
-| Setting | Default |
+| Setting | Description or default |
 | --- | --- |
-| `--no-proxy` or `HERMES_WEBUI_PROXY=0` | Proxy on |
+| `--host ADDR` or `HERMES_WEBUI_PROXY_BIND` | HTTPS listener address; defaults to `0.0.0.0`. |
 | `HERMES_WEBUI_PROXY_PORT` | `8443` |
-| `HERMES_WEBUI_PROXY_BIND` | `0.0.0.0` |
 | `HERMES_WEBUI_PROXY_DIR` | `~/.hermes-webui-proxy` |
 
 To use your own certificate, replace `cert.pem` and `key.pem` in the proxy directory.
@@ -261,5 +233,5 @@ To use your own certificate, replace `cert.pem` and `key.pem` in the proxy direc
 | `./hermes-webui.sh proxy [start\|stop\|status]` | Manage the HTTPS proxy. |
 
 To override the defaults, set `HERMES_WEBUI_DIR`, `HERMES_WEBUI_VERSION`, or `HERMES_WEBUI_PORT`.
-Use a reviewed stable release tag. If you change the port, also change the browser URL and the
-SSH forwarding ports.
+Use a reviewed stable release tag. If you change `HERMES_WEBUI_PROXY_PORT`, update the browser
+URL as well.

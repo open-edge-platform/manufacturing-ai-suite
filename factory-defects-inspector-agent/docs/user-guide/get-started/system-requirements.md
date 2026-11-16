@@ -30,12 +30,9 @@ The edge node requirements depend on the application that you deploy:
 - Hermes Agent, installed and configured with an LLM provider. See [Install Hermes, Set the Persona, and Bring Up the WebUI](./set-up-central-host.md).
 - The `hermes` command, available to the user who runs the setup.
 - These commands: `ssh`, `scp`, `ssh-copy-id`, `ssh-keygen`, `curl`, `openssl`, `git`, `base64`, `systemctl`, and `loginctl`.
+- `nginx`, required for the Hermes WebUI HTTPS proxy. On Debian or Ubuntu, run `sudo apt-get install nginx`.
 - Python 3 and PyYAML. On Debian or Ubuntu, run `sudo apt-get install python3-yaml` if PyYAML is not installed.
 - The files `fleet-setup.sh` and `fleet_inventory.py` in the same directory.
-
-**Optional Software**:
-
-- `nginx`, for the [HTTPS proxy](./set-up-central-host.md#https-reverse-proxy) of the WebUI. On Debian or Ubuntu, run `sudo apt-get install nginx`.
 
 **Account requirements**:
 
