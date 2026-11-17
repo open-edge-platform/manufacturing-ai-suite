@@ -4,7 +4,7 @@
 #
 # Build the Time Series Analytics microservice image from the latest
 # edge-ai-libraries source, as in "Build from source" in the user guide:
-# https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html
+# https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html
 # The image is tagged with the name the app's docker-compose.yml expects
 # (DOCKER_REGISTRY, TIME_SERIES_ANALYTICS_IMAGE, IMAGE_SUFFIX, WEEKLY_BUILD_DATE
 # from the app-root .env), so `make up*` runs it instead of the published image.
@@ -47,7 +47,7 @@ done
 if [ -z "$APP_ROOT" ]; then
   echo "FAIL: industrial-edge-insights-multimodal app root not found." >&2
   echo "      Run from the app root or set MULTIMODAL_APP_ROOT=/path/to/industrial-edge-insights-multimodal" >&2
-  echo "      To get a checkout, see 'Clone source code' in https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html" >&2
+  echo "      To get a checkout, see 'Clone source code' in https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html" >&2
   exit 1
 fi
 [ -f "$APP_ROOT/.env" ] || fail "$APP_ROOT/.env not found"

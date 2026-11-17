@@ -8,7 +8,7 @@ Expected agent flow:
    non-empty `MCP_USERNAME`/`MCP_PASSWORD`), run Docker preflight. Ask the
    user for MCP credentials if they are unset; do not invent them.
 2. Meet the prerequisites in
-   [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html):
+   [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html):
    `make check_hardware`, then `make check_models`. If `check_models` fails,
    run `make download_model DOWNLOAD_AGENTIC=true`
    only after the user explicitly accepts the model license (asked

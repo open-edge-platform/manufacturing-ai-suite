@@ -18,4 +18,4 @@ prompt: |
   Use the manufacturing-ai-app-builder skill to guide this process. Install
   and invoke it:
 
-  npx skills@1.7.4 add https://github.com/open-edge-platform/manufacturing-ai-suite/tree/main/.github/skills/manufacturing-ai-app-builder
+  npx skills@1.7.4 add https://github.com/open-edge-platform/manufacturing-ai-suite/tree/release-2026.3.0/.github/skills/manufacturing-ai-app-builder

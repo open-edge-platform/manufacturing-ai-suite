@@ -42,7 +42,7 @@ Model-serving components installed separately:
 
 Inference Router image: intel/inference-router:2026.2.0
 License-Identifier: Apache-2.0
-Source: https://github.com/open-edge-platform/edge-ai-libraries/tree/main/microservices/inference-router
+Source: https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/microservices/inference-router
 
 OpenVINO Model Server image: openvino/model_server:2026.4.1-gpu
 License-Identifier: Apache-2.0
@@ -51,7 +51,7 @@ The Agent Harness Installer starts the Inference Router. OpenVINO Model Server i
 
 Agent Harness Installer
 License-Identifier: Apache-2.0
-Source: https://github.com/open-edge-platform/edge-ai-libraries/tree/main/frameworks/agent-harness-install
+Source: https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/frameworks/agent-harness-install
 
 ---------------------------------------------------------------------------------------------------------------------------
 

@@ -57,7 +57,7 @@ therefore use three bases:
 |---|---|---|
 | **Skill directory** (`<skill-dir>`, the folder containing this `SKILL.md`) | `references/…`, `scripts/…`, `example-prompts/…` | Always bundled with the skill |
 | **App root** (Step 0) | `Makefile`, `.env`, `configs/…`, `tests/…`, `mcp-server/…` | Read from the user's checkout at runtime; never expected inside `<skill-dir>` |
-| **User guide** | Pages linked under "Normative references" | Published at <https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/index.html>; page `<page>.html` there is also in the checkout as `docs/user-guide/<page>.md` |
+| **User guide** | Pages linked under "Normative references" | Published at <https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/index.html>; page `<page>.html` there is also in the checkout as `docs/user-guide/<page>.md` |
 
 The user guide is intentionally **not** copied into the skill. Open each page
 by its published URL, so the skill works without the repository's `docs/`
@@ -86,13 +86,13 @@ checkout copy instead):
 
 | Page | Use it for |
 |---|---|
-| [System requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/system-requirements.html) | Base hardware/OS/Docker/Python requirements for every variant |
-| [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) | Clone commands, Docker configuration (non-root, proxy, log rotation), `.env` fields, default `make up` deploy, GPU/NPU inference switches, verification, `make status` caveats |
-| [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html) | `make build` / `make build_copyleft_sources`, and, only when explicitly requested, building the Time Series Analytics microservice from the latest `edge-ai-libraries` source first (Step 2a) |
-| [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | vLLM variant: extra hardware/RAM/storage requirements, `make download_model` (also run automatically by `make up_vllm` when models are missing), `VLLM_GPU_MEMORY_UTILIZATION`, verification, troubleshooting |
-| [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Agentic variant (with or without `MCP=true`): extra requirements, prerequisites (including the VLM model download), `LLM_DEVICE`, `make up_agentic [MCP=true]`, agent configuration, verification |
-| [Update config](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-update-config.html), [Configure alerts](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-configure-alerts.html), [Configure an RTSP camera](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-configure-rtsp-camera.html), [Access S3-stored images](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-access-s3-stored-images.html) | Post-deploy configuration questions |
-| [Troubleshooting](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/troubleshooting.html) | Known runtime issues ("No Data" in Grafana, slow Time-Series Analytics start, coturn/mediamtx log noise, EMT `docker exec`) |
+| [System requirements](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/system-requirements.html) | Base hardware/OS/Docker/Python requirements for every variant |
+| [Get Started](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) | Clone commands, Docker configuration (non-root, proxy, log rotation), `.env` fields, default `make up` deploy, GPU/NPU inference switches, verification, `make status` caveats |
+| [Build from source](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html) | `make build` / `make build_copyleft_sources`, and, only when explicitly requested, building the Time Series Analytics microservice from the latest `edge-ai-libraries` source first (Step 2a) |
+| [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | vLLM variant: extra hardware/RAM/storage requirements, `make download_model` (also run automatically by `make up_vllm` when models are missing), `VLLM_GPU_MEMORY_UTILIZATION`, verification, troubleshooting |
+| [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Agentic variant (with or without `MCP=true`): extra requirements, prerequisites (including the VLM model download), `LLM_DEVICE`, `make up_agentic [MCP=true]`, agent configuration, verification |
+| [Update config](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-update-config.html), [Configure alerts](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-configure-alerts.html), [Configure an RTSP camera](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-configure-rtsp-camera.html), [Access S3-stored images](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-access-s3-stored-images.html) | Post-deploy configuration questions |
+| [Troubleshooting](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/troubleshooting.html) | Known runtime issues ("No Data" in Grafana, slow Time-Series Analytics start, coturn/mediamtx log noise, EMT `docker exec`) |
 
 ### Skill-local references (Makefile/test facts not covered by the user guide)
 
@@ -114,7 +114,7 @@ Relative to `<skill-dir>`:
    `cd` into that directory before running any command below — the Makefile
    and the helper scripts read `.env` from the current directory.
    If no checkout exists, stop and offer the **Clone source code** commands
-   from [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html).
+   from [Get Started](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html).
 2. Confirm `.env` exists and the credentials checked by
    `make check_env_variables` are set: `INFLUXDB_USERNAME/PASSWORD`,
    `VISUALIZER_GRAFANA_USER/PASSWORD`,
@@ -136,10 +136,10 @@ Relative to `<skill-dir>`:
 
    If the preflight fails, **stop immediately**, report the host blocker, and
    point the user to the **Configure Docker** section of
-   [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) (non-root Docker, proxy) instead of
+   [Get Started](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) (non-root Docker, proxy) instead of
    waiting or retrying indefinitely.
 5. Compare the host against
-   [System requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/system-requirements.html) (OS, Docker version,
+   [System requirements](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/system-requirements.html) (OS, Docker version,
    Python, RAM, storage). Report shortfalls; they are warnings for the
    default variant, but see Step 1b for the stricter vLLM/agentic limits.
 
@@ -149,10 +149,10 @@ Ask (or infer from the user's request) which variant to deploy:
 
 | Variant | Make target | Procedure doc | Notes |
 |---|---|---|---|
-| Default (vision + time-series fusion) | `make up` | [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) | No extra hardware checks |
-| vLLM-based VLM | `make up_vllm` | [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | Requires `check_hardware`; downloads VLM models if missing |
-| Agentic | `make up_agentic` | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Requires `check_hardware`; ensures VLM models and downloads the agentic model (can take minutes) |
-| Agentic + MCP server | `make up_agentic MCP=true` | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Same as Agentic, plus `docker-compose-mcp.yml` (`multimodal-mcp-server`), `MCP_USERNAME`/`MCP_PASSWORD` validation, and the `agentic_mcp` nginx profile that exposes `/mcp`. Pipelines do **not** auto-start — see Step 2 |
+| Default (vision + time-series fusion) | `make up` | [Get Started](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started.html) | No extra hardware checks |
+| vLLM-based VLM | `make up_vllm` | [Deploy the vLLM service](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-vllm-service.html) | Requires `check_hardware`; downloads VLM models if missing |
+| Agentic | `make up_agentic` | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Requires `check_hardware`; ensures VLM models and downloads the agentic model (can take minutes) |
+| Agentic + MCP server | `make up_agentic MCP=true` | [Deploy the agent workflow](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/how-to-deploy-agent-workflow.html) | Same as Agentic, plus `docker-compose-mcp.yml` (`multimodal-mcp-server`), `MCP_USERNAME`/`MCP_PASSWORD` validation, and the `agentic_mcp` nginx profile that exposes `/mcp`. Pipelines do **not** auto-start — see Step 2 |
 
 All `up*` targets implicitly run `check_env_variables`, `validate_host_ip`,
 and `down` first (see `references/command-reference.md`). `MCP=true` is
@@ -235,7 +235,7 @@ make status                # containers + recent error-log scan
 - For verification and stop steps, follow the variant's procedure doc
   (**Verify the Deployment** in the how-to guides, **Verify the Multimodal
   Weld Defect Detection Results** in `get-started.md`). For runtime issues, check
-  [Troubleshooting](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/troubleshooting.html) and the doc's own **Troubleshooting**
+  [Troubleshooting](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/troubleshooting.html) and the doc's own **Troubleshooting**
   section before improvising a fix.
 
 ### MCP mode (`make up_agentic MCP=true`)
@@ -283,7 +283,7 @@ request from symptoms (for example, a missing `/pipeline_status` route);
 report the symptom and let the user ask for the build.
 
 When the request does ask for it, follow steps 1 and 2 of
-[Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html),
+[Build from source](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/get-started/build-from-source.html),
 from the app root (or with `MULTIMODAL_APP_ROOT` set):
 
 ```bash
@@ -351,7 +351,7 @@ Report the script's pass/fail output directly to the user.
 
 ## Step 3b (MCP mode only): Exercise the MCP server
 
-Follow [Use the multimodal MCP server](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/use-mcp-server.html)
+Follow [Use the multimodal MCP server](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/how-to-guides/use-mcp-server.html)
 for the certificate setup, client installation, and tool calls. The client
 verifies the gateway certificate; there is no insecure option. Call
 `start_pipeline`/`stop_pipeline`/`run_agent` only after the user confirms.

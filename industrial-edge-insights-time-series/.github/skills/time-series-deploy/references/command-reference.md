@@ -9,7 +9,7 @@ supported; there are no Helm targets.
 
 This file only catalogues Make targets. For system requirements,
 prerequisites, and step-by-step procedures, use the app's published user
-guide at <https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/index.html>
+guide at <https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/index.html>
 (see "Normative references" in `SKILL.md`).
 
 ## App selection
@@ -55,12 +55,12 @@ and post `config.json` (or `config-batch.json`) to `/ts-api/config`.
   regeneration of a multi-stream Telegraf config via a local Python venv
   (`generate-telegraf-config.py`). For `up_opcua_ingestion` with >1 stream,
   export `OPCUA_SERVER_PORT_MAPPING=30003-30100` first
-  ([Multi-stream ingestion](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html))
+  ([Multi-stream ingestion](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html))
 - `ingestion_interval` — simulator ingestion interval (default `"1s"`)
 - `number_of_data_points_per_stream` — when set, enables
   `ENABLE_BENCHMARKING=true` and sets `BENCHMARK_TOTAL_PTS`, a per-stream
   limit in the wind-turbine UDFs (`points_received[stream_src]`); pass the
-  per-stream count unchanged. [Benchmarking](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html)
+  per-stream count unchanged. [Benchmarking](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html)
   currently says to multiply by `num_of_streams`, which conflicts with the code.
 - `batch` — append as a second goal (e.g.
   `make up_mqtt_ingestion batch app=wind-turbine-anomaly-detection`) to use

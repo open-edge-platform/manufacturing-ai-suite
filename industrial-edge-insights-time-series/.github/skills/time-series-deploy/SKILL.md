@@ -56,7 +56,7 @@ therefore use three bases:
 |---|---|---|
 | **Skill directory** (`<skill-dir>`, the folder containing this `SKILL.md`) | `references/…`, `scripts/…`, `example-prompts/…` | Always bundled with the skill |
 | **App root** (Step 0) | `Makefile`, `.env`, `apps/…`, `configs/…`, `tests/…` | Read from the user's checkout at runtime; never expected inside `<skill-dir>` |
-| **User guide** | Pages linked under "Normative references" | Published at <https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/index.html>; page `<page>.html` there is also in the checkout as `docs/user-guide/<page>.md` |
+| **User guide** | Pages linked under "Normative references" | Published at <https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/index.html>; page `<page>.html` there is also in the checkout as `docs/user-guide/<page>.md` |
 
 The user guide is intentionally **not** copied into the skill. Open each page
 by its published URL, so the skill works without the repository's `docs/`
@@ -84,15 +84,15 @@ sequence (see "Path resolution" for when to read the checkout copy instead):
 
 | Page | Use it for |
 |---|---|
-| [System requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/system-requirements.html) | Hardware/OS/Docker/Python requirements |
-| [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html) | Docker configuration (non-root, proxy, log rotation), clone commands, `.env` fields, `make up_opcua_ingestion` / `make up_mqtt_ingestion`, UDF inference on GPU, verification (InfluxDB + Grafana), logs |
-| [Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/build-from-source.html) | `make build` / `make build_copyleft_sources`, and, only when explicitly requested, building the Time Series Analytics microservice from the latest `edge-ai-libraries` source first (Step 2a) |
-| [Multi-stream ingestion](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html) | `num_of_streams`, including the `OPCUA_SERVER_PORT_MAPPING` export required for OPC-UA multi-stream |
-| [Benchmarking](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html) | `number_of_data_points_per_stream`, stream vs `batch` benchmarking |
-| [Enable system metrics](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/how-to-enable-system-metrics.html) | `INCLUDE=validation` system-metrics dashboard (Telegraf runs as root) |
-| [Wind turbine anomaly detection](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/index.html) | Data flow and the sample app's `config.json`, UDFs, TICKscripts, models |
-| [Configure alerts](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/configure-alerts.html), [Configure a custom UDF](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/configure-custom-udf.html), [Update config](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/update-config.html), [Connect to a secure MQTT broker](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/connect-to-secure-mqtt-broker.html), [Connect to a secure OPC-UA server](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/connect-to-secure-opcua-server.html), [Write a user-defined function](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/write-user-defined-function.html), [Create a new sample app](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/create-a-new-sample-app.html), [Select a model](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/how-to-select-model.html) | Post-deploy configuration and customization questions |
-| [Troubleshooting](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/troubleshooting.html) | Known runtime issues ("No Data" in Grafana, InfluxDB retention, slow Time Series Analytics start, EMT `docker exec`) |
+| [System requirements](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/system-requirements.html) | Hardware/OS/Docker/Python requirements |
+| [Get Started](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html) | Docker configuration (non-root, proxy, log rotation), clone commands, `.env` fields, `make up_opcua_ingestion` / `make up_mqtt_ingestion`, UDF inference on GPU, verification (InfluxDB + Grafana), logs |
+| [Build from source](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/build-from-source.html) | `make build` / `make build_copyleft_sources`, and, only when explicitly requested, building the Time Series Analytics microservice from the latest `edge-ai-libraries` source first (Step 2a) |
+| [Multi-stream ingestion](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html) | `num_of_streams`, including the `OPCUA_SERVER_PORT_MAPPING` export required for OPC-UA multi-stream |
+| [Benchmarking](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html) | `number_of_data_points_per_stream`, stream vs `batch` benchmarking |
+| [Enable system metrics](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/how-to-enable-system-metrics.html) | `INCLUDE=validation` system-metrics dashboard (Telegraf runs as root) |
+| [Wind turbine anomaly detection](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/index.html) | Data flow and the sample app's `config.json`, UDFs, TICKscripts, models |
+| [Configure alerts](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/configure-alerts.html), [Configure a custom UDF](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/configure-custom-udf.html), [Update config](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/update-config.html), [Connect to a secure MQTT broker](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/connect-to-secure-mqtt-broker.html), [Connect to a secure OPC-UA server](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/connect-to-secure-opcua-server.html), [Write a user-defined function](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/write-user-defined-function.html), [Create a new sample app](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/create-a-new-sample-app.html), [Select a model](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/how-to-select-model.html) | Post-deploy configuration and customization questions |
+| [Troubleshooting](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/troubleshooting.html) | Known runtime issues ("No Data" in Grafana, InfluxDB retention, slow Time Series Analytics start, EMT `docker exec`) |
 
 ### Skill-local references (Makefile/test facts not covered by the user guide)
 
@@ -114,7 +114,7 @@ Relative to `<skill-dir>`:
    `cd` into that directory before running any command below — the Makefile
    and the helper scripts read `.env` from the current directory.
    If no checkout exists, stop and offer the **Clone source code** commands
-   from [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html).
+   from [Get Started](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html).
 2. Confirm `.env` exists and required creds (`INFLUXDB_USERNAME/PASSWORD`,
    `VISUALIZER_GRAFANA_USER/PASSWORD`) are set — ask the user rather than
    inventing values.
@@ -132,10 +132,10 @@ Relative to `<skill-dir>`:
 
    If the preflight fails, **stop immediately**, report the host blocker, and
    point the user to the **Configure Docker** section of
-   [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html) (non-root Docker, proxy) instead of
+   [Get Started](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html) (non-root Docker, proxy) instead of
    waiting or retrying indefinitely.
 5. Compare the host against
-   [System requirements](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/system-requirements.html) (OS, Docker version,
+   [System requirements](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/system-requirements.html) (OS, Docker version,
    Python, RAM, storage) and report any shortfall as a warning.
 
 ## Step 1: Choose app, ingestion path, and mode
@@ -145,19 +145,19 @@ Relative to `<skill-dir>`:
   exist).
 - Ingestion path: MQTT (`make up_mqtt_ingestion`) or OPC-UA
   (`make up_opcua_ingestion`, supported only for
-  `wind-turbine-anomaly-detection`) — see [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html).
+  `wind-turbine-anomaly-detection`) — see [Get Started](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html).
 - Optional `num_of_streams=N` (>1 regenerates a multi-stream Telegraf config
   via a Python venv + `generate-telegraf-config.py`) and
   `ingestion_interval` — see
-  [Multi-stream ingestion](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html).
+  [Multi-stream ingestion](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/multi-stream-ingestion.html).
 - Optional `number_of_data_points_per_stream` (enables benchmarking) — see
-  [Benchmarking](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html).
+  [Benchmarking](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/how-to-guides/benchmarking.html).
 - Optional `batch` goal appended to the ingestion target to use
   `config-batch.json` instead of `config.json` for the Time-Series Analytics
   microservice config (benchmarking doc).
 - Optional `INCLUDE=validation` to add `docker-compose-validation.override.yml`
   (system-metrics dashboard + host-metric Telegraf inputs) — see
-  [Enable system metrics](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/how-to-enable-system-metrics.html).
+  [Enable system metrics](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/wind-turbine-anomaly-detection/how-to-enable-system-metrics.html).
 - For MCP deployments, read `docs/user-guide/how-to-guides/use-mcp-server.md`.
   Set `MCP_USERNAME` and `MCP_PASSWORD`, build with `MCP=true`, and use
   `MCP=true` consistently with deployment, status, teardown, and publishing.
@@ -186,7 +186,7 @@ stopping at the first failing check. Known doc-only prerequisites:
 - **System metrics** (`INCLUDE=validation`): Telegraf runs as `root`; only
   verified for `wind-turbine-anomaly-detection` (system-metrics doc).
 - **UDF on GPU**: after deployment, follow **Running User Defined
-  Function(UDF) inference on GPU** in [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html)
+  Function(UDF) inference on GPU** in [Get Started](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html)
   (replace `localhost` with `${HOST_IP}` and `3000` with `${GRAFANA_PORT}`
   from `.env` when they differ).
 - **MCP**: username is letters only, 5+ characters; password is alphanumeric,
@@ -217,9 +217,9 @@ make status
   the first login are benign.
 - Grafana may show "No Data" at first while the Time Series Analytics
   microservice installs its Python packages — check
-  [Troubleshooting](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/troubleshooting.html) before re-running `up_*`.
+  [Troubleshooting](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/troubleshooting.html) before re-running `up_*`.
 - For verification, follow **Verify the Output Results** in
-  [Get Started](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html) (InfluxDB `datain` measurement +
+  [Get Started](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html) (InfluxDB `datain` measurement +
   Grafana `Wind Turbine Dashboard`).
 
 ## Step 2a: Build the Time Series Analytics microservice from source (explicit request only)
@@ -237,7 +237,7 @@ image, because that compose service has no `build:` section. Do not infer the
 request from symptoms; report the symptom and let the user ask for the build.
 
 When the request does ask for it, follow steps 1 and 2 of
-[Build from source](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/build-from-source.html),
+[Build from source](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/build-from-source.html),
 from the app root (or with `TIME_SERIES_APP_ROOT` set):
 
 ```bash
