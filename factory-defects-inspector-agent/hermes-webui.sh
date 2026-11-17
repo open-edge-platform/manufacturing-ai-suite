@@ -3,13 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Installs Hermes WebUI (https://github.com/nesquena/hermes-webui) natively on this host and runs it
-# against the local Hermes Agent (~/.hermes). Password login is always on. By default it
-# listens on 127.0.0.1 only.
+# against the local Hermes Agent (~/.hermes). Password login is always on. It is served over HTTPS
+# only, with a self-signed certificate generated in ~/.hermes/webui-tls. By default it listens on
+# 127.0.0.1 only.
 #
 # Usage: ./hermes-webui.sh [--host ADDR] start|stop
 #   start    install the pinned release if needed (asks for a password, or generates one when
 #            there is no terminal), install the SOUL.md persona if the Hermes home has none,
-#            then start the daemon (or restart it when the bind address changed)
+#            create the TLS certificate if missing or expiring, then start the daemon (or
+#            restart it when the bind address or certificate changed)
 #   stop     stop the daemon
 #   --host ADDR  bind address: 127.0.0.1 (default), 0.0.0.0 (all interfaces), or one of this
 #            host's IPv4 addresses; saved in .env and kept until set again. Equivalent to the
@@ -92,6 +94,36 @@ persona_install() {
 
 env_value() { sed -n "s/^$1=//p" "$DIR/.env" | tail -1; }
 
+# Write KEY=VALUE to .env; a changed value means a running daemon must restart.
+set_env() {
+  local key=$1 value=$2
+  [[ $(env_value "$key") == "$value" ]] && return 0
+  sed -i "/^$key=/d" "$DIR/.env"
+  printf '%s=%s\n' "$key" "$value" >> "$DIR/.env"
+  BIND_CHANGED=1
+}
+
+# Create a self-signed certificate if missing or expiring within 30 days, and enable HTTPS in .env.
+tls_install() {
+  local tdir="$HERMES_HOME/webui-tls" ip san
+  local cert="$tdir/cert.pem" key="$tdir/key.pem"
+  command -v openssl >/dev/null || die "openssl is required for HTTPS"
+  if [[ ! -f $cert || ! -f $key ]] || ! openssl x509 -checkend 2592000 -noout -in "$cert" >/dev/null; then
+    san="DNS:localhost,DNS:$(hostname),IP:127.0.0.1"
+    for ip in $(ip -4 -o addr show scope global | awk '{split($4, a, "/"); print a[1]}'); do
+      san+=",IP:$ip"
+    done
+    command install -d -m 0700 "$tdir"
+    ( umask 077
+      openssl req -x509 -newkey rsa:3072 -nodes -sha256 -days 365 -subj "/CN=$(hostname)" \
+        -addext "subjectAltName=$san" -keyout "$key" -out "$cert" 2>/dev/null )
+    echo "Generated a self-signed certificate (365 days): $cert"
+    BIND_CHANGED=1
+  fi
+  set_env HERMES_WEBUI_TLS_CERT "'$cert'"
+  set_env HERMES_WEBUI_TLS_KEY "'$key'"
+}
+
 # Decide the bind address, save it to .env, and export it (ctl.sh lets the shell environment win).
 configure_bind() {
   local env_file="$DIR/.env" current host
@@ -106,24 +138,18 @@ configure_bind() {
         || die "HERMES_WEBUI_HOST must be 127.0.0.1, 0.0.0.0, or an IPv4 address of this host"
       ;;
   esac
-  if [[ $host != "$current" ]]; then
-    if grep -q '^HERMES_WEBUI_HOST=' "$env_file"; then
-      sed -i "s/^HERMES_WEBUI_HOST=.*/HERMES_WEBUI_HOST=$host/" "$env_file"
-    else
-      printf 'HERMES_WEBUI_HOST=%s\n' "$host" >> "$env_file"
-    fi
-    BIND_CHANGED=1
-  fi
+  set_env HERMES_WEBUI_HOST "$host"
   export HERMES_WEBUI_HOST="$host"
   if [[ $host != 127.0.0.1 ]]; then
     cat >&2 <<EOF
-WARNING: Hermes WebUI will listen on $host (plain HTTP). The password and chats cross the network
-unencrypted, and anyone who logs in gets a terminal and file access as $(id -un). Use it only on a
-trusted network, limit the port with a firewall, and prefer SSH port forwarding or a TLS proxy.
+WARNING: Hermes WebUI will listen on $host over HTTPS with a self-signed certificate. Anyone who
+logs in gets a terminal and file access as $(id -un). Use it only on a trusted network, limit the
+port with a firewall, and import $HERMES_HOME/webui-tls/cert.pem on each client to trust it.
 EOF
   fi
 }
 
+# The server falls back to plain HTTP if it cannot load the certificate; refuse that.
 wait_healthy() {
   local port host probe
   port="${HERMES_WEBUI_PORT:-$(env_value HERMES_WEBUI_PORT)}"
@@ -131,30 +157,36 @@ wait_healthy() {
   host=$(env_value HERMES_WEBUI_HOST)
   case "$host" in 0.0.0.0 | 127.0.0.1 | "") probe=127.0.0.1 ;; *) probe=$host ;; esac
   for _ in $(seq 1 30); do
-    if curl -fsS -o /dev/null "http://$probe:$port/health" 2>/dev/null; then
-      echo "Hermes WebUI is up on $host:$port"
+    if curl -fsSk -o /dev/null "https://$probe:$port/health" 2>/dev/null; then
+      echo "Hermes WebUI is up on $host:$port (HTTPS, self-signed certificate)"
       case "$host" in
         127.0.0.1 | "")
-          echo "  http://127.0.0.1:$port/"
+          echo "  https://127.0.0.1:$port/"
           echo "  From another machine: ssh -N -L $port:127.0.0.1:$port $(id -un)@$(hostname)"
           ;;
         0.0.0.0)
           local ip
           for ip in 127.0.0.1 $(hostname -I); do
-            [[ $ip == *:* ]] || echo "  http://$ip:$port/"
+            [[ $ip == *:* ]] || echo "  https://$ip:$port/"
           done
           ;;
-        *) echo "  http://$host:$port/" ;;
+        *) echo "  https://$host:$port/" ;;
       esac
+      echo "  To trust the certificate, import $HERMES_HOME/webui-tls/cert.pem on each client."
       return 0
     fi
     sleep 2
   done
+  if curl -fsS -o /dev/null "http://$probe:$port/health" 2>/dev/null; then
+    "$DIR/ctl.sh" stop || true
+    die "WebUI answered over plain HTTP (certificate not loaded); stopped it. Delete $HERMES_HOME/webui-tls and run start again"
+  fi
   "$DIR/ctl.sh" logs --lines 40 --no-follow || true
   die "WebUI did not become healthy on port $port"
 }
 
 start_webui() {
+  tls_install
   configure_bind
   if (( BIND_CHANGED )); then
     "$DIR/ctl.sh" restart   # apply the new bind address to a running instance

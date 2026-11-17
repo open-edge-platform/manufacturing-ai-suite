@@ -171,7 +171,7 @@ The `start` command that installs the persona also starts the WebUI. Run
 
 **Before you start, make sure that:**
 
-- `git`, Python 3, and `curl` are installed.
+- `git`, Python 3, `curl`, and `openssl` are installed.
 - The host can reach the WebUI Git repository.
 - `~/.hermes/config.yaml` exists. If `HERMES_HOME` is set, check that directory.
 - Local port `8787` is free.
@@ -195,10 +195,20 @@ The `start` command that installs the persona also starts the WebUI. Run
    `grep HERMES_WEBUI_PASSWORD ~/hermes-webui/.env`. To change it, edit that line in the file and
    run `./hermes-webui.sh start` again.
 
-4. Wait for the message that the WebUI is up. The script stores the settings in `~/hermes-webui/.env`
-   with mode `600`. It starts the daemon and checks the `/health` endpoint.
+4. The script creates a self-signed certificate in `~/.hermes/webui-tls` (`cert.pem` and `key.pem`,
+   mode `600`, valid 365 days) if there is none or it expires within 30 days. It adds the
+   certificate to `~/hermes-webui/.env`, so the WebUI serves HTTPS only. The certificate names
+   `localhost`, the host name, and the IPv4 addresses of the host at creation time. To create a
+   new one, for example after an address change, delete the `webui-tls` directory and run
+   `start` again.
 
-5. Open <http://127.0.0.1:8787/>.
+5. Wait for the message that the WebUI is up. The script stores the settings in `~/hermes-webui/.env`
+   with mode `600`. It starts the daemon and checks the `/health` endpoint over HTTPS. If the
+   server cannot load the certificate, it would fall back to plain HTTP. The script then stops it
+   and reports an error.
+
+6. Open <https://127.0.0.1:8787/>. The browser warns about the self-signed certificate. Accept it
+   once, or import `~/.hermes/webui-tls/cert.pem` as a trusted certificate on the client.
 
 To choose the bind address, add `--host <ADDR>` to `start`.
 
@@ -213,9 +223,9 @@ To set loopback again on an existing installation:
 ```
 
 > [!CAUTION]
-> Direct HTTP sends passwords and chat content without encryption. Use a firewall to limit
-> access to authorized clients. It is best to use SSH forwarding or a TLS reverse proxy. Do
-> not expose the plain-HTTP service to an untrusted network.
+> The connection is encrypted, but the certificate is self-signed. Clients must trust it, or
+> users learn to click through browser warnings. Use a firewall to limit access to authorized
+> clients, and expose the service only on a trusted network.
 
 To give direct access on a trusted network:
 
@@ -227,7 +237,7 @@ To give direct access on a trusted network:
 
    A running WebUI restarts with the new address.
 
-2. Open `http://<central-host-ip>:8787/` from the remote system. `0.0.0.0` is not a browser address.
+2. Open `https://<central-host-ip>:8787/` from the remote system. `0.0.0.0` is not a browser address.
 
 The script saves the bind address for the next starts.
 
@@ -235,7 +245,7 @@ The script saves the bind address for the next starts.
 
 | Command | Action |
 | --- | --- |
-| `./hermes-webui.sh start` | Install or update to the pinned release, install the persona if missing, then start. |
+| `./hermes-webui.sh start` | Install or update to the pinned release, install the persona and the TLS certificate if missing, then start. |
 | `./hermes-webui.sh stop` | Stop the daemon. |
 
 For status and logs, run `~/hermes-webui/ctl.sh status` or `~/hermes-webui/ctl.sh logs`.

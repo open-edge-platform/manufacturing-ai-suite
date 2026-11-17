@@ -9,26 +9,10 @@ normal queries.
 1. Get the WebUI password from the administrator. The administrator can read it from
    `~/hermes-webui/.env` on the central host. If the WebUI is not running, the administrator
    runs `./hermes-webui.sh start` in the `factory-defects-inspector-agent` directory.
-2. On the central host, open <http://127.0.0.1:8787/>.
+2. On the central host, open <https://127.0.0.1:8787/>. Accept the warning for the self-signed
+   certificate, or import `~/.hermes/webui-tls/cert.pem` as a trusted certificate.
 3. Log in with the password.
 
-To open the WebUI from your workstation:
-
-1. Open an SSH tunnel to the central host:
-
-   ```bash
-   ssh -L 8787:127.0.0.1:8787 <user>@<central-host>
-   ```
-
-2. Keep the SSH session open.
-3. On your workstation, open <http://127.0.0.1:8787/>.
-
-   > [!NOTE]
-   > If local port `8787` is in use, use a different local port. For example, use
-   > `-L 8788:127.0.0.1:8787` and open <http://127.0.0.1:8788/>.
-
-This tunnel is not the same as the MCP tunnels to the edge nodes. The administrator manages
-the MCP tunnels.
 
 ## Choose the profile
 
