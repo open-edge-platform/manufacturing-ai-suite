@@ -1,8 +1,10 @@
+<!--hide_directive>
 ```{eval-rst}
 .. meta::
    :description: Business-objective prompts that turn a plain-language manufacturing
       quality goal into a running Intel Edge AI application.
 ```
+hide_directive-->
 
 # Manufacturing Application Builder
 
@@ -107,62 +109,11 @@ Ready-to-use, business-objective prompts that you can copy and paste into your A
 Each tile is built from a prompt file in the `skills/prompts/` directory. Select a tile to view the
 full prompt, and then copy it.
 
-```{eval-rst}
-.. raw:: html
-
-   <style>
-
-.. raw:: html
-   :file: ../prompt-library-files/prompt-catalog.css
-
-.. raw:: html
-
-   </style>
-   <div id="prompt-catalog" class="prompt-catalog"
-        data-prompts="pump-failure-prediction,weld-defect-detection,pcb-solder-inspection,production-line-early-warning">
-     <p class="prompt-catalog-loading">Loading prompts…</p>
-   </div>
-   <script type="text/plain" data-prompt-slug="pump-failure-prediction">
-
-.. raw:: html
-   :file: ../../prompts/pump-failure-prediction.yaml
-
-.. raw:: html
-
-   </script>
-   <script type="text/plain" data-prompt-slug="weld-defect-detection">
-
-.. raw:: html
-   :file: ../../prompts/weld-defect-detection.yaml
-
-.. raw:: html
-
-   </script>
-   <script type="text/plain" data-prompt-slug="pcb-solder-inspection">
-
-.. raw:: html
-   :file: ../../prompts/pcb-solder-inspection.yaml
-
-.. raw:: html
-
-   </script>
-   <script type="text/plain" data-prompt-slug="production-line-early-warning">
-
-.. raw:: html
-   :file: ../../prompts/production-line-early-warning.yaml
-
-.. raw:: html
-
-   </script>
-   <script>
-
-.. raw:: html
-   :file: ../prompt-library-files/prompt-catalog.js
-
-.. raw:: html
-
-   </script>
-```
+<link rel="stylesheet" href="../../_static/manufacturing-prompt-library-files/prompt-catalog.css">
+<div id="prompt-catalog" class="prompt-catalog" data-prompts-path="../../_static/manufacturing-prompt-library-files/prompts/" data-prompts="pump-failure-prediction,weld-defect-detection,pcb-solder-inspection,production-line-early-warning">
+  <p class="prompt-catalog-loading">Loading prompts…</p>
+</div>
+<script src="../../_static/manufacturing-prompt-library-files/prompt-catalog.js"></script>
 
 ---
 
