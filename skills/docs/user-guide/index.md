@@ -1,8 +1,10 @@
+<!--hide_directive>
 ```{eval-rst}
 .. meta::
    :description: Business-objective prompts that turn a plain-language manufacturing
       quality goal into a running Intel Edge AI application.
 ```
+hide_directive-->
 
 # Manufacturing Application Builder
 
@@ -105,6 +107,7 @@ Ready-to-use, business-objective prompts that you can copy and paste into your A
 Each tile is built from a prompt file in the `skills/prompts/` directory. Select a tile to view the
 full prompt, and then copy it.
 
+<!--hide_directive
 ```{eval-rst}
 .. raw:: html
 
@@ -161,6 +164,13 @@ full prompt, and then copy it.
 
    </script>
 ```
+hide_directive-->
+
+<link rel="stylesheet" href="../../_static/manufacturing-prompt-library-files/prompt-catalog.css">
+<div id="prompt-catalog" class="prompt-catalog" data-prompts-path="../../_static/manufacturing-prompt-library-files/prompts/" data-prompts="pump-failure-prediction,weld-defect-detection,pcb-solder-inspection,production-line-early-warning">
+  <p class="prompt-catalog-loading">Loading prompts…</p>
+</div>
+<script src="../../_static/manufacturing-prompt-library-files/prompt-catalog.js"></script>
 
 ---
 
