@@ -135,6 +135,7 @@ central host. Then, for each deployment, it can do these tasks:
 | `--interactive` | Work through one deployment in an interactive Hermes session. Not supported with multiple nodes; see the note below. |
 | `--no-deploy` | Connect applications that are already running. See [Connect applications that are already running](#connect-applications-that-are-already-running). |
 | `--prepare-only` | Prepare the nodes and node profiles, then stop. Cannot be used with `--no-deploy`. |
+| `--teardown` | Remove the central-host state of the selected deployments: tunnel, MCP registration, node profile, stored credential, and pinned certificate. Shows the plan and asks for confirmation in the terminal. Does not connect to nodes. Cannot be combined with `--interactive`, `--prepare-only`, or `--no-deploy`. See [Remove a Node or Deployment](../how-to-guides/admin-remove-a-node-or-deployment.md). |
 | `--user NAME` | Set the default SSH user when the inventory has none. |
 | `--skip-platform-check` | Skip the hardware check. Use only for CI or validation. Do not use it to bypass production hardware requirements. |
 

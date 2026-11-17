@@ -44,6 +44,10 @@
 #                                     agent; credentials are referenced from
 #                                     agent_env_set storage, never inlined
 #   agent_mcp_verify NAME             Verifies the registered MCP server
+#   agent_mcp_unregister NAME         Removes the MCP server registration; succeeds
+#                                     when it is already absent
+#   agent_context_delete NAME         Deletes a context; succeeds when it is absent
+#   agent_env_unset KEY               Removes a stored secret; succeeds when absent
 #
 # This file is sourced by fleet-setup.sh, which provides log() and die().
 # In Hermes terms a "context" is a profile: an isolated Hermes home under
@@ -72,6 +76,15 @@ agent_env_set() {
 
 agent_env_has() { grep -q "^$1=." "$AGENT_STATE_DIR/.env" 2>/dev/null; }
 
+agent_env_unset() {
+  local f="$AGENT_STATE_DIR/.env" tmp
+  [[ -f $f ]] || return 0
+  tmp=$(mktemp "$f.XXXXXX")
+  { grep -v "^$1=" "$f" || true; } > "$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" "$f"
+}
+
 # Hermes puts its SSH ControlMaster socket under $TMPDIR; a deep TMPDIR exceeds the ~104-byte
 # Unix socket path limit ("unix_listener: path too long"), so tasks run with a short private one.
 short_tmpdir() {
@@ -85,6 +98,20 @@ profile_listed() {
   awk -v p="$1" '{ for (i = 1; i <= NF; i++) if ($i == p) found = 1 } END { exit !found }' <<<"$2"
 }
 
+# Hermes tracks profiles in a registry, so only the CLI can delete one; removing the profile home
+# by hand desyncs the registry. It can exit non-zero when its post-delete identity purge fails even
+# though the profile is gone, so success is judged by the profile list, not the exit code.
+profile_delete() {
+  local name=$1
+  profile_listed "$name" "$(hermes profile list 2>/dev/null || true)" || return 0
+  hermes profile delete -y "$name" >/dev/null || true
+  profile_listed "$name" "$(hermes profile list 2>/dev/null || true)" \
+    && die "[$name] could not delete the existing $AGENT_LABEL profile; inspect with 'hermes profile show $name', resolve, and re-run"
+  return 0
+}
+
+agent_context_delete() { profile_delete "$1"; }
+
 agent_context_recreate() {
   local name=$1 description=$2 profiles
   profiles=$(hermes profile list 2>/dev/null || true)
@@ -92,15 +119,8 @@ agent_context_recreate() {
     # Recreate rather than reuse: --clone snapshots the default profile only at
     # creation time, so a reused profile would silently keep the model/provider
     # configuration of an older default (e.g. from before a backend change).
-    # -y skips the interactive confirmation. Hermes tracks profiles in a
-    # registry, so only the CLI can delete one; removing the profile home
-    # by hand desyncs the registry and breaks the create below.
     log "[$name] Removing existing $AGENT_LABEL profile (it is recreated from the current default profile)"
-    # Hermes can exit non-zero when its post-delete identity purge fails even though the
-    # profile is gone, so success is judged by the profile list, not the exit code.
-    hermes profile delete -y "$name" >/dev/null || true
-    profile_listed "$name" "$(hermes profile list 2>/dev/null || true)" \
-      && die "[$name] could not delete the existing $AGENT_LABEL profile; inspect with 'hermes profile show $name', resolve, and re-run"
+    profile_delete "$name"
   fi
   log "[$name] Creating $AGENT_LABEL profile from the current default profile"
   hermes profile create "$name" --clone --description "$description"
@@ -159,4 +179,9 @@ agent_mcp_register() {
 
 agent_mcp_verify() {
   hermes mcp test "$1" >/dev/null
+}
+
+# `config unset` exits non-zero when the key is absent; that is the desired end state.
+agent_mcp_unregister() {
+  hermes config unset "mcp_servers.$1" >/dev/null 2>&1 || true
 }

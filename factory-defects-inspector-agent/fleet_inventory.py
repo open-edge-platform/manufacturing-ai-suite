@@ -386,6 +386,29 @@ def prepare_source(settings, directory, sources):
     return result
 
 
+def teardown(plan, args):
+    """Run the central-host cleanup once per deployment; the script never contacts the nodes."""
+    results = []
+    with tempfile.TemporaryDirectory(prefix="fleet-inventory-") as directory:
+        for index, (name, recipe, node, settings) in enumerate(plan):
+            inventory = Path(directory) / f"{index}.yaml"
+            inventory.write_text(yaml.safe_dump({"nodes": [node]}))
+            inventory.chmod(0o600)
+            env = {**os.environ, **settings}
+            for variable in ("FLEET_STAGE", "SKILL_SRC"):
+                env.pop(variable, None)
+            if "FLEET_APP_PATH" not in settings:
+                env.pop("FLEET_APP_PATH", None)
+            command = ["bash", args.script, "--hosts", str(inventory), "--teardown"]
+            print(f"Tearing down {node['name']} ({recipe} on {name})", flush=True)
+            result = subprocess.run(command, env=env, check=False)
+            results.append((node["name"], recipe, result.returncode))
+    print("\nSERVER/PROFILE\tRECIPE\tEXIT")
+    for server, recipe, result in results:
+        print(f"{server}\t{recipe}\t{result}")
+    return int(any(result for _, _, result in results))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--hosts", required=True)
@@ -394,11 +417,17 @@ def main():
     parser.add_argument("--recipe", action="append", default=[])
     parser.add_argument("--user", default="")
     parser.add_argument("--skip-platform-check", action="store_true")
-    for option in ("list", "no-deploy", "prepare-only", "interactive"):
+    for option in ("list", "no-deploy", "prepare-only", "interactive", "teardown"):
         parser.add_argument(f"--{option}", action="store_true")
     args = parser.parse_args()
     if args.no_deploy and args.prepare_only:
         print("ERROR: --no-deploy and --prepare-only cannot be combined", file=sys.stderr)
+        return 2
+    if args.teardown and (args.no_deploy or args.prepare_only or args.interactive):
+        print(
+            "ERROR: --teardown cannot be combined with --interactive, --prepare-only, or --no-deploy",
+            file=sys.stderr,
+        )
         return 2
     try:
         with open(args.hosts) as stream:
@@ -421,6 +450,8 @@ def main():
                 f"{name}\t{recipe}\t{node['name']}\t{node['host']}\t{node['local_port']}\t{env['SKILL_NAME']}"
             )
         return 0
+    if args.teardown:
+        return teardown(plan, args)
     if args.interactive and len(plan) > 1 and not args.no_deploy:
         print(
             "ERROR: parallel deployments cannot share an interactive terminal; "
