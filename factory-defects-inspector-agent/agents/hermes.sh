@@ -45,7 +45,7 @@
 #                                     agent_env_set storage, never inlined
 #   agent_mcp_verify NAME             Verifies the registered MCP server
 #   agent_mcp_unregister NAME         Removes the MCP server registration; succeeds
-#                                     when it is already absent
+#                                     only when it is confirmed absent afterwards
 #   agent_context_delete NAME         Deletes a context; succeeds when it is absent
 #   agent_env_unset KEY               Removes a stored secret; succeeds when absent
 #
@@ -162,26 +162,36 @@ agent_task_run_interactive() {
   TMPDIR=$(short_tmpdir) hermes -p "$1" chat -s "$2" -q "$3"
 }
 
+# MCP servers belong to the default profile; -p default ignores a sticky `hermes profile use` selection.
 agent_mcp_register() {
   local name=$1 url=$2 ssl_verify=$3 auth_type=$4 tools_json=$5
-  hermes config set "mcp_servers.$name.url" "$url"
-  hermes config set "mcp_servers.$name.ssl_verify" "$ssl_verify"
+  hermes -p default config set "mcp_servers.$name.url" "$url"
+  hermes -p default config set "mcp_servers.$name.ssl_verify" "$ssl_verify"
   # ${VAR} references are resolved by Hermes from agent_env_set storage, so
   # credential values never appear in the config file or process arguments.
   case $auth_type in
-    basic) hermes config set "mcp_servers.$name.headers.Authorization" "Basic \${${name^^}_MCP_BASIC}" ;;
-    bearer) hermes config set "mcp_servers.$name.headers.Authorization" "Bearer \${${name^^}_MCP_TOKEN}" ;;
-    none) hermes config set "mcp_servers.$name.headers" '{}' ;;
+    basic) hermes -p default config set "mcp_servers.$name.headers.Authorization" "Basic \${${name^^}_MCP_BASIC}" ;;
+    bearer) hermes -p default config set "mcp_servers.$name.headers.Authorization" "Bearer \${${name^^}_MCP_TOKEN}" ;;
+    none) hermes -p default config set "mcp_servers.$name.headers" '{}' ;;
     *) die "[$name] unsupported MCP auth type: $auth_type" ;;
   esac
-  hermes config set "mcp_servers.$name.tools.include" "$tools_json"
+  hermes -p default config set "mcp_servers.$name.tools.include" "$tools_json"
 }
 
 agent_mcp_verify() {
-  hermes mcp test "$1" >/dev/null
+  hermes -p default mcp test "$1" >/dev/null
 }
 
-# `config unset` exits non-zero when the key is absent; that is the desired end state.
+# Only a confirmed absence counts as success: `config unset` also fails when the config cannot be
+# read or written, and the removal is checked afterwards.
 agent_mcp_unregister() {
-  hermes config unset "mcp_servers.$1" >/dev/null 2>&1 || true
+  local name=$1 key="mcp_servers.$1" out
+  if ! out=$(hermes -p default config unset "$key" 2>&1); then
+    [[ $out == *"Config key not set"* ]] || die "[$name] could not remove the MCP registration: $out"
+    return 0
+  fi
+  if out=$(hermes -p default config get "$key" 2>&1); then
+    die "[$name] the MCP registration is still present after removal"
+  fi
+  [[ $out == *"Config key not set"* ]] || die "[$name] could not verify the MCP removal: $out"
 }

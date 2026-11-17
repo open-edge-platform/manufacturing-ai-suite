@@ -192,8 +192,9 @@ The `start` command that installs the persona also starts the WebUI. Run
    interactive terminal (for example, from automation), it does not prompt. It generates a
    random password instead. The script saves the password in `~/hermes-webui/.env`. Later runs of
    `start` reuse it and do not ask again. To read it, run
-   `grep HERMES_WEBUI_PASSWORD ~/hermes-webui/.env`. To change it, edit that line in the file and
-   run `./hermes-webui.sh start` again.
+   `grep HERMES_WEBUI_PASSWORD ~/hermes-webui/.env`. To change it, edit that line in the file, then
+   run `./hermes-webui.sh stop` and `./hermes-webui.sh start`. A running WebUI keeps the old
+   password until it is stopped.
 
 4. The script creates a self-signed certificate in `~/.hermes/webui-tls` (`cert.pem` and `key.pem`,
    mode `600`, valid 365 days) if there is none or it expires within 30 days. It adds the
@@ -201,6 +202,10 @@ The `start` command that installs the persona also starts the WebUI. Run
    `localhost`, the host name, and the IPv4 addresses of the host at creation time. To create a
    new one, for example after an address change, delete the `webui-tls` directory and run
    `start` again.
+
+   Before it starts the WebUI, the script checks that the certificate and the key match. If they
+   do not, it stops with an error instead of starting. The server would otherwise fall back to
+   plain HTTP.
 
 5. Wait for the message that the WebUI is up. The script stores the settings in `~/hermes-webui/.env`
    with mode `600`. It starts the daemon and checks the `/health` endpoint over HTTPS. If the

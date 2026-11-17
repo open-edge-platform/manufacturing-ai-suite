@@ -11,7 +11,7 @@
 #   start    install the pinned release if needed (asks for a password, or generates one when
 #            there is no terminal), install the SOUL.md persona if the Hermes home has none,
 #            create the TLS certificate if missing or expiring, then start the daemon (or
-#            restart it when the bind address or certificate changed)
+#            restart it when the release, bind address, or certificate changed)
 #   stop     stop the daemon
 #   --host ADDR  bind address: 127.0.0.1 (default), 0.0.0.0 (all interfaces), or one of this
 #            host's IPv4 addresses; saved in .env and kept until set again. Equivalent to the
@@ -28,7 +28,7 @@ PORT="${HERMES_WEBUI_PORT:-8787}"
 REQ_HOST="${HERMES_WEBUI_HOST:-}"
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIND_CHANGED=0
+RESTART_NEEDED=0
 
 die() { echo "error: $*" >&2; exit 1; }
 
@@ -45,6 +45,8 @@ check_prereqs() {
 
 install() {
   check_prereqs
+  local before
+  before=$(git -C "$DIR" describe --tags --exact-match 2>/dev/null || true)
   if [[ -d $DIR/.git ]]; then
     git -C "$DIR" diff --quiet && git -C "$DIR" diff --cached --quiet \
       || die "$DIR has local changes; commit or discard them first"
@@ -54,6 +56,8 @@ install() {
     git clone --quiet "$REPO_URL" "$DIR"
   fi
   git -C "$DIR" -c advice.detachedHead=false checkout --quiet "refs/tags/$VERSION"
+  # ctl.sh start is a no-op for a running daemon, so a changed release needs an explicit restart.
+  [[ $before == "$VERSION" ]] || RESTART_NEEDED=1
   echo "Hermes WebUI $VERSION in $DIR"
 
   local env_file="$DIR/.env"
@@ -100,7 +104,7 @@ set_env() {
   [[ $(env_value "$key") == "$value" ]] && return 0
   sed -i "/^$key=/d" "$DIR/.env"
   printf '%s=%s\n' "$key" "$value" >> "$DIR/.env"
-  BIND_CHANGED=1
+  RESTART_NEEDED=1
 }
 
 # Create a self-signed certificate if missing or expiring within 30 days, and enable HTTPS in .env.
@@ -118,8 +122,12 @@ tls_install() {
       openssl req -x509 -newkey rsa:3072 -nodes -sha256 -days 365 -subj "/CN=$(hostname)" \
         -addext "subjectAltName=$san" -keyout "$key" -out "$cert" 2>/dev/null )
     echo "Generated a self-signed certificate (365 days): $cert"
-    BIND_CHANGED=1
+    RESTART_NEEDED=1
   fi
+  # The server silently falls back to plain HTTP when it cannot load the pair, so refuse to start.
+  openssl x509 -in "$cert" -noout 2>/dev/null && openssl pkey -in "$key" -noout 2>/dev/null \
+    && [[ $(openssl x509 -in "$cert" -noout -pubkey 2>/dev/null) == "$(openssl pkey -in "$key" -pubout 2>/dev/null)" ]] \
+    || die "the certificate and key in $tdir are unreadable or do not match; delete the directory and run start again"
   set_env HERMES_WEBUI_TLS_CERT "'$cert'"
   set_env HERMES_WEBUI_TLS_KEY "'$key'"
 }
@@ -188,8 +196,8 @@ wait_healthy() {
 start_webui() {
   tls_install
   configure_bind
-  if (( BIND_CHANGED )); then
-    "$DIR/ctl.sh" restart   # apply the new bind address to a running instance
+  if (( RESTART_NEEDED )); then
+    "$DIR/ctl.sh" restart   # apply the new settings to a running instance
   else
     "$DIR/ctl.sh" start     # no-op if already running
   fi
