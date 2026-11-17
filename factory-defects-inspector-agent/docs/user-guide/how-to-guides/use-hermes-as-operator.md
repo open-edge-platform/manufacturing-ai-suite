@@ -6,7 +6,9 @@ normal queries.
 
 ## Open the WebUI
 
-1. Get the WebUI password from the administrator.
+1. Get the WebUI password from the administrator. The administrator can read it from
+   `~/hermes-webui/.env` on the central host. If the WebUI is not running, the administrator
+   runs `./hermes-webui.sh start` in the `factory-defects-inspector-agent` directory.
 2. On the central host, open <http://127.0.0.1:8787/>.
 3. Log in with the password.
 

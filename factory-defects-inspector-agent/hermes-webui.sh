@@ -6,15 +6,11 @@
 # against the local Hermes Agent (~/.hermes). Password login is always on. By default it
 # listens on 127.0.0.1 only.
 #
-# Usage: ./hermes-webui.sh [--host ADDR] [setup|install|persona|start|stop|restart|status|logs]
-#   (default: start)
-#   setup    install if needed, install the SOUL.md persona, then start the daemon
-#   install  clone or update the pinned release and create .env (asks for a password, or generates
-#            one when there is no terminal)
-#   persona  copy this directory's SOUL.md into the Hermes home (an existing persona is backed up
-#            to SOUL.md.backup.<timestamp> first; merge manual customizations from the backup)
-#   start    install if needed, then start the daemon
-#   Others pass through to the WebUI's ctl.sh.
+# Usage: ./hermes-webui.sh [--host ADDR] start|stop
+#   start    install the pinned release if needed (asks for a password, or generates one when
+#            there is no terminal), install the SOUL.md persona if the Hermes home has none,
+#            then start the daemon (or restart it when the bind address changed)
+#   stop     stop the daemon
 #   --host ADDR  bind address: 127.0.0.1 (default), 0.0.0.0 (all interfaces), or one of this
 #            host's IPv4 addresses; saved in .env and kept until set again. Equivalent to the
 #            HERMES_WEBUI_HOST environment variable.
@@ -80,27 +76,17 @@ install() {
   chmod 600 "$env_file"
 }
 
-# Install the Factory Defects Inspector persona into the Hermes home. Never
-# discards an existing persona: identical copies are a no-op, anything else is
-# backed up with a timestamp so manual customizations can be merged back.
+# Never overwrites an existing persona, so manual customizations survive.
 persona_install() {
-  local src="$SCRIPT_DIR/SOUL.md" dest="$HERMES_HOME/SOUL.md" backup
+  local src="$SCRIPT_DIR/SOUL.md" dest="$HERMES_HOME/SOUL.md"
   [[ -f $src ]] || die "persona template not found: $src"
-  # "command": the external install(1), not this script's install() function.
-  command install -d -m 0700 "$HERMES_HOME"
-  if [[ -f $dest ]] && cmp -s "$src" "$dest"; then
-    echo "Persona already up to date: $dest"
+  if [[ -f $dest ]]; then
+    cmp -s "$src" "$dest" || echo "Keeping existing persona $dest (differs from $src)"
     return 0
   fi
-  if [[ -f $dest ]]; then
-    # mktemp reserves a unique name, so updates within the same second
-    # cannot overwrite an earlier backup.
-    backup=$(mktemp "$dest.backup.$(date +%Y%m%dT%H%M%S).XXXXXX")
-    cp -p "$dest" "$backup"
-    echo "Backed up existing persona to $backup; merge any customizations you need from it"
-  fi
-  cp "$src" "$dest"
-  chmod 600 "$dest"
+  # "command": the external install(1), not this script's install() function.
+  command install -d -m 0700 "$HERMES_HOME"
+  ( umask 077; cp "$src" "$dest" )
   echo "Installed the Factory Defects Inspector persona at $dest (applies to new default-profile chats)"
 }
 
@@ -109,7 +95,7 @@ env_value() { sed -n "s/^$1=//p" "$DIR/.env" | tail -1; }
 # Decide the bind address, save it to .env, and export it (ctl.sh lets the shell environment win).
 configure_bind() {
   local env_file="$DIR/.env" current host
-  [[ -n $(env_value HERMES_WEBUI_PASSWORD) ]] || die "no HERMES_WEBUI_PASSWORD in $env_file; run '$0 install'"
+  [[ -n $(env_value HERMES_WEBUI_PASSWORD) ]] || die "no HERMES_WEBUI_PASSWORD in $env_file"
   current=$(env_value HERMES_WEBUI_HOST)
   host="${REQ_HOST:-${current:-127.0.0.1}}"
   case "$host" in
@@ -187,29 +173,16 @@ while [[ $# -gt 0 ]]; do
 done
 set -- "${ARGS[@]+"${ARGS[@]}"}"
 
-cmd="${1:-start}"
-case "$cmd" in
-  setup)
-    install
+case "${1:-}" in
+  start)
+    # Re-run install when the checkout is missing, not at the pinned tag, or has no password.
+    [[ -f $DIR/.env && $(git -C "$DIR" describe --tags --exact-match 2>/dev/null) == "$VERSION" ]] || install
     persona_install
     start_webui
     ;;
-  install) install ;;
-  persona) persona_install ;;
-  start)
-    [[ -d $DIR/.git && -f $DIR/.env ]] || install
-    start_webui
+  stop)
+    [[ -x $DIR/ctl.sh ]] || die "not installed; nothing to stop"
+    "$DIR/ctl.sh" stop
     ;;
-  restart)
-    [[ -x $DIR/ctl.sh && -f $DIR/.env ]] || die "not installed; run '$0 install'"
-    configure_bind
-    "$DIR/ctl.sh" restart
-    wait_healthy
-    ;;
-  stop | status | logs)
-    [[ -x $DIR/ctl.sh ]] || die "not installed; run '$0 install'"
-    shift || true
-    "$DIR/ctl.sh" "$cmd" "$@"
-    ;;
-  *) sed -n '5,23p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
+  *) sed -n '5,17p' "$0" | sed 's/^# \{0,1\}//'; exit 2 ;;
 esac
