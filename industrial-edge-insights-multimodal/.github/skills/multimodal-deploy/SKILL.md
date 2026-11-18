@@ -171,7 +171,11 @@ documented procedure resolves it.
 For `make up_vllm`, `make up_agentic`, and `make up_agentic MCP=true`:
 
 1. **Hardware/platform.** Run `make check_hardware`. The docs require an
-   Intel Core Ultra Series 3 processor or newer, at least 32 GB RAM, and at
+  Intel Core Ultra Series 3 (Panther Lake/PTL) processor or newer, including
+  Nova Lake (NVL, upcoming Core Ultra Series 4) and later series. Passing
+  the CPU gate does not imply platform validation; use the variant guide's
+  validated-platform list and compatible driver/runtime requirements.
+  The VLM variant requires at least 32 GB RAM, and at
    least 256 GB storage (512 GB recommended); check with `free -g` and
    `df -h .` and report any shortfall. `PLATFORM_CHECK=false` bypasses only
    the CPU gate and is for CI/validation, not for real deployments.
@@ -222,7 +226,9 @@ make status                # containers + recent error-log scan
   in dry-run mode. Read the `Makefile` or `references/command-reference.md`
   instead.
 - `make up_vllm`/`make up_agentic` will fail fast via `check_hardware` unless
-  running on the required Intel Panther Lake / Core Ultra 3xx platform, or
+  running on Intel Core Ultra Series 3 (PTL), Series 4 (NVL), or later,
+  identified by Intel vendor and CPU model name, or by explicit CPUID fallbacks
+  for unbranded samples (PTL family 6/model 204; NVL family 18/model 1 or 3), or
   `PLATFORM_CHECK=false` is set (in `.env` or on the `make` command line) for
   CI/validation use.
 - Report `make status` output verbatim; a container with recent `error` log
