@@ -88,8 +88,10 @@ agent_env_unset() {
 # Hermes puts its SSH ControlMaster socket under $TMPDIR; a deep TMPDIR exceeds the ~104-byte
 # Unix socket path limit ("unix_listener: path too long"), so tasks run with a short private one.
 short_tmpdir() {
-  local d="${XDG_RUNTIME_DIR:-/tmp}/hermes-fleet-$(id -u)"
-  [[ ${#d} -le 40 ]] || d="/tmp/hermes-fleet-$(id -u)"
+  local d uid
+  uid=$(id -u)
+  d="${XDG_RUNTIME_DIR:-/tmp}/hermes-fleet-$uid"
+  [[ ${#d} -le 40 ]] || d="/tmp/hermes-fleet-$uid"
   install -d -m 0700 "$d"
   printf '%s' "$d"
 }

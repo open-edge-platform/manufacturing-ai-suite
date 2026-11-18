@@ -55,7 +55,24 @@ if [[ -n ${FLEET_APP_PATH:-} ]]; then
 fi
 # DEPLOY_PROMPT and SMART_POLICY have no defaults: recipes in hosts.yaml supply them (prompt, approval_policy).
 RUN_STARTED=$SECONDS
-log() { printf '[%(%Y-%m-%dT%H:%M:%S%z)T] [+%ss] %s\n' -1 "$((SECONDS - RUN_STARTED))" "$*" >&2; }
+# Colors only on a terminal (not in deployment log files) and when NO_COLOR is unset.
+if [[ -t 2 && -z ${NO_COLOR:-} ]]; then
+  C_RED=$'\033[1;31m' C_GREEN=$'\033[32m' C_YELLOW=$'\033[33m' C_CYAN=$'\033[1;36m' C_DIM=$'\033[2m' C_RESET=$'\033[0m'
+else
+  C_RED='' C_GREEN='' C_YELLOW='' C_CYAN='' C_DIM='' C_RESET=''
+fi
+log() {
+  local color="" reset=""
+  case $1 in
+    ERROR:*) color=$C_RED ;;
+    WARN:*|PLAN:*) color=$C_YELLOW ;;
+    DONE:*) color=$C_GREEN ;;
+    START:*) color=$C_CYAN ;;
+    WAIT:*|SKIP:*) color=$C_DIM ;;
+  esac
+  [[ -z $color ]] || reset=$C_RESET
+  printf '%s[%(%Y-%m-%dT%H:%M:%S%z)T] [+%ss] %s%s\n' "$color" -1 "$((SECONDS - RUN_STARTED))" "$*" "$reset" >&2
+}
 die() { log "ERROR: $*"; exit 1; }
 stage_finished() {
   if (( $1 == 0 )); then
@@ -638,10 +655,10 @@ deploy_all() {
       log "[$p] Interactive deployment; enter /quit when it finishes"
       if run_stage "[$n] Interactive deployment" \
         agent_task_run_interactive "$p" "$SKILL_NAME" "$DEPLOY_PROMPT"; then
-        log "[$n] $AGENT_LABEL chat completed; MCP readiness will be checked separately"
+        log "DONE: [$n] $AGENT_LABEL chat completed"
       else
         result=$?
-        log "WARN: [$n] $AGENT_LABEL chat exited with $result; continuing to MCP readiness check"
+        log "ERROR: [$n] $AGENT_LABEL chat exited with $result; the MCP connection will be skipped"
         printf '%s\n' "$result" > "$LOCAL_TMP/$n.deploy-failed"
       fi
     else
@@ -663,14 +680,14 @@ deploy_all() {
     fi
     sleep 5
   done
-  # The MCP check in connect_node decides success, not the agent's exit code.
+  # A failed deployment is recorded here; the connect stage skips MCP for that node.
   for i in "${!pids[@]}"; do
     pid=${pids[i]}
     if wait "$pid"; then
-      log "[${nodes[i]}] $AGENT_LABEL deployment completed; MCP readiness will be checked separately"
+      log "DONE: [${nodes[i]}] $AGENT_LABEL deployment completed"
     else
       result=$?
-      log "WARN: [${nodes[i]}] Deployment exited with $result; see $log_dir/${nodes[i]}.deploy.log; continuing to MCP readiness check"
+      log "ERROR: [${nodes[i]}] Deployment failed (exit=$result); see $log_dir/${nodes[i]}.deploy.log; the MCP connection will be skipped"
       printf '%s\n' "$result" > "$LOCAL_TMP/${nodes[i]}.deploy-failed"
     fi
   done
@@ -732,7 +749,9 @@ ensure_user_systemd() {
   if systemctl --user show-environment >/dev/null 2>&1; then
     return 0
   fi
-  local runtime_dir="/run/user/$(id -u)"
+  local runtime_dir uid
+  uid=$(id -u)
+  runtime_dir="/run/user/$uid"
   if test -S "$runtime_dir/bus" && test -O "$runtime_dir" && test -O "$runtime_dir/bus"; then
     export XDG_RUNTIME_DIR="$runtime_dir"
     export DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime_dir/bus"
@@ -743,7 +762,7 @@ ensure_user_systemd() {
   elif ! systemctl --user show-environment >/dev/null; then
     log "No existing user-owned systemd bus socket at $runtime_dir/bus"
   fi
-  die "systemd user services are unavailable for UID $(id -u). Run from a normal login/SSH session as the central-host user, not via sudo or a container. If needed, ask an administrator to run loginctl enable-linger for that user, then log in again."
+  die "systemd user services are unavailable for UID $uid. Run from a normal login/SSH session as the central-host user, not via sudo or a container. If needed, ask an administrator to run loginctl enable-linger for that user, then log in again."
 }
 
 teardown_tunnel() {
@@ -891,23 +910,26 @@ ensure_user_systemd
 declare -A status connection_time
 rc=0
 for i in "${!NAME[@]}"; do
-  log "[${NAME[i]}] Connecting the MCP server"
+  if [[ -f $LOCAL_TMP/${NAME[i]}.deploy-failed ]]; then
+    log "ERROR: [${NAME[i]}] Deployment failed (exit=$(<"$LOCAL_TMP/${NAME[i]}.deploy-failed")); skipping MCP connection. Log: $(agent_log_dir)/${NAME[i]}.deploy.log"
+    status[$i]="deploy failed" connection_time[$i]=-
+    rc=1
+    continue
+  fi
+  log "START: [${NAME[i]}] Connecting the MCP server"
   # Run in a background job so a failure on one node doesn't stop the others.
   stage_started=$SECONDS
   run_stage "[${NAME[i]}] Connect MCP server" connect_node "$i" &
   if wait "$!"; then status[$i]=connected; else status[$i]="not connected"; rc=1; fi
-  if [[ ${FLEET_RECIPE_MODE:-} == 1 && -f $LOCAL_TMP/${NAME[i]}.deploy-failed ]]; then
-    status[$i]="deploy failed"
-    rc=1
-  fi
-  connection_time[$i]=$((SECONDS - stage_started))
+  connection_time[$i]="$((SECONDS - stage_started))s"
 done
 
 log "Summary"
 printf '%-11s %-15s %-12s %-29s %-14s %s\n' NODE HOST PROFILE "MCP URL" STATUS "CONNECT TIME"
 for i in "${!NAME[@]}"; do
-  printf '%-11s %-15s %-12s %-29s %-14s %ss\n' "${NAME[i]}" "${HOST[i]}" "$(profile_of "${NAME[i]}")" \
-    "$MCP_SCHEME://localhost:${LPORT[i]}$MCP_PATH" "${status[$i]}" "${connection_time[$i]}"
+  if [[ ${status[$i]} == connected ]]; then color=$C_GREEN; else color=$C_RED; fi
+  printf '%-11s %-15s %-12s %-29s %s%-14s%s %s\n' "${NAME[i]}" "${HOST[i]}" "$(profile_of "${NAME[i]}")" \
+    "$MCP_SCHEME://localhost:${LPORT[i]}$MCP_PATH" "$color" "${status[$i]}" "$C_RESET" "${connection_time[$i]}"
 done
-[[ $rc -eq 0 ]] || log "Deployment logs: $(agent_log_dir)/"
+[[ $rc -eq 0 ]] || log "ERROR: One or more nodes failed. Deployment logs: $(agent_log_dir)/"
 exit "$rc"

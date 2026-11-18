@@ -209,7 +209,10 @@ You cannot use `--prepare-only` and `--no-deploy` in the same command.
 
 Do these checks before you run `--no-deploy`:
 
-1. Make sure that the application runs on the node.
+1. Make sure that the application runs on the node. It must be deployed under the user
+   account that is configured as `user` in `hosts.yaml` (under `defaults` or on the node).
+   The installer connects to the node as this user. It looks for the application and its
+   `.env` file in the home directory of this user.
 2. Find the location of the application:
    - If the application is in the managed checkout
      `~/fleet-deployments/<deployment name>/checkout`, do nothing. Do not set `app_path`.

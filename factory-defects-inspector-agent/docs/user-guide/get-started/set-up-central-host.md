@@ -215,36 +215,63 @@ The `start` command that installs the persona also starts the WebUI. Run
 6. Open <https://127.0.0.1:8787/>. The browser warns about the self-signed certificate. Accept it
    once, or import `~/.hermes/webui-tls/cert.pem` as a trusted certificate on the client.
 
+7. After you sign in, make sure that the chat view shows the `default` profile and the local
+   model that you installed, for example `Qwen3.5 9B Int8 OV`.
+
+   ![Hermes WebUI showing the default profile and the local model](../_assets/hermes-webui.png)
+
 To choose the bind address, add `--host <ADDR>` to `start`.
 
 ### Remote Access
 
-Use loopback with SSH forwarding. Keep password login on.
+By default, the WebUI listens on `127.0.0.1` only. Choose one of these options to reach it from
+another system. The WebUI password in `~/hermes-webui/.env` is required in both options.
 
-To set loopback again on an existing installation:
-
-```bash
-./hermes-webui.sh --host 127.0.0.1 start
-```
+#### Option 1: Direct Access on a Trusted Network
 
 > [!CAUTION]
 > The connection is encrypted, but the certificate is self-signed. Clients must trust it, or
 > users learn to click through browser warnings. Use a firewall to limit access to authorized
 > clients, and expose the service only on a trusted network.
 
-To give direct access on a trusted network:
+1. On the central Hermes host, set `--host` to the IPv4 address of the interface that your
+   operators use:
 
-1. Set `--host` to an IPv4 address of the central host. Use `0.0.0.0` for all IPv4 interfaces:
+   ```bash
+   ./hermes-webui.sh --host <central-host-ip> start
+   ```
+
+   To listen on all IPv4 interfaces, use `0.0.0.0`. Prefer a specific address, because `0.0.0.0`
+   also exposes the WebUI on other interfaces, such as Docker bridges.
 
    ```bash
    ./hermes-webui.sh --host 0.0.0.0 start
    ```
 
-   A running WebUI restarts with the new address.
+   A running WebUI restarts with the new address. The script saves the bind address for the
+   next starts.
 
-2. Open `https://<central-host-ip>:8787/` from the remote system. `0.0.0.0` is not a browser address.
+2. On the remote system, open `https://<central-host-ip>:8787/`. `0.0.0.0` is not a browser address.
 
-The script saves the bind address for the next starts.
+To return to loopback, run this command on the central Hermes host:
+
+```bash
+./hermes-webui.sh --host 127.0.0.1 start
+```
+
+#### Option 2: Loopback with SSH Forwarding
+
+Use this option when the network is not trusted. The WebUI stays on `127.0.0.1`.
+
+1. On the remote system (not the central Hermes host), forward the port:
+
+   ```bash
+   ssh -N -L 8787:127.0.0.1:8787 <user>@<central-host-ip>
+   ```
+
+   `<user>` is the user that runs the WebUI.
+
+2. On the remote system, open `https://127.0.0.1:8787/`.
 
 ### Manage the WebUI
 

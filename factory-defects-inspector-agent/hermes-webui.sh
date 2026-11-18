@@ -39,7 +39,7 @@ check_prereqs() {
   command -v git >/dev/null || die "git is required"
   command -v python3 >/dev/null || die "python3 is required"
   command -v hermes >/dev/null || [[ -d $HERMES_HOME/hermes-agent ]] \
-    || die "Hermes Agent not found; install it first (see hermes-setup.md)"
+    || die "Hermes Agent not found; install it first with the Agent Harness Installer (https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/frameworks/agent-harness-install); see docs/user-guide/get-started/set-up-central-host.md"
   [[ -f $HERMES_HOME/config.yaml ]] || die "$HERMES_HOME/config.yaml not found; run 'hermes setup' first"
 }
 
