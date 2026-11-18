@@ -54,7 +54,7 @@ on:
 
 jobs:   
   trivy-fs-scan:
-    if: ${{ (inputs.target == 'trivy-fs-scan') || (inputs.target == 'all-scans') }}
+    if: ${{ ((inputs.target == 'trivy-fs-scan') || (inputs.target == 'all-scans')) && (inputs.application != 'factory-defects') }}
     permissions:
       contents: read
       packages: read          # needed for actions/checkout
@@ -143,7 +143,7 @@ jobs:
                 industrial-edge-insights-multimodal/trivy*
     
   trivy-image-scan:
-    if: ${{ (inputs.target == 'trivy-image-scan') || (inputs.target == 'all-scans') }}
+    if: ${{ ((inputs.target == 'trivy-image-scan') || (inputs.target == 'all-scans')) && (inputs.application != 'factory-defects') }}
     permissions:
       contents: read
       packages: read          # needed for actions/checkout
@@ -495,7 +495,7 @@ jobs:
           reports/bandit-*.csv
 
   virus-scans:
-    if: ${{ (inputs.target == 'virus-scan') || (inputs.target == 'all-scans') }}
+    if: ${{ ((inputs.target == 'virus-scan') || (inputs.target == 'all-scans')) && (inputs.application != 'factory-defects') }}
     permissions:
       contents: read
       packages: read          # needed for actions/checkout
@@ -536,7 +536,7 @@ jobs:
           reports/clamav-multimodal-report.txt
 
   DBS_job:
-    if: ${{ (inputs.target == 'dbs-scan') || (inputs.target == 'all-scans') }}
+    if: ${{ ((inputs.target == 'dbs-scan') || (inputs.target == 'all-scans')) && (inputs.application != 'factory-defects') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -931,7 +931,7 @@ jobs:
 
   pylint-scans:
     name: Run Pylint Scan
-    if: ${{ (inputs.target == 'pylint-scan') || (inputs.target == 'all-scans') }}
+    if: ${{ ((inputs.target == 'pylint-scan') || (inputs.target == 'all-scans')) && (inputs.application != 'factory-defects') }}
     runs-on: ubuntu-24.04
     permissions:
       contents: read
