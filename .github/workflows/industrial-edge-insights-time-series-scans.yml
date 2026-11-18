@@ -31,12 +31,13 @@ on:
         - shellcheck-scan
       
       application:
-        description: 'Which application to scan (time-series, multimodal or both)'
+        description: 'Which application to scan (time-series, multimodal, factory-defects or both)'
         type: choice
         options:
         - both
         - time-series
         - multimodal
+        - factory-defects
         default: both
 
   workflow_call: 
@@ -46,7 +47,7 @@ on:
         required: false
         type: string
       application:
-        description: 'Which application to scan (time-series, multimodal, or both)'
+        description: 'Which application to scan (time-series, multimodal, factory-defects, or both)'
         required: false
         type: string
         default: both
@@ -446,6 +447,10 @@ jobs:
         if [[ "$APPLICATION" == "multimodal" || "$APPLICATION" == "both" ]]; then
           docker run --rm -v "${{ github.workspace }}:/src" ghcr.io/pycqa/bandit/bandit -r /src/industrial-edge-insights-multimodal/ -f json -o /src/reports/bandit-multimodal-report.json || true >> $GITHUB_STEP_SUMMARY
           echo "Please find full report in bandit-multimodal-report.txt" >> $GITHUB_STEP_SUMMARY
+        fi
+        if [[ "$APPLICATION" == "factory-defects" || "$APPLICATION" == "both" ]]; then
+          docker run --rm -v "${{ github.workspace }}:/src" ghcr.io/pycqa/bandit/bandit -r /src/factory-defects-inspector-agent/ -f json -o /src/reports/bandit-factory-defects-report.json || true >> $GITHUB_STEP_SUMMARY
+          echo "Please find full report in bandit-factory-defects-report.txt" >> $GITHUB_STEP_SUMMARY
         fi
         ls -al 
         pwd
@@ -877,6 +882,53 @@ jobs:
           name: Multimodal Sample app CodeQL Reports
           path: codeql_multimodal_reports.zip
 
+  codeql-factory-defects-job:
+    name: CodeQL Scan - Factory Defects Inspector Agent Python
+    if: ${{ ((inputs.target == 'codeql-scan') || (inputs.target == 'all-scans')) && ((inputs.application == 'factory-defects') || (inputs.application == 'both')) }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          persist-credentials: false
+
+      - name: Install CodeQL CLI
+        run: |
+          CODEQL_VERSION=2.26.0
+          curl -L -o codeql-bundle.tar.gz "https://github.com/github/codeql-action/releases/download/codeql-bundle-v${CODEQL_VERSION}/codeql-bundle-linux64.tar.gz"
+          tar -xzf codeql-bundle.tar.gz
+          echo "$PWD/codeql" >> "$GITHUB_PATH"
+          CODEQL_PYTHON_QUERIES_DIR=$(find "$PWD/codeql/qlpacks/codeql/python-queries" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)
+          if [[ -z "$CODEQL_PYTHON_QUERIES_DIR" ]]; then
+            echo "Failed to locate CodeQL python query pack directory" >&2
+            exit 1
+          fi
+          echo "CODEQL_PYTHON_QUERIES_DIR=$CODEQL_PYTHON_QUERIES_DIR" >> "$GITHUB_ENV"
+          echo "CODEQL_PYTHON_SUITE=$CODEQL_PYTHON_QUERIES_DIR/codeql-suites/python-code-scanning.qls" >> "$GITHUB_ENV"
+
+      - name: Run CodeQL CLI Scan
+        run: |
+          mkdir -p results-factory-defects
+          codeql database create results-factory-defects/codeql-db \
+            --language=python \
+            --source-root=factory-defects-inspector-agent \
+            --build-mode=none \
+            --overwrite
+
+          codeql database analyze results-factory-defects/codeql-db \
+            "$CODEQL_PYTHON_SUITE" \
+            --format=sarifv2.1.0 \
+            --output=results-factory-defects/python.sarif
+
+      - name: Upload CodeQL SARIF Report
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: Factory Defects Inspector Agent CodeQL Report
+          path: results-factory-defects/python.sarif
+
   pylint-scans:
     name: Run Pylint Scan
     if: ${{ (inputs.target == 'pylint-scan') || (inputs.target == 'all-scans') }}
@@ -948,6 +1000,10 @@ jobs:
             shellcheck --format=json $(find industrial-edge-insights-multimodal -name "*.sh") \
               > reports/shellcheck-multimodal-report.json || true
           fi
+          if [[ "$APPLICATION" == "factory-defects" || "$APPLICATION" == "both" ]]; then
+            shellcheck --format=json $(find factory-defects-inspector-agent -name "*.sh") \
+                > reports/shellcheck-factory-defects-report.json || true
+          fi
 
       - name: Upload ShellCheck reports
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a #v7.0.1
@@ -957,4 +1013,5 @@ jobs:
           path: |
             reports/shellcheck-timeseries-report.json
             reports/shellcheck-multimodal-report.json
+            reports/shellcheck-factory-defects-report.json
 
