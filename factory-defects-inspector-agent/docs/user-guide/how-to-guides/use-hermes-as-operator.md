@@ -9,8 +9,13 @@ normal queries.
 1. Get the WebUI password from the administrator. The administrator can read it from
    `~/hermes-webui/.env` on the central host. If the WebUI is not running, the administrator
    runs `./hermes-webui.sh start` in the `factory-defects-inspector-agent` directory.
-2. On the central host, open <https://127.0.0.1:8787/>. Accept the warning for the self-signed
-   certificate, or import `~/.hermes/webui-tls/cert.pem` as a trusted certificate.
+2. Open the WebUI address that the administrator gives you:
+   - On the central host, or through an SSH tunnel: <https://127.0.0.1:8787/>.
+   - With direct access on a trusted network: `https://<central-host-ip>:8787/`.
+
+   For the setup of each option, see [Remote Access](../get-started/set-up-central-host.md#remote-access).
+   Accept the warning for the self-signed certificate, or import `~/.hermes/webui-tls/cert.pem`
+   as a trusted certificate.
 3. Log in with the password.
 
 
