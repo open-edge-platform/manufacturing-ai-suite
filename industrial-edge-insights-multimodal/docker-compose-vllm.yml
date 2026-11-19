@@ -83,6 +83,8 @@ services:
       - ${VLLM_QUANTIZATION}
       - --attention-backend
       - TRITON_ATTN
+      - --mm-encoder-attn-backend
+      - TORCH_SDPA
     networks:
       - timeseries_network
 
