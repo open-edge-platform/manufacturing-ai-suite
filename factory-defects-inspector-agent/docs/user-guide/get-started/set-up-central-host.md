@@ -17,7 +17,7 @@ The sections are in order:
 1. [Install Hermes with a Local Model](#install-hermes-with-a-local-model)
 2. [Verify the Local Model](#verify-the-local-model)
 3. [Set the Factory Defects Inspector Agent Persona](#set-the-factory-defects-inspector-agent-persona)
-4. [Bring Up the Hermes WebUI (Optional)](#bring-up-the-hermes-webui-optional)
+4. [Bring Up the Hermes WebUI](#bring-up-the-hermes-webui)
 
 ## Install Hermes with a Local Model
 
@@ -134,23 +134,22 @@ install later reaches the node profiles only when you run the installer again.
 2. From the `factory-defects-inspector-agent` directory, run:
 
    ```bash
-   ./hermes-webui.sh persona
+   ./hermes-webui.sh start
    ```
 
-   The command installs `SOUL.md` in the Hermes home. The default is `~/.hermes`; if `HERMES_HOME`
-   is set, it uses that directory. The file has owner-only permissions.
+   The command installs `SOUL.md` in the Hermes home and then starts the WebUI. The default
+   Hermes home is `~/.hermes`; if `HERMES_HOME` is set, it uses that directory. The file has
+   owner-only permissions. See [Bring Up the Hermes WebUI](#bring-up-the-hermes-webui)
+   for the WebUI details.
 
-   If the installed persona is identical, the command does nothing. If it is different, the
-   command saves the old persona to `SOUL.md.backup.<timestamp>` and replaces it.
+   The command never overwrites an existing persona. To replace it with the template, delete
+   `SOUL.md` from the Hermes home and run the command again.
 
-3. If the old persona has customizations that you need, merge them into the new file. Keep the
-   backup until you verify the new behavior.
+3. Start a new chat on the default profile, in the CLI or the WebUI.
 
-4. Start a new chat on the default profile, in the CLI or the WebUI.
+4. Ask the agent to explain its role. Ask how it handles a request to stop a pipeline.
 
-5. Ask the agent to explain its role. Ask how it handles a request to stop a pipeline.
-
-6. Make sure that the agent identifies the target and asks for approval. It must not make a
+5. Make sure that the agent identifies the target and asks for approval. It must not make a
    change.
 
 > [!NOTE]
@@ -158,12 +157,12 @@ install later reaches the node profiles only when you run the installer again.
 > installs or overwrites the persona of the default profile. A change to the template does not
 > change an existing Hermes installation.
 
-`./hermes-webui.sh setup` does the persona installation and the WebUI start in one command.
-
-## Bring Up the Hermes WebUI (Optional)
+## Bring Up the Hermes WebUI
 
 The Hermes WebUI is community software. It gives browser-based chat for the local Hermes installation.
-It is not a part of the fleet deployment. You can start it now or after the fleet deployment.
+It is not a part of the fleet deployment. Using it is optional; you can use the Hermes CLI instead.
+The `start` command that installs the persona also starts the WebUI. Run
+`./hermes-webui.sh stop` to stop it.
 
 > [!WARNING]
 > The WebUI gives terminal and file access with the permissions of the central Hermes user.
@@ -172,7 +171,7 @@ It is not a part of the fleet deployment. You can start it now or after the flee
 
 **Before you start, make sure that:**
 
-- `git`, Python 3, and `curl` are installed.
+- `git`, Python 3, `curl`, and `openssl` are installed.
 - The host can reach the WebUI Git repository.
 - `~/.hermes/config.yaml` exists. If `HERMES_HOME` is set, check that directory.
 - Local port `8787` is free.
@@ -188,57 +187,100 @@ It is not a part of the fleet deployment. You can start it now or after the flee
 2. On the first run, the script clones the WebUI to `~/hermes-webui`. It checks out the pinned
    release `v0.52.492`.
 
-3. When the script asks, enter a password and repeat it. The password must have at least 12
-   characters. It must not contain quotes. Without a terminal, the script generates a password.
+3. On the first run only, the script asks for a password and asks you to repeat it. The password
+   must have at least 12 characters. It must not contain quotes. If the script runs without an
+   interactive terminal (for example, from automation), it does not prompt. It generates a
+   random password instead. The script saves the password in `~/hermes-webui/.env`. Later runs of
+   `start` reuse it and do not ask again. To read it, run
+   `grep HERMES_WEBUI_PASSWORD ~/hermes-webui/.env`. To change it, edit that line in the file, then
+   run `./hermes-webui.sh stop` and `./hermes-webui.sh start`. A running WebUI keeps the old
+   password until it is stopped.
 
-4. Wait for the message that the WebUI is up. The script stores the settings in `~/hermes-webui/.env`
-   with mode `600`. It starts the daemon and checks the `/health` endpoint.
+4. The script creates a self-signed certificate in `~/.hermes/webui-tls` (`cert.pem` and `key.pem`,
+   mode `600`, valid 365 days) if there is none or it expires within 30 days. It adds the
+   certificate to `~/hermes-webui/.env`, so the WebUI serves HTTPS only. The certificate names
+   `localhost`, the host name, and the IPv4 addresses of the host at creation time. To create a
+   new one, for example after an address change, delete the `webui-tls` directory and run
+   `start` again.
 
-5. Open <http://127.0.0.1:8787/>.
+   Before it starts the WebUI, the script checks that the certificate and the key match. If they
+   do not, it stops with an error instead of starting. The server would otherwise fall back to
+   plain HTTP.
 
-To choose the bind address, add `--host <ADDR>` to `start` or `setup`.
+5. Wait for the message that the WebUI is up. The script stores the settings in `~/hermes-webui/.env`
+   with mode `600`. It starts the daemon and checks the `/health` endpoint over HTTPS. If the
+   server cannot load the certificate, it would fall back to plain HTTP. The script then stops it
+   and reports an error.
+
+6. Open <https://127.0.0.1:8787/>. The browser warns about the self-signed certificate. Accept it
+   once, or import `~/.hermes/webui-tls/cert.pem` as a trusted certificate on the client.
+
+7. After you sign in, make sure that the chat view shows the `default` profile and the local
+   model that you installed, for example `Qwen3.5 9B Int8 OV`.
+
+   ![Hermes WebUI showing the default profile and the local model](../_assets/hermes-webui.png)
+
+To choose the bind address, add `--host <ADDR>` to `start`.
 
 ### Remote Access
 
-Use loopback with SSH forwarding. Keep password login on.
+By default, the WebUI listens on `127.0.0.1` only. Choose one of these options to reach it from
+another system. The WebUI password in `~/hermes-webui/.env` is required in both options.
 
-To set loopback again on an existing installation:
-
-```bash
-HERMES_WEBUI_HOST=127.0.0.1 ./hermes-webui.sh restart
-```
+#### Option 1: Direct Access on a Trusted Network
 
 > [!CAUTION]
-> Direct HTTP sends passwords and chat content without encryption. Use a firewall to limit
-> access to authorized clients. It is best to use SSH forwarding or a TLS reverse proxy. Do
-> not expose the plain-HTTP service to an untrusted network.
+> The connection is encrypted, but the certificate is self-signed. Clients must trust it, or
+> users learn to click through browser warnings. Use a firewall to limit access to authorized
+> clients, and expose the service only on a trusted network.
 
-To give direct access on a trusted network:
-
-1. Set `HERMES_WEBUI_HOST` to an IPv4 address of the central host. Use `0.0.0.0` for all IPv4 interfaces:
+1. On the central Hermes host, set `--host` to the IPv4 address of the interface that your
+   operators use:
 
    ```bash
-   HERMES_WEBUI_HOST=0.0.0.0 ./hermes-webui.sh restart
+   ./hermes-webui.sh --host <central-host-ip> start
    ```
 
-   The option `--host 0.0.0.0` does the same.
+   To listen on all IPv4 interfaces, use `0.0.0.0`. Prefer a specific address, because `0.0.0.0`
+   also exposes the WebUI on other interfaces, such as Docker bridges.
 
-2. Open `http://<central-host-ip>:8787/` from the remote system. `0.0.0.0` is not a browser address.
+   ```bash
+   ./hermes-webui.sh --host 0.0.0.0 start
+   ```
 
-The script saves the bind address for the next starts.
+   A running WebUI restarts with the new address. The script saves the bind address for the
+   next starts.
+
+2. On the remote system, open `https://<central-host-ip>:8787/`. `0.0.0.0` is not a browser address.
+
+To return to loopback, run this command on the central Hermes host:
+
+```bash
+./hermes-webui.sh --host 127.0.0.1 start
+```
+
+#### Option 2: Loopback with SSH Forwarding
+
+Use this option when the network is not trusted. The WebUI stays on `127.0.0.1`.
+
+1. On the remote system (not the central Hermes host), forward the port:
+
+   ```bash
+   ssh -N -L 8787:127.0.0.1:8787 <user>@<central-host-ip>
+   ```
+
+   `<user>` is the user that runs the WebUI.
+
+2. On the remote system, open `https://127.0.0.1:8787/`.
 
 ### Manage the WebUI
 
 | Command | Action |
 | --- | --- |
-| `./hermes-webui.sh status` | Show the status. |
-| `./hermes-webui.sh logs` | Show the logs. |
-| `./hermes-webui.sh restart` | Restart the daemon. |
+| `./hermes-webui.sh start` | Install or update to the pinned release, install the persona and the TLS certificate if missing, then start. |
 | `./hermes-webui.sh stop` | Stop the daemon. |
-| `./hermes-webui.sh start` | Install if necessary, then start. |
-| `./hermes-webui.sh install` | Install or update to the pinned release. Does not start. |
-| `./hermes-webui.sh persona` | Install the persona only. |
-| `./hermes-webui.sh setup` | Install, install the persona, and start. |
+
+For status and logs, run `~/hermes-webui/ctl.sh status` or `~/hermes-webui/ctl.sh logs`.
 
 To override the defaults, set `HERMES_WEBUI_DIR`, `HERMES_WEBUI_VERSION`, or `HERMES_WEBUI_PORT`.
 Use a reviewed stable release tag. If you change the port, also change the browser URL and the

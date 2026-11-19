@@ -44,6 +44,10 @@
 #                                     agent; credentials are referenced from
 #                                     agent_env_set storage, never inlined
 #   agent_mcp_verify NAME             Verifies the registered MCP server
+#   agent_mcp_unregister NAME         Removes the MCP server registration; succeeds
+#                                     only when it is confirmed absent afterwards
+#   agent_context_delete NAME         Deletes a context; succeeds when it is absent
+#   agent_env_unset KEY               Removes a stored secret; succeeds when absent
 #
 # This file is sourced by fleet-setup.sh, which provides log() and die().
 # In Hermes terms a "context" is a profile: an isolated Hermes home under
@@ -72,11 +76,22 @@ agent_env_set() {
 
 agent_env_has() { grep -q "^$1=." "$AGENT_STATE_DIR/.env" 2>/dev/null; }
 
+agent_env_unset() {
+  local f="$AGENT_STATE_DIR/.env" tmp
+  [[ -f $f ]] || return 0
+  tmp=$(mktemp "$f.XXXXXX")
+  { grep -v "^$1=" "$f" || true; } > "$tmp"
+  chmod 600 "$tmp"
+  mv "$tmp" "$f"
+}
+
 # Hermes puts its SSH ControlMaster socket under $TMPDIR; a deep TMPDIR exceeds the ~104-byte
 # Unix socket path limit ("unix_listener: path too long"), so tasks run with a short private one.
 short_tmpdir() {
-  local d="${XDG_RUNTIME_DIR:-/tmp}/hermes-fleet-$(id -u)"
-  [[ ${#d} -le 40 ]] || d="/tmp/hermes-fleet-$(id -u)"
+  local d uid
+  uid=$(id -u)
+  d="${XDG_RUNTIME_DIR:-/tmp}/hermes-fleet-$uid"
+  [[ ${#d} -le 40 ]] || d="/tmp/hermes-fleet-$uid"
   install -d -m 0700 "$d"
   printf '%s' "$d"
 }
@@ -85,6 +100,20 @@ profile_listed() {
   awk -v p="$1" '{ for (i = 1; i <= NF; i++) if ($i == p) found = 1 } END { exit !found }' <<<"$2"
 }
 
+# Hermes tracks profiles in a registry, so only the CLI can delete one; removing the profile home
+# by hand desyncs the registry. It can exit non-zero when its post-delete identity purge fails even
+# though the profile is gone, so success is judged by the profile list, not the exit code.
+profile_delete() {
+  local name=$1
+  profile_listed "$name" "$(hermes profile list 2>/dev/null || true)" || return 0
+  hermes profile delete -y "$name" >/dev/null || true
+  profile_listed "$name" "$(hermes profile list 2>/dev/null || true)" \
+    && die "[$name] could not delete the existing $AGENT_LABEL profile; inspect with 'hermes profile show $name', resolve, and re-run"
+  return 0
+}
+
+agent_context_delete() { profile_delete "$1"; }
+
 agent_context_recreate() {
   local name=$1 description=$2 profiles
   profiles=$(hermes profile list 2>/dev/null || true)
@@ -92,15 +121,8 @@ agent_context_recreate() {
     # Recreate rather than reuse: --clone snapshots the default profile only at
     # creation time, so a reused profile would silently keep the model/provider
     # configuration of an older default (e.g. from before a backend change).
-    # -y skips the interactive confirmation. Hermes tracks profiles in a
-    # registry, so only the CLI can delete one; removing the profile home
-    # by hand desyncs the registry and breaks the create below.
     log "[$name] Removing existing $AGENT_LABEL profile (it is recreated from the current default profile)"
-    # Hermes can exit non-zero when its post-delete identity purge fails even though the
-    # profile is gone, so success is judged by the profile list, not the exit code.
-    hermes profile delete -y "$name" >/dev/null || true
-    profile_listed "$name" "$(hermes profile list 2>/dev/null || true)" \
-      && die "[$name] could not delete the existing $AGENT_LABEL profile; inspect with 'hermes profile show $name', resolve, and re-run"
+    profile_delete "$name"
   fi
   log "[$name] Creating $AGENT_LABEL profile from the current default profile"
   hermes profile create "$name" --clone --description "$description"
@@ -142,21 +164,36 @@ agent_task_run_interactive() {
   TMPDIR=$(short_tmpdir) hermes -p "$1" chat -s "$2" -q "$3"
 }
 
+# MCP servers belong to the default profile; -p default ignores a sticky `hermes profile use` selection.
 agent_mcp_register() {
   local name=$1 url=$2 ssl_verify=$3 auth_type=$4 tools_json=$5
-  hermes config set "mcp_servers.$name.url" "$url"
-  hermes config set "mcp_servers.$name.ssl_verify" "$ssl_verify"
+  hermes -p default config set "mcp_servers.$name.url" "$url"
+  hermes -p default config set "mcp_servers.$name.ssl_verify" "$ssl_verify"
   # ${VAR} references are resolved by Hermes from agent_env_set storage, so
   # credential values never appear in the config file or process arguments.
   case $auth_type in
-    basic) hermes config set "mcp_servers.$name.headers.Authorization" "Basic \${${name^^}_MCP_BASIC}" ;;
-    bearer) hermes config set "mcp_servers.$name.headers.Authorization" "Bearer \${${name^^}_MCP_TOKEN}" ;;
-    none) hermes config set "mcp_servers.$name.headers" '{}' ;;
+    basic) hermes -p default config set "mcp_servers.$name.headers.Authorization" "Basic \${${name^^}_MCP_BASIC}" ;;
+    bearer) hermes -p default config set "mcp_servers.$name.headers.Authorization" "Bearer \${${name^^}_MCP_TOKEN}" ;;
+    none) hermes -p default config set "mcp_servers.$name.headers" '{}' ;;
     *) die "[$name] unsupported MCP auth type: $auth_type" ;;
   esac
-  hermes config set "mcp_servers.$name.tools.include" "$tools_json"
+  hermes -p default config set "mcp_servers.$name.tools.include" "$tools_json"
 }
 
 agent_mcp_verify() {
-  hermes mcp test "$1" >/dev/null
+  hermes -p default mcp test "$1" >/dev/null
+}
+
+# Only a confirmed absence counts as success: `config unset` also fails when the config cannot be
+# read or written, and the removal is checked afterwards.
+agent_mcp_unregister() {
+  local name=$1 key="mcp_servers.$1" out
+  if ! out=$(hermes -p default config unset "$key" 2>&1); then
+    [[ $out == *"Config key not set"* ]] || die "[$name] could not remove the MCP registration: $out"
+    return 0
+  fi
+  if out=$(hermes -p default config get "$key" 2>&1); then
+    die "[$name] the MCP registration is still present after removal"
+  fi
+  [[ $out == *"Config key not set"* ]] || die "[$name] could not verify the MCP removal: $out"
 }
