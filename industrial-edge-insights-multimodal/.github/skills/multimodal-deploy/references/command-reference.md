@@ -38,7 +38,7 @@ deployment procedures, use the app's published user guide at
 |---|---|
 | `check_env_variables` | Validates `INFLUXDB_USERNAME/PASSWORD`, `VISUALIZER_GRAFANA_USER/PASSWORD`, `MTX_WEBRTCICESERVERS2_0_USERNAME/PASSWORD`, `S3_STORAGE_USERNAME/PASSWORD`, `SEAWEEDFS_WEB_AUTH_USER/PASSWORD` in `.env`, plus `MCP_USERNAME/PASSWORD` when `MCP=true`. Usernames: letters only, at least 5 characters (`INFLUXDB_USERNAME` must not be `admin`). Passwords: alphanumeric, at least 10 characters, with at least one letter and one digit |
 | `validate_host_ip` | Ensures `HOST_IP` in `.env` is set and is a valid IPv4 address (`localhost` is rejected; use `127.0.0.1` for local-only access) |
-| `check_hardware` | Requires Intel Panther Lake (Family 6, Model 204) / Core Ultra 3xx CPU unless `PLATFORM_CHECK=false` (in `.env` or on the `make` command line; CI/validation only) |
+| `check_hardware` | Requires Intel Core Ultra Series 3 (Panther Lake/PTL) or newer, including Nova Lake (NVL, upcoming Series 4) and later series. Checks Intel vendor and CPU model name, with explicit CPUID fallbacks for unbranded samples: PTL family 6/model 204; NVL family 18/model 1 or 3. Unknown unbranded CPUs are rejected, not inferred from higher IDs. Passing does not imply platform validation. `PLATFORM_CHECK=false` bypasses the gate (in `.env` or on the `make` command line; CI/validation only) |
 | `check_models` | Requires non-empty `configs/vllm/models` and `configs/vllm/huggingface` directories. `make download_model` ensures these are populated; `DOWNLOAD_AGENTIC=true` also downloads the agentic model |
 
 ## Deploy (Docker Compose)

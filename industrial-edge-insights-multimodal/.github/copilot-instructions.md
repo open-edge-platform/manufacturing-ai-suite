@@ -32,9 +32,15 @@ inference, and an agentic VLM pipeline (optionally with an MCP server). Deeper u
 | Agentic + MCP | `make up_agentic MCP=true` | `+ docker-compose-mcp.yml` + agentic + vllm | As Agentic, plus `MCP_USERNAME`/`MCP_PASSWORD` validation and the `/mcp` nginx route. Pipelines do not auto-start; an MCP client starts them with `start_pipeline` |
 
 All `up*` targets run `check_env_variables`, `validate_host_ip`, and `down`
-first. `check_hardware` requires an Intel Panther Lake / Core Ultra 3xx CPU
-unless `PLATFORM_CHECK=false` is set in `.env` or passed to `make` (CI/validation
-use only).
+first. `check_hardware` requires an Intel Core Ultra Series 3 (Panther Lake/PTL)
+or newer CPU, including Nova Lake (NVL, upcoming Core Ultra Series 4) and later
+series. It checks the Intel vendor and CPU model name, with explicit CPUID
+fallbacks for unbranded samples: PTL family 6/model 204 and NVL family 18/model
+1 or 3. Unknown unbranded CPUs are rejected; family/model IDs are not ordered
+by platform generation. Passing the gate does not imply platform validation; consult
+the variant guides for validated hardware and compatible runtime requirements.
+`PLATFORM_CHECK=false` in `.env` or passed to `make` bypasses the gate
+(CI/validation use only).
 
 **Use the `multimodal-deploy` skill** ([`.github/skills/multimodal-deploy/SKILL.md`](skills/multimodal-deploy/SKILL.md))
 to drive build/deploy/smoke-test/functional-test cycles instead of running
@@ -67,7 +73,7 @@ raw commands ad hoc.
   `MTX_WEBRTCICESERVERS2_0_USERNAME/PASSWORD`, `S3_STORAGE_USERNAME/PASSWORD`,
   `SEAWEEDFS_WEB_AUTH_USER/PASSWORD` — all validated by
   `make check_env_variables` (length/charset rules)
-- `PLATFORM_CHECK` — set `false` to skip the Panther Lake hardware gate (CI only)
+- `PLATFORM_CHECK` — set `false` to skip the Core Ultra Series 3-or-newer hardware gate (CI only)
 - `LLM_DEVICE`, `LLM_WEIGHT_FORMAT`, `LLM_MODEL_NAME` — vLLM/agentic model selection
 - `MCP_USERNAME/PASSWORD` — MCP server Basic auth for all requests; empty by default, validated only with `MCP=true`
 - `DOCKER_REGISTRY`, `IMAGE_SUFFIX`, `WEEKLY_BUILD_DATE` — push/versioning
