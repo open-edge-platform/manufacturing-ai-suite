@@ -53,6 +53,20 @@ on:
         default: both
 
 jobs:   
+  validate-factory-defects-target:
+    name: Reject unsupported Factory Defects scan target
+    if: >-
+      ${{ inputs.application == 'factory-defects' &&
+          inputs.target != 'all-scans' && inputs.target != 'bandit-scan' &&
+          inputs.target != 'codeql-scan' && inputs.target != 'shellcheck-scan' }}
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - name: Report unsupported target
+        run: |
+          echo "::error::Unsupported scan target for factory-defects. Select all-scans, bandit-scan, codeql-scan, or shellcheck-scan."
+          exit 1
+
   trivy-fs-scan:
     if: ${{ ((inputs.target == 'trivy-fs-scan') || (inputs.target == 'all-scans')) && (inputs.application != 'factory-defects') }}
     permissions:
@@ -433,6 +447,46 @@ jobs:
       with:
         persist-credentials: false
 
+    - &extract-factory-heredocs
+      name: Extract factory fleet heredocs for scanning
+      if: ${{ inputs.application == 'factory-defects' || inputs.application == 'both' }}
+      run: |2
+        python3 - <<'PY'
+        import re
+        from pathlib import Path
+
+        source = Path('factory-defects-inspector-agent/fleet-setup.sh')
+        output = source.parent / 'scan-heredocs'
+        output.mkdir()
+        lines = iter(enumerate(source.read_text().splitlines()))
+        for index, line in lines:
+            if re.fullmatch(r"\s*(?:inventory_kind=\$\()?python3 -(?: .*)? <<'PY'", line):
+                delimiter = 'PY'
+                filename = f'fleet-setup-line-{index + 2}.py'
+                prefix = '\n' * (index + 1)
+            elif match := re.fullmatch(r"\s*cat > \"\$LOCAL_TMP/([\w-]+\.sh)\" <<'REMOTE'", line):
+                delimiter = 'REMOTE'
+                filename = match[1]
+                prefix = '#!/usr/bin/env bash\n' + '\n' * index
+            else:
+                continue
+
+            body = []
+            for _, content in lines:
+                if content == delimiter:
+                    break
+                body.append(content)
+            else:
+                raise SystemExit(f'Unterminated heredoc in {source}:{index + 1}')
+
+            destination = output / filename
+            with destination.open('x') as stream:
+                stream.write(prefix + '\n'.join(body) + '\n')
+            print(f'{source}:{index + 2} -> {destination}')
+        if not (any(output.glob('*.py')) and any(output.glob('*.sh'))):
+            raise SystemExit(f'Expected both Python and Bash heredocs in {source}')
+        PY
+
     - name: Run Bandit Scan
       env:
         APPLICATION: ${{ inputs.application }}
@@ -449,11 +503,14 @@ jobs:
           echo "Please find full report in bandit-multimodal-report.txt" >> $GITHUB_STEP_SUMMARY
         fi
         if [[ "$APPLICATION" == "factory-defects" || "$APPLICATION" == "both" ]]; then
-          docker run --rm -v "${{ github.workspace }}:/src" ghcr.io/pycqa/bandit/bandit -r /src/factory-defects-inspector-agent/ -f json -o /src/reports/bandit-factory-defects-report.json || true >> $GITHUB_STEP_SUMMARY
-          echo "Please find full report in bandit-factory-defects-report.txt" >> $GITHUB_STEP_SUMMARY
+          report_path=reports/bandit-factory-defects-report.json
+          docker run --rm -v "${{ github.workspace }}:/src" ghcr.io/pycqa/bandit/bandit --exit-zero -r /src/factory-defects-inspector-agent/ -f json -o "/src/$report_path"
+          if [[ ! -s "$report_path" ]]; then
+            echo "::error::Bandit did not produce a non-empty report at $report_path."
+            exit 1
+          fi
+          echo "Please find the full report in $report_path" >> "$GITHUB_STEP_SUMMARY"
         fi
-        ls -al 
-        pwd
     - name: Convert JSON to CSV
       run: |
         cat > convert_json_to_csv.py << 'EOF'
@@ -895,6 +952,8 @@ jobs:
         with:
           persist-credentials: false
 
+      - *extract-factory-heredocs
+
       - name: Install CodeQL CLI
         run: |
           CODEQL_VERSION=2.26.0
@@ -982,6 +1041,8 @@ jobs:
         with:
           persist-credentials: false
 
+      - *extract-factory-heredocs
+
       - name: Install ShellCheck
         run: |
           sudo apt-get update -qq
@@ -1001,8 +1062,25 @@ jobs:
               > reports/shellcheck-multimodal-report.json || true
           fi
           if [[ "$APPLICATION" == "factory-defects" || "$APPLICATION" == "both" ]]; then
-            shellcheck --format=json $(find factory-defects-inspector-agent -name "*.sh") \
-                > reports/shellcheck-factory-defects-report.json || true
+            scan_tmp=$(mktemp -d)
+            trap 'rm -rf -- "$scan_tmp"' EXIT
+            if ! find factory-defects-inspector-agent -type f -name '*.sh' -print0 > "$scan_tmp/scripts" || [[ ! -s "$scan_tmp/scripts" ]]; then
+              echo "::error::Factory Defects shell script discovery failed or found no scripts."
+              exit 1
+            fi
+            mapfile -d '' -t shell_scripts < "$scan_tmp/scripts"
+
+            scan_status=0
+            shellcheck --format=json -- "${shell_scripts[@]}" > "$scan_tmp/report.json" || scan_status=$?
+            if (( scan_status > 1 )); then
+              echo "::error::Factory Defects ShellCheck failed with exit status $scan_status."
+              exit "$scan_status"
+            fi
+            if [[ ! -s "$scan_tmp/report.json" ]]; then
+              echo "::error::Factory Defects ShellCheck produced an empty report."
+              exit 1
+            fi
+            mv -- "$scan_tmp/report.json" reports/shellcheck-factory-defects-report.json
           fi
 
       - name: Upload ShellCheck reports

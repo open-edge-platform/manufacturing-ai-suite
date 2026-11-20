@@ -10,6 +10,7 @@ on:
     paths:
       - 'industrial-edge-insights-time-series/**'
       - 'industrial-edge-insights-multimodal/**'
+      - 'factory-defects-inspector-agent/**'
   workflow_call:
   workflow_dispatch:
 
@@ -18,7 +19,26 @@ permissions:
   packages: read
 
 jobs:
+  filter-scan-paths:
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      edge-insights: ${{ steps.filter.outputs.edge-insights }}
+    steps:
+      - name: Check for time-series or multimodal changes
+        if: ${{ github.event_name == 'pull_request' }}
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
+        with:
+          filters: |
+            edge-insights:
+              - 'industrial-edge-insights-time-series/**'
+              - 'industrial-edge-insights-multimodal/**'
+
   industrial-edge-insights-time-series-pre-merge-build:
+    needs: filter-scan-paths
+    if: ${{ github.event_name != 'pull_request' || needs.filter-scan-paths.outputs.edge-insights == 'true' }}
     permissions:
       contents: read
       packages: read          # needed for actions/checkout
@@ -235,11 +255,13 @@ jobs:
 #       run: make down "$AGENTIC_OVR"
 #
   industrial-edge-insights-time-series-scans:
+    needs: filter-scan-paths
     permissions:
       contents: read
       packages: read
       security-events: write
       actions: read
-    uses: $/.github/workflows/industrial-edge-insights-time-series-scans.yml
+    uses: ./.github/workflows/industrial-edge-insights-time-series-scans.yml
     with:
       target: all-scans
+      application: ${{ github.event_name == 'pull_request' && needs.filter-scan-paths.outputs.edge-insights != 'true' && 'factory-defects' || 'both' }}
