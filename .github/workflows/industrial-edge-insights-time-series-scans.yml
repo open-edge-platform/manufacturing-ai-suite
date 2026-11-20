@@ -272,7 +272,7 @@ jobs:
               make down
 
               declare -A IMAGE_MAP_TS
-              images=$(docker compose config | grep 'image:' | awk '{print $2}')
+              images=$(docker compose -f docker-compose.yml -f docker-compose-mcp.yml config --images)
               for image in $images; do
                   image_prefix=$(echo "$image" | sed 's|/|-|g')
                   image_prefix=$(echo "$image_prefix" | cut -d':' -f1)
@@ -322,7 +322,7 @@ jobs:
 
               declare -A IMAGE_MAP_MM
 
-              images=$(docker compose config | grep 'image:' | awk '{print $2}')
+              images=$(docker compose -f docker-compose.yml -f docker-compose-mcp.yml config --images)
               for image in $images; do
                   image_prefix=$(echo "$image" | sed 's|/|-|g')
                   image_prefix=$(echo "$image_prefix" | cut -d':' -f1)
@@ -650,15 +650,19 @@ jobs:
           INFLUXDB_PASSWORD=$(openssl rand -hex 10)
           VISUALIZER_GRAFANA_USER=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
           VISUALIZER_GRAFANA_PASSWORD=$(openssl rand -hex 10)
+          MCP_USERNAME=$(cat /dev/urandom | tr -dc 'a-zA-Z' | head -c 8)
+          MCP_PASSWORD=$(openssl rand -hex 10)
 
           sed -i "s/INFLUXDB_USERNAME=.*/INFLUXDB_USERNAME=${INFLUXDB_USERNAME}/g" .env
           sed -i "s/INFLUXDB_PASSWORD=.*/INFLUXDB_PASSWORD=${INFLUXDB_PASSWORD}/g" .env
           sed -i "s/VISUALIZER_GRAFANA_USER=.*/VISUALIZER_GRAFANA_USER=${VISUALIZER_GRAFANA_USER}/g" .env
           sed -i "s/VISUALIZER_GRAFANA_PASSWORD=.*/VISUALIZER_GRAFANA_PASSWORD=${VISUALIZER_GRAFANA_PASSWORD}/g" .env
+          sed -i "s/MCP_USERNAME=.*/MCP_USERNAME=${MCP_USERNAME}/g" .env
+          sed -i "s/MCP_PASSWORD=.*/MCP_PASSWORD=${MCP_PASSWORD}/g" .env
 
           make build
           echo "Deploying using opcua ingestion"
-          make up_opcua_ingestion app=wind-turbine-anomaly-detection
+          make up_opcua_ingestion app=wind-turbine-anomaly-detection MCP=true
 
       - name: DBS download and scan for Time Series Wind Turbine Sample App
         if: ${{ (inputs.application == 'time-series') || (inputs.application == 'both') }}
@@ -679,7 +683,7 @@ jobs:
         if: ${{ (inputs.application == 'time-series') || (inputs.application == 'both') }}
         run: |
           cd industrial-edge-insights-time-series/
-          make down
+          make down MCP=true
           
       - name: Upload Scan artifact to Github
         if: ${{ (inputs.application == 'time-series') || (inputs.application == 'both') }}
@@ -724,7 +728,7 @@ jobs:
 
           make build
           echo "Deploying using mqtt ingestion"
-          make up
+          make up MCP=true
 
       - name: DBS download and scan for Multimodal Weld Defect Detection Sample App
         if: ${{ (inputs.application == 'multimodal') || (inputs.application == 'both') }}
@@ -745,7 +749,7 @@ jobs:
         if: ${{ (inputs.application == 'multimodal') || (inputs.application == 'both') }}
         run: |
           cd industrial-edge-insights-multimodal/
-          make down
+          make down MCP=true
 
       - name: Upload Scan artifact to Github
         if: ${{ (inputs.application == 'multimodal') || (inputs.application == 'both') }}
