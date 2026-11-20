@@ -17,7 +17,7 @@ It supports Balluff, Basler, and other GenICam-compatible cameras connected over
 Download the edge-ai-libraries source and go to the `dlstreamer-pipeline-server` folder.
 
 ```bash
-git clone https://github.com/open-edge-platform/edge-ai-libraries.git -b main
+git clone https://github.com/open-edge-platform/edge-ai-libraries.git -b release-2026.3.0
 cd edge-ai-libraries/microservices/dlstreamer-pipeline-server
 ```
 
@@ -199,7 +199,7 @@ This section provides detailed, step-by-step instructions for setting up and dep
 ### Step 1: Set Up the Environment
 
 ```bash
-git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b main
+git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b release-2026.3.0
 cd industrial-edge-insights-vision
 cp .env_pallet-defect-detection .env
 ```

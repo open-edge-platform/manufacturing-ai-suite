@@ -27,7 +27,7 @@ If you prefer to run the tests in a virtual environment, please follow these ste
    Clone the repository to your local machine or download the source code as a ZIP file directly from the [repository](https://github.com/open-edge-platform/manufacturing-ai-suite):
 
    ```bash
-   git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b main
+   git clone https://github.com/open-edge-platform/manufacturing-ai-suite.git -b release-2026.3.0
    ```
 
 2. **Create a Virtual Environment**
