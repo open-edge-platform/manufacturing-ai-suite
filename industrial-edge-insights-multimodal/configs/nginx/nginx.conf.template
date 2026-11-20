@@ -19,8 +19,7 @@ events {}
 
 http {
     # Global gateway timeouts. nginx-cert-gen.sh sets these to 60s (the nginx
-    # default) for the base/agentic profiles and 180s for the vllm profile,
-    # matching the previous per-file behavior.
+    # default) for the base profile and 180s for the agentic/vllm profiles.
     proxy_connect_timeout ${NGINX_DEFAULT_TIMEOUT};
     proxy_send_timeout ${NGINX_DEFAULT_TIMEOUT};
     proxy_read_timeout ${NGINX_DEFAULT_TIMEOUT};
