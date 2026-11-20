@@ -509,6 +509,8 @@ jobs:
             echo "::error::Bandit did not produce a non-empty report at $report_path."
             exit 1
           fi
+          jq -e '.errors | if type != "array" then error("Missing Bandit errors array")
+            elif length == 0 then true else error("Bandit skipped files: \(map(.filename))") end' "$report_path" > /dev/null
           echo "Please find the full report in $report_path" >> "$GITHUB_STEP_SUMMARY"
         fi
     - name: Convert JSON to CSV
@@ -550,6 +552,7 @@ jobs:
         path: |
           reports/bandit*.json
           reports/bandit-*.csv
+          factory-defects-inspector-agent/scan-heredocs/
 
   virus-scans:
     if: ${{ ((inputs.target == 'virus-scan') || (inputs.target == 'all-scans')) && (inputs.application != 'factory-defects') }}
@@ -986,7 +989,9 @@ jobs:
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         with:
           name: Factory Defects Inspector Agent CodeQL Report
-          path: results-factory-defects/python.sarif
+          path: |
+            results-factory-defects/python.sarif
+            factory-defects-inspector-agent/scan-heredocs/
 
   pylint-scans:
     name: Run Pylint Scan
@@ -1092,4 +1097,5 @@ jobs:
             reports/shellcheck-timeseries-report.json
             reports/shellcheck-multimodal-report.json
             reports/shellcheck-factory-defects-report.json
+            factory-defects-inspector-agent/scan-heredocs/
 
