@@ -4,6 +4,8 @@ import json
 import logging
 import subprocess
 import sys
+import re
+import shutil
 
 for handler in logging.root.handlers[:]:
     logging.root.removeHandler(handler)
@@ -14,7 +16,9 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 repo_path = os.path.abspath(os.path.join(current_dir, '../../../'))
 sys.path.extend([current_dir, repo_path, os.path.abspath(os.path.join(current_dir, '../configs/dlsps'))])
 
-hostIP = subprocess.check_output("ip route get 1 | awk '{print $7}'|head -1", shell=True).decode('utf-8').strip()
+host_route = subprocess.check_output(["ip", "route", "get", "1"], text=True)
+host_match = re.search(r"\bsrc\s+(\S+)", host_route)
+hostIP = host_match.group(1) if host_match else ""
 
 class utils:
     def __init__(self):
@@ -53,9 +57,9 @@ class utils:
             logging.info('\n**********Setting up Docker environment**********')
             os.chdir(self.base_dir)
             if value.get("app") == "pdd":
-                subprocess.check_output("cp .env_pallet-defect-detection .env", shell=True, executable='/bin/bash')
+                shutil.copyfile(".env_pallet-defect-detection", ".env")
             elif value.get("app") == "pcb":
-                subprocess.check_output("cp .env_pcb-anomaly-detection .env", shell=True, executable='/bin/bash')
+                shutil.copyfile(".env_pcb-anomaly-detection", ".env")
 
             # Update .env file with required variables
             self._update_env_file({
@@ -69,8 +73,8 @@ class utils:
             
             # Run setup and start services
             logging.info('\n**********Running setup and starting services**********')
-            subprocess.check_output("./setup.sh", shell=True, executable='/bin/bash')
-            subprocess.check_output("docker compose up -d", shell=True, executable='/bin/bash')
+            subprocess.check_output(["./setup.sh"])
+            subprocess.check_output(["docker", "compose", "up", "-d"])
             logging.info("Services started successfully")
         except Exception as e:
             raise Exception(f"Failed to start docker services: {e}")
@@ -127,10 +131,10 @@ class utils:
             
             # Execute sample_list.sh and parse output
             try:
-                output = subprocess.check_output("./sample_list.sh", shell=True, executable='/bin/bash').decode('utf-8')
+                output = subprocess.check_output(["./sample_list.sh"], text=True)
                 logging.info(f"sample_list.sh output: {output}")
             except subprocess.CalledProcessError as e:
-                error_output = e.output.decode('utf-8') if e.output else str(e)
+                error_output = e.output or str(e)
                 raise Exception(f"Failed to execute sample_list.sh: {error_output}")
             
             if "HTTP Status Code: 200" not in output or "Loaded pipelines:" not in output:
@@ -197,10 +201,14 @@ class utils:
         try:
             # Check initial pipeline status
             try:
-                status_output = subprocess.check_output("./sample_status.sh", shell=True, executable='/bin/bash').decode('utf-8')
+                status_output = subprocess.check_output(
+                    ["./sample_status.sh"],
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
             except subprocess.CalledProcessError as e:
                 # Handle case where status command fails (e.g., server not ready)
-                error_output = e.output.decode('utf-8') if e.output else e.stderr.decode('utf-8') if e.stderr else str(e)
+                error_output = e.output or e.stderr or str(e)
                 logging.warning(f"Initial status check failed (exit code {e.returncode}): {error_output}")
                 status_output = "[]"  # Assume no pipelines are running
             
@@ -212,13 +220,14 @@ class utils:
             pipeline_name = value.get("pipeline")
             try:
                 if pipeline_name:
-                    output = subprocess.check_output(f"./sample_start.sh -p {pipeline_name}", shell=True, executable='/bin/bash')
+                    output = subprocess.check_output(["./sample_start.sh", "-p", pipeline_name])
                     logging.info(f"Using configured pipeline: {pipeline_name}")
                 else:
-                    output = subprocess.check_output("./sample_start.sh", shell=True, executable='/bin/bash', stderr=subprocess.STDOUT)
+                    output = subprocess.check_output(["./sample_start.sh"], stderr=subprocess.STDOUT)
             except subprocess.CalledProcessError as e:
                 raise e
-            output = output.decode('utf-8')
+            if isinstance(output, bytes):
+                output = output.decode('utf-8')
             logging.info(f"sample_start.sh output: {output}")
             
             success_message = "posted successfully"
@@ -249,7 +258,7 @@ class utils:
         time.sleep(5)
         cmd = "./sample_status.sh"
         logging.info("Checking status for all pipelines")
-        output = subprocess.check_output(cmd, shell=True, executable='/bin/bash').decode('utf-8')
+        output = subprocess.check_output([cmd], text=True)
         logging.info(f"Status output:\n{output}")
         if "RUNNING" not in output:
             raise Exception("No RUNNING pipelines found in output")
@@ -269,7 +278,14 @@ class utils:
         time.sleep(5)
         container = "dlstreamer-pipeline-server"
         log_file = f"logs_{container}_{tc}.txt"
-        subprocess.run(f"docker compose logs --tail=1000 {container} | tee {log_file}", shell=True, executable='/bin/bash', check=True)
+        result = subprocess.run(
+            ["docker", "compose", "logs", "--tail=1000", container],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        with open(log_file, "w", encoding="utf-8") as file:
+            file.write(result.stdout)
         keywords = value.get("dlsps_log_param", [])
         missing_keywords = [keyword for keyword in keywords if not self.search_element(log_file, keyword)]
         if missing_keywords:
@@ -339,15 +355,18 @@ class utils:
             None: Prints cleanup status to console
         """
         os.chdir(self.base_dir)
-        subprocess.check_output("docker compose down -v", shell=True, executable='/bin/bash')
+        subprocess.check_output(["docker", "compose", "down", "-v"])
         time.sleep(3)        
         try:
-            subprocess.check_output("docker compose down -v", shell=True, executable='/bin/bash')
+            subprocess.check_output(["docker", "compose", "down", "-v"])
             print("✅ Docker compose down executed successfully.")
             time.sleep(3)
             print('\n**********Verifying no services are running**********')
 
-            docker_ps_output = subprocess.check_output("docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'", shell=True, executable='/bin/bash').decode('utf-8')
+            docker_ps_output = subprocess.check_output(
+                ["docker", "ps", "--format", "table {{.Names}}\t{{.Status}}\t{{.Ports}}"],
+                text=True,
+            )
             print("Current running containers:")
             print(docker_ps_output)
             lines = docker_ps_output.strip().split('\n')[1:]
@@ -398,7 +417,7 @@ class utils:
             return []
         
         try:
-            status_output = subprocess.check_output("./sample_status.sh", shell=True, executable='/bin/bash').decode('utf-8')
+            status_output = subprocess.check_output(["./sample_status.sh"], text=True)
             
             # Find running pipeline ID
             running_pipeline_id = next((p.get('id') for p in parse_json(status_output) 
@@ -409,9 +428,9 @@ class utils:
             
             # Execute stop command
             try:
-                output = subprocess.check_output("./sample_stop.sh", shell=True, executable='/bin/bash', stderr=subprocess.STDOUT).decode('utf-8')
+                output = subprocess.check_output(["./sample_stop.sh"], stderr=subprocess.STDOUT, text=True)
             except subprocess.CalledProcessError as e:
-                output = e.output.decode('utf-8') if e.output else str(e)
+                output = e.output or str(e)
                 logging.error(f"Command returned exit code {e.returncode}")
             
             time.sleep(3)
@@ -419,7 +438,7 @@ class utils:
                 raise Exception("Pipeline stop failed. Expected message not found: 'stopped successfully'")
             
             # Check final status and validate
-            final_status = subprocess.check_output("./sample_status.sh", shell=True, executable='/bin/bash').decode('utf-8')
+            final_status = subprocess.check_output(["./sample_status.sh"], text=True)
             aborted_count, running_count = final_status.count("ABORTED"), final_status.count("RUNNING")
             print(f"Status output:\n{final_status}")
             # Validate specific pipeline state
