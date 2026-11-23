@@ -7,11 +7,12 @@
 FROM python:3.14-slim
 
 # Install OpenCV dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgl1 \
-    libglib2.0-0 \ 
-    ffmpeg\
- && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libgl1 libglib2.0-0 ffmpeg && \
+    apt-get install -y --no-install-recommends --only-upgrade \
+        zlib1g libc-bin libc6 && \
+    rm -rf /var/lib/apt/lists/*
 
 ARG TIMESERIES_UID
 ARG TIMESERIES_USER_NAME

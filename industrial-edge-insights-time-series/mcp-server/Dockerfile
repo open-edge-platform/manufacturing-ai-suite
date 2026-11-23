@@ -8,6 +8,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOME=/tmp
 
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends --only-upgrade zlib1g libc-bin libc6 && \
+  rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system appuser && useradd --system --gid appuser --uid 1001 appuser
 
 COPY requirements.txt .

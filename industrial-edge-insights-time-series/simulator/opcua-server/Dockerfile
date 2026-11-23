@@ -5,6 +5,10 @@
 #
 FROM python:3.14-slim
 
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends --only-upgrade zlib1g libc-bin libc6 && \
+  rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 COPY opcua-server/requirements.txt .
 RUN pip install --upgrade pip
