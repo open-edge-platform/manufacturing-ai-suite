@@ -58,7 +58,7 @@ below has been validated.
    > [!NOTE]
    >
    > - If you are trying to deploy it on Ubuntu 26.04, update the `DLSTREAMER_PIPELINE_SERVER_IMAGE` value in .env
-   >   to `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu26-rc1` before deployment.
+   >   to `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu26-rc2` before deployment.
 
 
    - `HOST_IP`
