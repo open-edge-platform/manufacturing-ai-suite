@@ -8,6 +8,10 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends --only-upgrade zlib1g libc-bin libc6 && \
+  rm -rf /var/lib/apt/lists/*
+
 RUN groupadd -r appuser && useradd -r -g appuser -u 1001 appuser
 
 COPY requirements.txt .
