@@ -138,6 +138,10 @@ cd industrial-edge-insights-multimodal
 make down
 ```
 
+> [!NOTE]
+> The vLLM service can leave memory in use after `make down`. If memory usage is still high, clear the
+> page cache as described in [Troubleshooting](#troubleshooting).
+
 ## Troubleshooting
 
 - `vllm-server` startup delay after deployment

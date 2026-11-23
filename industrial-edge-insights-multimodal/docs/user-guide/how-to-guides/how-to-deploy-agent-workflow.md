@@ -213,3 +213,8 @@ Agent reasoning prompts are in `configs/agentic/prompts/weld-quality-monitoring.
 cd industrial-edge-insights-multimodal
 make down
 ```
+
+> [!NOTE]
+> The vLLM service can leave memory in use after `make down`. If memory usage is still high, clear the
+> page cache as described in the
+> [vLLM troubleshooting section](./how-to-deploy-vllm-service.md#troubleshooting).
