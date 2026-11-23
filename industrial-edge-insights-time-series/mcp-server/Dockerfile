@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-FROM python:3.12.12-slim-bookworm
+FROM python:3.14-slim
 
 WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
