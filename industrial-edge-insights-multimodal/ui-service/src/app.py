@@ -58,7 +58,7 @@ _request_count = 0
 REST_API_ROOT_PATH = os.getenv('REST_API_ROOT_PATH', '')
 app = FastAPI(
     title="APM UI",
-    docs_url=None,
+    docs_url="/docs",
     redoc_url=None,
     root_path=REST_API_ROOT_PATH
 )
