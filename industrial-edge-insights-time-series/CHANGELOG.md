@@ -6,25 +6,34 @@ All notable changes to this project are documented in this file.
 
 ### Added
 - Added cross-harness AI-agent instructions, skill catalogs, and deployment and test helpers for the Time Series sample apps. ([#17])
+- Added an optional Time Series MCP server and example client for pipeline control, status checks, and queries for observed sources, anomaly summaries, and processing metrics. ([#37], [#67])
+- Added GPU render-device access for Ubuntu 26.04 hosts in Docker Compose. ([#62])
 
 ### Changed
-- Updated sample app images to `2026.3.0` and Python base images to 3.14. ([#4432]) ([#4440])
+- Updated the sample app image tag to `2026.3.0-rc2` on the release branch and moved the Python base images, including the MCP server's, to 3.14. ([#4432], [#4440], [#106], [#109])
+- Updated Telegraf, InfluxDB, Grafana, Eclipse Mosquitto, and NGINX container images. ([#66])
 - Updated OPC UA simulator dependencies for compatibility with Python 3.14. ([#4475])
-- Improved GPU/NPU functional tests to verify accelerated classifier execution and deployment readiness. ([#4376])
-- Added validated platform guidance and updated deployment documentation. ([#4530]) ([#4456])
+- Improved GPU/NPU functional tests to verify accelerated classifier execution and deployment readiness. ([#4376], [#41])
+- Updated the wind turbine anomaly detection model and training dependencies, including setuptools. ([#42], [#4412])
 
 ### Removed
 - Removed Helm charts, Helm deployment documentation, and Helm-specific test and CI support; Docker Compose remains the supported deployment method. ([#22])
 
 ### Security
 - Restricted published service ports to the configured host IP, defaulting to loopback, and hardened shell operations. ([#4520]) ([#4436])
+- Updated `aiohttp` to 3.14.4 in the test dependencies and addressed security scan findings in deployment and test utilities. ([#32])
+- Upgraded `zlib1g`, `libc-bin`, and `libc6` in the MCP server image. ([#106])
 
 ### Fixed
 - Fixed the `make OPC-UA` output to suppress echoed Telegraf configuration. ([#4503])
 - Updated the MQTT publisher restart policy so it recovers after host or container restarts. ([#4484])
+- Fixed MCP pipeline status reporting so it reports a stopped pipeline after verifying Kapacitor has shut down. ([#79])
+- Configured the MCP container to bypass HTTP proxies for requests to other services in the stack. ([#55])
 
 ### Documentation
-- Added cross-harness deployment and testing guidance and updated release, platform, and reference-script documentation. ([#17]) ([#4530]) ([#4456])
+- Expanded the deployment skill with standalone installation support and documented deployment prerequisites. ([#34])
+- Clarified MCP parameter support and updated release links and clone instructions. ([#59], [#83], [#86], [#88], [#92])
+- Added validated-platform guidance and updated reference-script documentation and third-party dependency notices. ([#4530], [#4456], [#52])
 
 ---
 [#4530]: https://github.com/open-edge-platform/edge-ai-suites/pull/4530
@@ -33,10 +42,29 @@ All notable changes to this project are documented in this file.
 [#4440]: https://github.com/open-edge-platform/edge-ai-suites/pull/4440
 [#4436]: https://github.com/open-edge-platform/edge-ai-suites/pull/4436
 [#4432]: https://github.com/open-edge-platform/edge-ai-suites/pull/4432
+[#4412]: https://github.com/open-edge-platform/edge-ai-suites/pull/4412
 [#4376]: https://github.com/open-edge-platform/edge-ai-suites/pull/4376
 [#4503]: https://github.com/open-edge-platform/edge-ai-suites/pull/4503
 [#4484]: https://github.com/open-edge-platform/edge-ai-suites/pull/4484
 [#4475]: https://github.com/open-edge-platform/edge-ai-suites/pull/4475
+[#109]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/109
+[#106]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/106
+[#92]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/92
+[#88]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/88
+[#86]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/86
+[#83]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/83
+[#79]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/79
+[#67]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/67
+[#66]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/66
+[#62]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/62
+[#59]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/59
+[#55]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/55
+[#52]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/52
+[#42]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/42
+[#41]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/41
+[#37]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/37
+[#34]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/34
+[#32]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/32
 [#17]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/17
 [#22]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/22
 

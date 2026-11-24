@@ -12,10 +12,22 @@ The OPC-UA server simulator acts as a dummy OPC-UA server creating the nodes for
 
 The OPC-UA server simulator is used for ingesting the wind turbine data in the `Wind Turbine Anomaly Detection Sample App`.
 
+## Time Series MCP Server
+
+The Time Series Model Context Protocol (MCP) server gives MCP clients access to the Wind Turbine Anomaly Detection Sample App's analytics through the HTTPS gateway.
+Clients can start and stop the analytics pipeline, check its status, and query data sources, anomaly summaries, and processing metrics.
+
 ## Supported Versions
 
 > [!NOTE]
 > The tags suffixed with `-weekly` and `-rcX` are developmental builds, may not be stable.
+
+### [2026.3.0](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/release-notes.html#version-2026-3)
+
+#### Deploy using Docker Compose
+
+For more details on deployment, refer to the [documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html).
+
 
 ### [2026.2.0](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/release-notes.html#version-2026-2)
 
