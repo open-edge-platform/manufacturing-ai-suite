@@ -4,23 +4,27 @@
 
 **December 2026**
 
-This release introduces **AI agent skills for deploying the app and MCP server**, **AI agent skills for building the Time Series sample app**, **Docker Compose-only deployment**, and **2026.3.0 service images**, alongside reliability fixes and documentation improvements.
+This release introduces **AI agent skills for deploying the app and MCP server**, **AI agent skills for building the Time Series sample app**, **Docker Compose-only deployment**, adds **Ubuntu 26.04 GPU support** and **2026.3.0 service images**, alongside reliability fixes and documentation improvements.
 
 **New**
 
+- **Time Series MCP server**: added an optional server that lets clients start and stop analytics, check pipeline status, and query observed sources, anomaly summaries, and processing metrics. An example client is included.
 - **AI agent skills**: added cross-harness instructions to build a Time Series sample app from a business use case, deploy the app and MCP server, and run tests, with example prompts and helpers.
 
 **Improved**
 
 - **Deployment**: removed Helm support and related tests; Docker Compose is now the supported deployment method.
-- **Runtime and dependencies**: updated sample app images to 2026.3.0, Python base images to 3.14, and OPC UA simulator dependencies for compatibility.
-- **Platform validation**: improved GPU functional checks and added validated-platform guidance.
-- **Network and shell security**: restricted published ports to the configured host, defaulting to loopback, and hardened shell operations.
+- **Runtime and dependencies**: updated the Telegraf, InfluxDB, Grafana, Mosquitto, and NGINX images, moved Python base images to 3.14, and updated OPC UA simulator dependencies and the wind turbine anomaly detection model training dependencies.
+- **Ubuntu 26.04 GPU support**: enabled GPU render-device access on Ubuntu 26.04 hosts, expanded GPU deployment checks, and added guidance on validated platforms.
+- **Network defaults**: restricted published ports to the configured host interface, defaulting to loopback. The NGINX gateway no longer publishes the MQTT TCP port by default.
+- **Security**: hardened shell operations and upgraded `aiohttp` in the test dependencies and `zlib1g`, `libc-bin`, and `libc6` in the MCP server image.
 - **Reliability**: configured the MQTT publisher to restart after container or host restarts.
 - **Documentation**: updated deployment, release, platform, and reference-script guidance.
 
 **Fixed**
 
+- **MCP pipeline status**: reports the pipeline as stopped after verifying Kapacitor has shut down.
+- **MCP deployments behind proxies**: configured the MCP container to bypass HTTP proxies for requests to other services in the stack.
 - **OPC UA command output**: corrected `make up_opcua_ingestion` so it no longer displays echoed Telegraf configuration.
 
 ---

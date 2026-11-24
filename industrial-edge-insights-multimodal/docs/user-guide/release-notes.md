@@ -4,25 +4,32 @@
 
 **December 2026**
 
-This release adds **authentication for the SeaweedFS filer UI**, **AI agent skills for deploying the app and MCP server**, and **AI agent skills for building the multimodal sample app**. It also updates the agentic workflow's LLM for better results, preserves SeaweedFS data across restarts, and includes bug fixes and documentation improvements.
+This release adds **authentication for the SeaweedFS filer UI**, **AI agent skills for deploying the app and MCP server**, **AI agent skills for building the multimodal sample app** and adds **Ubuntu 26.04 deployment support**. It also updates the agentic workflow's LLM for better results, preserves SeaweedFS data across restarts, and includes bug fixes and documentation improvements.
 
 **New**
 
 - **MCP server**: added agent tools to control pipelines, retrieve fusion data, and run agentic analyses.
 - **AI agent skills**: added cross-harness guidance to build a multimodal sample app from a business use case and help deploy the app and MCP server, with example prompts and testing helpers.
+- **Automatic model downloads**: added automatic downloads for the vLLM base model and LoRA adapter when they are missing, and for the language model used by the agentic workflow.
+- **Swagger UI**: added interactive API documentation for the Multimodal UI service.
 
 **Improved**
 
 - **Insights UI**: integrated the Insights Workbench into the multimodal UI service, replacing the standalone service.
 - **Detection controls**: added label and confidence filters with parameterized queries.
 - **Classification model**: updated the weld-defect model to the Geti 3 version.
+- **Agentic workflow model**: updated the language model used for agentic analyses.
 - **Deployment**: removed Helm support; Docker Compose is now the supported deployment method.
-- **Runtime and validation**: updated Python base images to 3.14 and sample-app images to 2026.3.0.
-- **Security**: added Basic Authentication to the SeaweedFS filer UI and restricted published ports to the configured host, defaulting to loopback.
+- **Platform support**: added Ubuntu 26.04 GPU access with the matching DL Streamer image. The hardware check now recognizes Panther Lake and newer Intel Core Ultra platforms; passing the check does not imply platform validation.
+- **vLLM memory usage**: reduced the default memory footprint and added guidance for sizing GPU memory.
+- **Runtime and dependencies**: updated Python base images to 3.14 and refreshed third-party container images. The release branch currently references `2026.3.0-rc2` images.
+- **Security**: added Basic Authentication to the SeaweedFS filer UI, restricted published ports to the configured host (defaulting to loopback), and upgraded `aiohttp` in the test dependencies and `zlib1g`, `libc-bin`, and `libc6` in the MCP server image.
 - **Documentation**: updated MCP, agentic-workflow, VLM fine-tuning, and platform guidance.
 
 **Fixed**
 
+- **MCP routing and readiness**: expanded gateway routing and readiness checks for MCP deployments.
+- **Agentic inference**: aligned gateway and streaming timeouts with vLLM defaults and switched vision attention to PyTorch SDPA for compatibility.
 - **SeaweedFS data persistence**: fixed long-running data loss by persisting storage to disk and restarting services after failures.
 - **Code and shell checks**: addressed code-scanning findings and unsafe shell operations.
 

@@ -8,21 +8,31 @@ All notable changes to this project are documented in this file.
 - Added an MCP server for pipeline control, fusion-data access, and agentic analysis workflows. ([#15])
 - Added cross-harness AI-agent guidance, skill catalogs, and deployment and test helpers. ([#17])
 - Added label and confidence filters with parameterized queries to the insights UI. ([#13])
+- Added automatic downloads for the vLLM base model and LoRA adapter when missing, and for the language model used by the agentic workflow. ([#54])
+- Added Swagger UI for the multimodal UI service API. ([#101])
+- Added Ubuntu 26.04 support, including GPU render-device access and a matching DL Streamer Pipeline Server image. ([#62])
 
 ### Changed
 - Consolidated the Insights Workbench into the multimodal UI service and retired its standalone container. ([#4494])
 - Updated the weld-defect classification model to the Geti 3 version. ([#18])
 - Removed Helm as a supported deployment option, leaving Docker Compose as the supported method. ([#22])
-- Updated Python base images to 3.14 and multimodal images to version `2026.3.0`. ([#4440]) ([#4432])
-- Expanded CPU, GPU, NPU, vLLM, and agentic deployment validation in functional tests and CI. ([#4376]) ([#4500])
+- Updated Python base images to 3.14 and moved the sample app and DL Streamer Pipeline Server image tags to the 2026.3 RC2 release. ([#4440]) ([#4432]) ([#106]) ([#109])
+- Refreshed third-party container images, including Telegraf, InfluxDB, Grafana, Mosquitto, NGINX, MediaMTX, SeaweedFS, and coturn. ([#66])
+- Reduced the UI service image size and lowered the default vLLM memory footprint. ([#45]) ([#70])
+- Expanded CPU, GPU, NPU, vLLM, and agentic deployment validation in functional tests and CI. ([#4376]) ([#4500]) ([#41])
 - Updated deployment and user documentation for MCP, agentic workflows, VLM fine-tuning, and validated platforms. ([#28]) ([#33]) ([#4521]) ([#4530])
+- Documented model license review, vLLM memory sizing, and memory retention after shutdown; refreshed setup and release links. ([#70]) ([#71]) ([#83]) ([#86]) ([#88]) ([#92]) ([#107])
 
 ### Security
 - Added Basic Authentication to the SeaweedFS filer UI and restricted published ports to the configured host IP, defaulting to loopback. ([#4516]) ([#4520])
-- Addressed code-scanning and ShellCheck findings in the UI and deployment scripts. ([#30]) ([#4436])
+- Addressed code-scanning and ShellCheck findings in the UI and deployment scripts, and updated the test dependency `aiohttp` to 3.14.4. ([#30]) ([#32]) ([#60]) ([#4436])
+- Upgraded `zlib1g`, `libc-bin`, and `libc6` in the MCP server image. ([#106])
 
 ### Fixed
 - Fixed long-running SeaweedFS data loss by persisting storage to disk and restarting services after failures. ([#4506])
+- Added MCP pipeline status reporting and improved route handling, readiness checks, and example-client compatibility. ([#46]) ([#67]) ([#74])
+- Fixed agentic inference compatibility by aligning gateway and streaming timeouts with vLLM defaults and using PyTorch SDPA for vision attention. ([#99]) ([#100])
+- Updated the hardware check to recognize Panther Lake and newer Intel Core Ultra platforms, and updated OpenCV for Nova Lake compatibility. Passing the hardware check does not imply platform validation. ([#95]) ([#96])
 
 ---
 [#4530]: https://github.com/open-edge-platform/edge-ai-suites/pull/4530
@@ -36,7 +46,31 @@ All notable changes to this project are documented in this file.
 [#4436]: https://github.com/open-edge-platform/edge-ai-suites/pull/4436
 [#4432]: https://github.com/open-edge-platform/edge-ai-suites/pull/4432
 [#4376]: https://github.com/open-edge-platform/edge-ai-suites/pull/4376
+[#109]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/109
+[#107]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/107
+[#106]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/106
+[#101]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/101
+[#100]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/100
+[#99]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/99
+[#96]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/96
+[#95]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/95
+[#92]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/92
+[#88]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/88
+[#86]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/86
+[#83]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/83
+[#74]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/74
+[#71]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/71
+[#70]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/70
+[#67]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/67
+[#66]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/66
+[#62]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/62
+[#60]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/60
+[#54]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/54
+[#46]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/46
+[#45]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/45
+[#41]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/41
 [#33]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/33
+[#32]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/32
 [#30]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/30
 [#28]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/28
 [#22]: https://github.com/open-edge-platform/manufacturing-ai-suite/pull/22
