@@ -2,9 +2,9 @@
 
 ## Version 2026.3
 
-**Release Date**: December 2026
+**Release Date**: December 7, 2026
 
-This initial release introduces **Hermes-based fleet deployment**, **MCP access to remote manufacturing applications**,
+This initial release introduces **Hermes-based fleet deployment**, **Model Context Protocol (MCP) access to remote manufacturing applications**,
 and **operator workflows for investigating defects across edge nodes**, alongside a reusable
 persona and optional WebUI.
 

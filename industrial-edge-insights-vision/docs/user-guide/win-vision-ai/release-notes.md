@@ -2,7 +2,9 @@
 
 ## Version 2026.3.0
 
-**New**:
+**Release Date**: December 7, 2026
+
+**Improved**:
 
 - Updated DL Streamer to 2026.3.0.
 
