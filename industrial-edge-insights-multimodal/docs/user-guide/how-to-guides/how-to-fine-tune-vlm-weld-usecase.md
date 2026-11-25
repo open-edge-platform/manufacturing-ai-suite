@@ -237,7 +237,7 @@ expects, instead of re-deriving the dataset per consumer.
 
 `train_qwen.py` is the generic fine-tuning script that uses the Unsloth
 library and LoRA fine-tuning method described in
-[Step: Fine-Tune the Model](./how-to-fine-tune-vlm.md#step-fine-tune-the-model).
+[Step: Fine-Tune the Model](https://docs.openedgeplatform.intel.com/dev/OEP-articles/how-to-fine-tune-vlm.html#step-fine-tune-the-model).
 For the weld dataset produced by Step 2 above, invoke `train_qwen.py`:
 
 ```bash
@@ -253,11 +253,12 @@ python train_qwen.py \
   `prepare_weld_dataset.py` in [Step 2](#step-2-prepare-the-dataset).
   `train_qwen.py` is not specific to weld data; it
   only needs the generic `image` and `conversation_json` column shape
-  described in [how-to-fine-tune-vlm.md](./how-to-fine-tune-vlm.md).
+  described in [VLM Fine-Tuning with Unsloth Library](https://docs.openedgeplatform.intel.com/dev/OEP-articles/how-to-fine-tune-vlm.html).
 
 - All other flags (`--lora-r`, `--max-seq-length`,
   `--per-device-train-batch-size`, etc.) keep their generic defaults.
-  See [how-to-fine-tune-vlm.md](./how-to-fine-tune-vlm.md) for the selection rationale for each default. This
+  See [VLM Fine-Tuning with Unsloth Library](https://docs.openedgeplatform.intel.com/dev/OEP-articles/how-to-fine-tune-vlm.html)
+  for the selection rationale for each default. This
   weld instance does not require overriding them: 2048 tokens fits the
   system turn, the sensor-block user turn, and the structured assistant
   report described in [Step 2](#step-2-prepare-the-dataset), and a
@@ -270,7 +271,7 @@ python train_qwen.py \
 ## Step 4: Run Inference (Weld Instance)
 
 `infer_qwen.py` is the generic inference script described in
-[Step: Run Inference](./how-to-fine-tune-vlm.md#step-run-inference).
+[Step: Run Inference](https://docs.openedgeplatform.intel.com/dev/OEP-articles/how-to-fine-tune-vlm.html#step-run-inference).
 Configure with the weld adapter and dataset:
 
 ```bash
@@ -344,7 +345,7 @@ You can source the raw images and sensor CSV files referenced in [Step 1](#step-
 from [IntelLabs/Intel_Robotic_Welding_Multimodal_Dataset](https://huggingface.co/datasets/IntelLabs/Intel_Robotic_Welding_Multimodal_Dataset)
 (Apache-2.0) — see that dataset's card for its own license terms. The
 generic toolkit license and third-party component licenses are listed in
-[License](./how-to-fine-tune-vlm.md#license).
+[License](https://docs.openedgeplatform.intel.com/dev/OEP-articles/how-to-fine-tune-vlm.html#license).
 
 For fine-tuning and inference on the dataset produced here, see
-[how-to-fine-tune-vlm.md](./how-to-fine-tune-vlm.md).
+[VLM Fine-Tuning with Unsloth Library](https://docs.openedgeplatform.intel.com/dev/OEP-articles/how-to-fine-tune-vlm.html).
