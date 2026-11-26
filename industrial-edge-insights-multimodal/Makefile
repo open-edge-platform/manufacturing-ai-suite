@@ -262,35 +262,34 @@ check_models:
 .PHONY: check_hardware
 check_hardware:
 	@if [ "$$(printf '%s' '$(PLATFORM_CHECK)' | tr '[:upper:]' '[:lower:]')" = "false" ]; then \
-		echo "WARNING: PLATFORM_CHECK=false, skipping Panther Lake hardware check (CI/validation use only)."; \
+		echo "WARNING: PLATFORM_CHECK=false, skipping Intel Core Ultra Series 3 or newer hardware check (CI/validation use only)."; \
 		exit 0; \
 	fi; \
-	echo "Checking hardware compatibility (Intel Panther Lake / Core Ultra 3xx required)..."; \
-	cpu_model=$$(lscpu | awk -F: '/Model name:/ {gsub(/^[ \t]+/, "", $$2); print $$2; exit}'); \
-	cpu_vendor=$$(lscpu | awk -F: '/Vendor ID:/ {gsub(/^[ \t]+/, "", $$2); print $$2; exit}'); \
-	cpu_family=$$(lscpu | awk -F: '/CPU family:/ {gsub(/^[ \t]+/, "", $$2); print $$2; exit}'); \
-	cpu_model_id=$$(lscpu | awk -F: '/^Model:/ {gsub(/^[ \t]+/, "", $$2); print $$2; exit}'); \
-	echo "Detected CPU: $$cpu_model"; \
+	echo "Checking hardware compatibility (Intel Core Ultra Series 3 or newer required: PTL, NVL, and later)..."; \
+	cpu_info=$$(LC_ALL=C lscpu) || exit 1; \
+	cpu_model=$$(printf '%s\n' "$$cpu_info" | awk -F: '/Model name:/ {gsub(/^[ \t]+|[ \t]+$$/, "", $$2); print $$2; exit}'); \
+	cpu_vendor=$$(printf '%s\n' "$$cpu_info" | awk -F: '/Vendor ID:/ {gsub(/^[ \t]+|[ \t]+$$/, "", $$2); print $$2; exit}'); \
+	cpu_family=$$(printf '%s\n' "$$cpu_info" | awk -F: '/CPU family:/ {gsub(/^[ \t]+|[ \t]+$$/, "", $$2); print $$2; exit}'); \
+	cpu_model_id=$$(printf '%s\n' "$$cpu_info" | awk -F: '/^[ \t]*Model:/ {gsub(/^[ \t]+|[ \t]+$$/, "", $$2); print $$2; exit}'); \
+	echo "Detected CPU: $$cpu_model (Family $$cpu_family, Model $$cpu_model_id)"; \
 	\
 	if [ "$$cpu_vendor" != "GenuineIntel" ]; then \
 		echo "Error: An Intel processor is required."; \
 		exit 1; \
 	fi; \
 	\
-	if ! echo "$$cpu_model" | grep -Eqi 'Core\(TM\)[[:space:]]+Ultra[[:space:]]+([3579]|X[3579])[[:space:]]+3[0-9]{2}[A-Z]*'; then \
-		echo "Error: Intel Core Ultra 3xx processor is required."; \
-		echo "Detected: $$cpu_model"; \
-		exit 1; \
+	if ! echo "$$cpu_model" | grep -Eqi 'Core(\(TM\))?[[:space:]]+Ultra[[:space:]]+([3579]|X[3579])[[:space:]]+([3-9][0-9]{2}|[1-9][0-9]{3,})[A-Z]*([[:space:]]|$$)'; then \
+		case "$$cpu_family:$$cpu_model_id" in \
+			6:204) echo "Hardware check passed: Panther Lake (PTL), identified by CPU family/model."; exit 0 ;; \
+			18:1|18:3) echo "Hardware check passed: Nova Lake (NVL), identified by CPU family/model."; exit 0 ;; \
+			*) \
+				echo "Error: Intel Core Ultra Series 3 or newer processor is required (Panther Lake/PTL, Nova Lake/NVL, or later)."; \
+				echo "CPU branding and family/model are not recognized as a supported platform."; \
+				exit 1 ;; \
+		esac; \
 	fi; \
 	\
-	if [ "$$cpu_family" != "6" ] || [ "$$cpu_model_id" != "204" ]; then \
-		echo "Error: Unsupported CPU platform."; \
-		echo "Required: Intel Panther Lake (Family 6, Model 204)."; \
-		echo "Detected: $$cpu_model (Family $$cpu_family, Model $$cpu_model_id)"; \
-		exit 1; \
-	fi; \
-	\
-	echo "Hardware check passed: $$cpu_model (Panther Lake)."
+	echo "Hardware check passed: $$cpu_model (Intel Core Ultra Series 3 or newer)."
 
 .PHONY: up_vllm
 up_vllm: check_hardware check_env_variables validate_host_ip down
@@ -326,7 +325,7 @@ _download_agentic_model:
 	mkdir -p configs/agentic/models; \
 	docker run --rm --user 0:0 --entrypoint sh \
 		-v "$$PWD/configs/agentic/models:/opt/models" \
-		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
 		-c 'chown -R "$$(stat -c %u:%g /opt)" /opt/models' || exit 1; \
 	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_VLLM) up -d model-download || exit 1; \
 	echo "Waiting for model-download service to become healthy on port 8200..."; \
@@ -391,7 +390,7 @@ _download_vllm_models:
 		echo "configs/vllm is not writable; restoring ownership to $$(id -un)."; \
 		docker run --rm --user 0:0 --entrypoint sh \
 			-v "$$PWD/configs/vllm:/opt/models" \
-			$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+			$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
 			-c 'chown "$$1" /opt/models' sh "$$(id -u):$$(id -g)" || exit 1; \
 	fi; \
 	staging_dir=$$(mktemp -d configs/vllm/.download.XXXXXX) || exit 1; \
@@ -399,7 +398,7 @@ _download_vllm_models:
 	echo "Staging downloads in $$staging_dir (retained on failure)."; \
 	docker run --rm --user 0:0 --entrypoint sh \
 		-v "$$PWD/configs/vllm:/opt/models" \
-		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
 		-c 'chown "$$(stat -c %u:%g /opt)" "/opt/models/$$1"' sh "$$staging_name" || exit 1; \
 	resp_file=$$(mktemp) || exit 1; \
 	cleanup_download() { \
@@ -478,7 +477,7 @@ _download_vllm_models:
 	adapter_dst=$$(basename "${VLLM_ADAPTER_REPO_ID}"); \
 	docker run --rm --user 0:0 --entrypoint sh \
 		-v "$$PWD/configs/vllm:/opt/models" \
-		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
 		-c 'set -e; \
 			staging="/opt/models/$$1"; \
 			test -s "$$staging/huggingface/$$2/config.json"; \
@@ -581,6 +580,8 @@ help:
 	@echo "  make validate_host_ip             - Validate HOST_IP in .env"
 	@echo "  make check_models                 - Check that the VLM model directories are populated"
 	@echo "  make check_hardware               - Check the platform for the vLLM/agentic stacks"
+	@echo "      Requires Intel Core Ultra Series 3 or newer (PTL, NVL, and later)"
+	@echo "      Unbranded samples: recognizes PTL (family 6/model 204) and NVL (family 18/model 1 or 3)"
 	@echo "      Optional: PLATFORM_CHECK=false skips the check (CI/validation use only)"
 	@echo "  make download_model [DOWNLOAD_AGENTIC=true] - Download VLM models; optionally include the agentic model"
 	@echo "  make upload_tar_file              - Upload the weld anomaly detection UDF package to the Time-Series Analytics microservice"

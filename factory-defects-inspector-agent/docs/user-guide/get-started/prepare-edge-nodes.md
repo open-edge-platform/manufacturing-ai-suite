@@ -13,7 +13,8 @@ Do the tasks on this page on each edge node. Use an existing administrator accou
 use the central Hermes host.
 
 1. [Create or Reuse the Deployment Account](#create-or-reuse-the-deployment-account)
-2. [Configure a Proxy](#configure-a-proxy-only-if-required) (only if your network needs one)
+2. [Check for Conflicting Containers and Ports](#check-for-conflicting-containers-and-ports)
+3. [Configure a Proxy](#configure-a-proxy-only-if-required) (only if your network needs one)
 
 ## Create or Reuse the Deployment Account
 
@@ -75,6 +76,20 @@ use the central Hermes host.
 >
 > These actions can stop other workloads and destroy data. Plan, back up, and limit each
 > reset to the intended deployment resources.
+
+## Check for Conflicting Containers and Ports
+
+The applications that you deploy start containers with fixed names and publish ports on the
+node. A deployment fails if another container already has one of the names, or if another
+process listens on one of the ports. Docker also keeps the names of stopped containers.
+
+Make sure that the node is clean for each application that you plan to deploy on it. Two
+deployments on the same node conflict if they use the same container names or ports. The
+installer rejects two deployments that use the same MCP port on one node.
+
+> [!CAUTION]
+> Do not run `docker rm -f` on all containers or `docker system prune` to clear a conflict.
+> This can stop other workloads and delete their data.
 
 ## Configure a Proxy (Only If Required)
 

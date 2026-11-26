@@ -24,12 +24,12 @@ chmod 640 "$SSL_DIR/.htpasswd"
 # Render the profile-specific server locations (insights-ui, agentic-ui,
 # metrics API) included by nginx.conf.template, and the matching gateway
 # timeouts. "base" has no extra locations and keeps nginx's 60s defaults;
-# "agentic" adds all of them; "vllm" adds only insights-ui. These values
-# reproduce what used to be three separate, duplicated nginx.conf files.
+# "agentic" adds all of them; "vllm" adds only insights-ui. Both use
+# 180s default gateway and stream timeouts.
 case "${NGINX_PROFILE:-base}" in
     agentic|agentic_mcp)
-        NGINX_DEFAULT_TIMEOUT="${NGINX_DEFAULT_TIMEOUT:-60s}"
-        NGINX_STREAM_TIMEOUT="${NGINX_STREAM_TIMEOUT:-300s}"
+        NGINX_DEFAULT_TIMEOUT="${NGINX_DEFAULT_TIMEOUT:-180s}"
+        NGINX_STREAM_TIMEOUT="${NGINX_STREAM_TIMEOUT:-180s}"
         cat > "$SSL_DIR/nginx-extra-locations.conf" <<'EOF'
         location = /insights-ui {
             return 308 /insights-ui/;

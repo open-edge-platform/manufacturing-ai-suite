@@ -9,9 +9,21 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
 
 | Component    | Minimum Requirement                                 |
 |--------------|-----------------------------------------------------|
-| **Hardware** | Intel® Core™ Ultra Series 3 processor or newer only |
+| **Hardware** | Intel® Core™ Ultra Series 3 (Panther Lake/PTL) processor or newer |
 | **RAM**      | Minimum 32 GB                                       |
 | **Storage**  | Minimum 256 GB (512 GB recommended)                 |
+
+The platform check accepts Panther Lake (PTL) and newer Intel Core Ultra series,
+including Nova Lake (NVL), the codename for Intel's upcoming Core Ultra Series 4
+processors. It checks the Intel vendor and Core Ultra series in the CPU model
+name. For unbranded engineering samples (for example, `Genuine Intel(R) 0000`),
+it also recognizes PTL by CPU family 6/model 204 and NVL by family 18/model 1 or 3.
+Unknown unbranded platforms are rejected rather than inferred from higher CPU
+family/model numbers. Run `make check_hardware` to check the CPU before deployment.
+
+Passing this check does not imply platform validation. Newer platforms also
+require compatible GPU drivers and inference runtimes; only the hardware listed
+below has been validated.
 
 ### Validated Platforms
 
@@ -27,7 +39,7 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
    > [!NOTE]
    >
    > - If you are trying to deploy it on Ubuntu 26.04, update the `DLSTREAMER_PIPELINE_SERVER_IMAGE` value in .env
-   >   to `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu26-rc1` before deployment.
+  >   to `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu26-rc3` before deployment.
 
    - `HOST_IP`
    - `INFLUXDB_USERNAME`, `INFLUXDB_PASSWORD`
@@ -125,6 +137,10 @@ To bring down the full stack:
 cd industrial-edge-insights-multimodal
 make down
 ```
+
+> [!NOTE]
+> The vLLM service can leave memory in use after `make down`. If memory usage is still high, clear the
+> page cache as described in [Troubleshooting](#troubleshooting).
 
 ## Troubleshooting
 

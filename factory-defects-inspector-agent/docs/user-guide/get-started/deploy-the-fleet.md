@@ -23,7 +23,7 @@ To connect an application that you deploy yourself, see
 
 - Hermes uses the local model. See
   [Install Hermes, Set the Persona, and Bring Up the WebUI](set-up-central-host.md).
-- The `SOUL.md` persona is installed on the default profile.
+- The `SOUL.md` persona is installed on the default profile. `./hermes-webui.sh start` installs it.
 - The edge nodes are ready. See [Prepare the Edge Nodes](prepare-edge-nodes.md).
 
 The installer recreates each node profile as a clone of the default profile. The node
@@ -132,14 +132,22 @@ central host. Then, for each deployment, it can do these tasks:
 | `--hosts PATH` | Use a different inventory file. |
 | `--node NAME` | Select a node. Can be repeated. |
 | `--recipe NAME` | Select a recipe. Can be repeated. |
-| `--interactive` | Work through one deployment in an interactive Hermes session. |
+| `--interactive` | Work through one deployment in an interactive Hermes session. Not supported with multiple nodes; see the note below. |
 | `--no-deploy` | Connect applications that are already running. See [Connect applications that are already running](#connect-applications-that-are-already-running). |
 | `--prepare-only` | Prepare the nodes and node profiles, then stop. Cannot be used with `--no-deploy`. |
+| `--teardown` | Remove the central-host state of the selected deployments: tunnel, MCP registration, node profile, stored credential, and pinned certificate. Shows the plan and asks for confirmation in the terminal. Does not connect to nodes. Cannot be combined with `--interactive`, `--prepare-only`, or `--no-deploy`. See [Remove a Node or Deployment](../how-to-guides/admin-remove-a-node-or-deployment.md). |
 | `--user NAME` | Set the default SSH user when the inventory has none. |
 | `--skip-platform-check` | Skip the hardware check. Use only for CI or validation. Do not use it to bypass production hardware requirements. |
 
 If you give no `--node` or `--recipe`, the installer processes every assignment in the
 inventory.
+
+> [!IMPORTANT]
+> `--interactive` does not work with multiple nodes. The installer runs several deployments in
+> parallel, and they cannot share one interactive terminal. If the selection includes more than
+> one deployment, the installer stops with an error. Use `--node` and, if the node has more than
+> one deployment, `--recipe` to select a single deployment. Or omit `--interactive` to deploy
+> all nodes unattended. `--no-deploy` is not affected.
 
 Example: deploy one node in an interactive session. The checked-in inventory has one
 deployment for `node1`:
@@ -201,7 +209,10 @@ You cannot use `--prepare-only` and `--no-deploy` in the same command.
 
 Do these checks before you run `--no-deploy`:
 
-1. Make sure that the application runs on the node.
+1. Make sure that the application runs on the node. It must be deployed under the user
+   account that is configured as `user` in `hosts.yaml` (under `defaults` or on the node).
+   The installer connects to the node as this user. It looks for the application and its
+   `.env` file in the home directory of this user.
 2. Find the location of the application:
    - If the application is in the managed checkout
      `~/fleet-deployments/<deployment name>/checkout`, do nothing. Do not set `app_path`.

@@ -11,7 +11,7 @@ The deployment has two kinds of systems:
 
 | Component     | Central Hermes host                         | Edge node                        |
 |---------------|---------------------------------------------|----------------------------------|
-| **Processor** | Intel® Core™ Ultra Processors (Series 3, 2) | See the application links below. |
+| **Processor** | Intel® Core™ Ultra Processors (Series 3)    | See the application links below. |
 | **RAM**       | Minimum 32 GB                               | See the application links below. |
 | **Storage**   | Minimum 64 GB (128 GB recommended)          | See the application links below. |
 

@@ -11,6 +11,7 @@ SKIP_PLATFORM_CHECK=false
 DEPLOY=true
 PREPARE_ONLY=false
 INTERACTIVE=false
+TEARDOWN=false
 HOSTS_FILE=
 LIST_ONLY=false
 SELECTORS=()
@@ -54,7 +55,24 @@ if [[ -n ${FLEET_APP_PATH:-} ]]; then
 fi
 # DEPLOY_PROMPT and SMART_POLICY have no defaults: recipes in hosts.yaml supply them (prompt, approval_policy).
 RUN_STARTED=$SECONDS
-log() { printf '[%(%Y-%m-%dT%H:%M:%S%z)T] [+%ss] %s\n' -1 "$((SECONDS - RUN_STARTED))" "$*" >&2; }
+# Colors only on a terminal (not in deployment log files) and when NO_COLOR is unset.
+if [[ -t 2 && -z ${NO_COLOR:-} ]]; then
+  C_RED=$'\033[1;31m' C_GREEN=$'\033[32m' C_YELLOW=$'\033[33m' C_CYAN=$'\033[1;36m' C_DIM=$'\033[2m' C_RESET=$'\033[0m'
+else
+  C_RED='' C_GREEN='' C_YELLOW='' C_CYAN='' C_DIM='' C_RESET=''
+fi
+log() {
+  local color="" reset=""
+  case $1 in
+    ERROR:*) color=$C_RED ;;
+    WARN:*|PLAN:*) color=$C_YELLOW ;;
+    DONE:*) color=$C_GREEN ;;
+    START:*) color=$C_CYAN ;;
+    WAIT:*|SKIP:*) color=$C_DIM ;;
+  esac
+  [[ -z $color ]] || reset=$C_RESET
+  printf '%s[%(%Y-%m-%dT%H:%M:%S%z)T] [+%ss] %s%s\n' "$color" -1 "$((SECONDS - RUN_STARTED))" "$*" "$reset" >&2
+}
 die() { log "ERROR: $*"; exit 1; }
 stage_finished() {
   if (( $1 == 0 )); then
@@ -86,8 +104,12 @@ usage() {
   cat >&2 <<EOF
 usage: $0 [--hosts FILE] [--list] [--user NAME] [--interactive] [--no-deploy | --prepare-only] [--skip-platform-check]
        $0 [--list] [--user NAME] [--interactive] [--no-deploy | --prepare-only] [--skip-platform-check] <node-ip> [<node-ip> ...]
+       $0 --teardown [--hosts FILE] [--node NAME] [--recipe NAME]
 Without node IPs, nodes are read from FILE (default: hosts.yaml next to this script).
 --list prints the resolved nodes and exits without changing anything.
+--teardown removes the central-host state of the selected nodes: tunnel, MCP registration, agent profile,
+  stored credential, pinned certificate, and deployment log. It prints the plan and asks for confirmation
+  in the terminal. It never connects to a node: applications, checkouts, data, and SSH keys stay.
 --no-deploy connects the MCP servers of applications that are already running: it checks SSH access,
   starts the tunnels, and registers and tests the servers. It does not prepare nodes, copy source,
   change the applications' .env files, or create node profiles.
@@ -107,11 +129,18 @@ while [[ $# -gt 0 ]]; do
     --interactive) INTERACTIVE=true; shift ;;
     --no-deploy) DEPLOY=false; shift ;;
     --prepare-only) PREPARE_ONLY=true; shift ;;
+    --teardown) TEARDOWN=true; shift ;;
     --skip-platform-check) SKIP_PLATFORM_CHECK=true; shift ;;
     -h|--help|-*) usage ;;
     *) break ;;
   esac
 done
+if $TEARDOWN; then
+  if $INTERACTIVE || $PREPARE_ONLY || ! $DEPLOY; then
+    die "--teardown cannot be combined with --interactive, --prepare-only, or --no-deploy"
+  fi
+  DEPLOY=false
+fi
 if $PREPARE_ONLY && ! $DEPLOY; then die "--prepare-only and --no-deploy cannot be combined"; fi
 if [[ $# == 0 && ${FLEET_RECIPE_MODE:-} != 1 ]]; then
   HOSTS_FILE=${HOSTS_FILE:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hosts.yaml"}
@@ -131,7 +160,11 @@ PY
     inventory_args=(--hosts "$HOSTS_FILE" --script "${BASH_SOURCE[0]}" --user "$SSH_USER" "${SELECTORS[@]}")
     $LIST_ONLY && inventory_args+=(--list)
     $INTERACTIVE && inventory_args+=(--interactive)
-    $DEPLOY || inventory_args+=(--no-deploy)
+    if $TEARDOWN; then
+      inventory_args+=(--teardown)
+    else
+      $DEPLOY || inventory_args+=(--no-deploy)
+    fi
     $PREPARE_ONLY && inventory_args+=(--prepare-only)
     $SKIP_PLATFORM_CHECK && inventory_args+=(--skip-platform-check)
     exec python3 "$(dirname "${BASH_SOURCE[0]}")/fleet_inventory.py" "${inventory_args[@]}"
@@ -261,6 +294,15 @@ profile_of() {
   printf '%s' "${1//_/-}"
 }
 
+# Name of the agent secret that holds a node's MCP credential; empty when the MCP server has no auth.
+mcp_credential_var() {
+  case $MCP_AUTH_TYPE in
+    none) ;;
+    basic) printf '%s_MCP_BASIC' "${1^^}" ;;
+    *) printf '%s_MCP_TOKEN' "${1^^}" ;;
+  esac
+}
+
 # ssh and scp with the node's port and key; the first argument is the node index.
 node_opts() {
   local i=$1 port_flag=$2
@@ -281,12 +323,13 @@ if $LIST_ONLY; then
 fi
 
 finish() {
-  local result=$?
+  local result=$? label="Fleet setup"
+  $TEARDOWN && label="Fleet teardown"
   if [[ -n ${LOCAL_TMP:-} && -z ${FLEET_STATE_DIR:-} ]]; then rm -rf "$LOCAL_TMP"; fi
   if (( result == 0 )); then
-    log "DONE: Fleet setup (nodes=${#NAME[@]}, total=$((SECONDS - RUN_STARTED))s)"
+    log "DONE: $label (nodes=${#NAME[@]}, total=$((SECONDS - RUN_STARTED))s)"
   else
-    log "ERROR: Fleet setup (exit=$result, total=$((SECONDS - RUN_STARTED))s); see the last stage above"
+    log "ERROR: $label (exit=$result, total=$((SECONDS - RUN_STARTED))s); see the last stage above"
   fi
 }
 trap finish EXIT
@@ -501,9 +544,9 @@ ensure_node_ssh() {
 # terminal session only, a hidden prompt. Values are never logged or passed as command-line arguments.
 save_mcp_credentials() {
   local i=$1 name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}" creds mcp_user="" mcp_pass=""
-  local var="${name^^}_MCP_BASIC"
-  [[ $MCP_AUTH_TYPE != none ]] || return 0
-  [[ $MCP_AUTH_TYPE == basic ]] || var="${name^^}_MCP_TOKEN"
+  local var
+  var=$(mcp_credential_var "$name")
+  [[ -n $var ]] || return 0
   log "[$name] Retrieving MCP authentication from ~/$APP_REL/.env on the node (values will not be logged)"
   if [[ $MCP_AUTH_TYPE == basic ]]; then
     creds=$(nssh "$i" -n "$target" grep -E "'^($MCP_USER_KEY|$MCP_PASS_KEY)='" "$APP_REL/.env" 2>/dev/null || true)
@@ -612,10 +655,10 @@ deploy_all() {
       log "[$p] Interactive deployment; enter /quit when it finishes"
       if run_stage "[$n] Interactive deployment" \
         agent_task_run_interactive "$p" "$SKILL_NAME" "$DEPLOY_PROMPT"; then
-        log "[$n] $AGENT_LABEL chat completed; MCP readiness will be checked separately"
+        log "DONE: [$n] $AGENT_LABEL chat completed"
       else
         result=$?
-        log "WARN: [$n] $AGENT_LABEL chat exited with $result; continuing to MCP readiness check"
+        log "ERROR: [$n] $AGENT_LABEL chat exited with $result; the MCP connection will be skipped"
         printf '%s\n' "$result" > "$LOCAL_TMP/$n.deploy-failed"
       fi
     else
@@ -637,14 +680,14 @@ deploy_all() {
     fi
     sleep 5
   done
-  # The MCP check in connect_node decides success, not the agent's exit code.
+  # A failed deployment is recorded here; the connect stage skips MCP for that node.
   for i in "${!pids[@]}"; do
     pid=${pids[i]}
     if wait "$pid"; then
-      log "[${nodes[i]}] $AGENT_LABEL deployment completed; MCP readiness will be checked separately"
+      log "DONE: [${nodes[i]}] $AGENT_LABEL deployment completed"
     else
       result=$?
-      log "WARN: [${nodes[i]}] Deployment exited with $result; see $log_dir/${nodes[i]}.deploy.log; continuing to MCP readiness check"
+      log "ERROR: [${nodes[i]}] Deployment failed (exit=$result); see $log_dir/${nodes[i]}.deploy.log; the MCP connection will be skipped"
       printf '%s\n' "$result" > "$LOCAL_TMP/${nodes[i]}.deploy-failed"
     fi
   done
@@ -706,7 +749,9 @@ ensure_user_systemd() {
   if systemctl --user show-environment >/dev/null 2>&1; then
     return 0
   fi
-  local runtime_dir="/run/user/$(id -u)"
+  local runtime_dir uid
+  uid=$(id -u)
+  runtime_dir="/run/user/$uid"
   if test -S "$runtime_dir/bus" && test -O "$runtime_dir" && test -O "$runtime_dir/bus"; then
     export XDG_RUNTIME_DIR="$runtime_dir"
     export DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime_dir/bus"
@@ -717,8 +762,50 @@ ensure_user_systemd() {
   elif ! systemctl --user show-environment >/dev/null; then
     log "No existing user-owned systemd bus socket at $runtime_dir/bus"
   fi
-  die "systemd user services are unavailable for UID $(id -u). Run from a normal login/SSH session as the central-host user, not via sudo or a container. If needed, ask an administrator to run loginctl enable-linger for that user, then log in again."
+  die "systemd user services are unavailable for UID $uid. Run from a normal login/SSH session as the central-host user, not via sudo or a container. If needed, ask an administrator to run loginctl enable-linger for that user, then log in again."
 }
+
+teardown_tunnel() {
+  systemctl --user disable --now "fleet-tunnel@$1" 2>/dev/null || true
+  rm -f "$HOME/.config/fleet-tunnels/$1.env"
+}
+
+teardown_files() {
+  rm -f "$(agent_cert_dir)/$1.pem" "$(agent_cert_dir)/$1.pem.tmp" "$(agent_log_dir)/$1.deploy.log"
+}
+
+# Every step succeeds when its target is already gone, so a rerun is safe.
+TD_DESC=() TD_FN=() TD_ARG=()
+td_add() { TD_DESC+=("$1"); TD_FN+=("$2"); TD_ARG+=("$3"); }
+
+teardown_node() {
+  local name=${NAME[$1]} p var
+  p=$(profile_of "$name")
+  var=$(mcp_credential_var "$name")
+  td_add "[$name] Stop and disable tunnel fleet-tunnel@$name" teardown_tunnel "$name"
+  td_add "[$name] Unregister MCP server $name from the default $AGENT_LABEL profile" agent_mcp_unregister "$name"
+  td_add "[$name] Delete $AGENT_LABEL profile $p" agent_context_delete "$p"
+  if [[ -n $var ]]; then
+    td_add "[$name] Remove stored credential $var" agent_env_unset "$var"
+  fi
+  td_add "[$name] Remove pinned certificate and deployment log" teardown_files "$name"
+}
+
+if $TEARDOWN; then
+  mapfile -t agent_cmds < <(agent_required_commands)
+  for c in "${agent_cmds[@]}" systemctl; do
+    command -v "$c" >/dev/null || die "missing on this host: $c"
+  done
+  [[ -t 0 ]] || die "--teardown asks for confirmation and needs an interactive terminal"
+  for i in "${!NAME[@]}"; do teardown_node "$i"; done
+  for description in "${TD_DESC[@]}"; do log "PLAN: $description"; done
+  read -r -p "Apply this plan on the central host? Nothing on the nodes is changed. [y/N] " answer
+  [[ $answer == [yY] || $answer == [yY][eE][sS] ]] || die "cancelled; nothing was changed"
+  ensure_user_systemd
+  for n in "${!TD_FN[@]}"; do run_stage "${TD_DESC[n]}" "${TD_FN[n]}" "${TD_ARG[n]}"; done
+  log "Central-host cleanup complete. Nothing on the nodes was changed; see the node cleanup checklist in the user guide"
+  exit 0
+fi
 
 LOCAL_TMP=${FLEET_STATE_DIR:-$(mktemp -d)}
 if [[ $FLEET_STAGE == all || $FLEET_STAGE == prepare ]]; then
@@ -823,23 +910,26 @@ ensure_user_systemd
 declare -A status connection_time
 rc=0
 for i in "${!NAME[@]}"; do
-  log "[${NAME[i]}] Connecting the MCP server"
+  if [[ -f $LOCAL_TMP/${NAME[i]}.deploy-failed ]]; then
+    log "ERROR: [${NAME[i]}] Deployment failed (exit=$(<"$LOCAL_TMP/${NAME[i]}.deploy-failed")); skipping MCP connection. Log: $(agent_log_dir)/${NAME[i]}.deploy.log"
+    status[$i]="deploy failed" connection_time[$i]=-
+    rc=1
+    continue
+  fi
+  log "START: [${NAME[i]}] Connecting the MCP server"
   # Run in a background job so a failure on one node doesn't stop the others.
   stage_started=$SECONDS
   run_stage "[${NAME[i]}] Connect MCP server" connect_node "$i" &
   if wait "$!"; then status[$i]=connected; else status[$i]="not connected"; rc=1; fi
-  if [[ ${FLEET_RECIPE_MODE:-} == 1 && -f $LOCAL_TMP/${NAME[i]}.deploy-failed ]]; then
-    status[$i]="deploy failed"
-    rc=1
-  fi
-  connection_time[$i]=$((SECONDS - stage_started))
+  connection_time[$i]="$((SECONDS - stage_started))s"
 done
 
 log "Summary"
 printf '%-11s %-15s %-12s %-29s %-14s %s\n' NODE HOST PROFILE "MCP URL" STATUS "CONNECT TIME"
 for i in "${!NAME[@]}"; do
-  printf '%-11s %-15s %-12s %-29s %-14s %ss\n' "${NAME[i]}" "${HOST[i]}" "$(profile_of "${NAME[i]}")" \
-    "$MCP_SCHEME://localhost:${LPORT[i]}$MCP_PATH" "${status[$i]}" "${connection_time[$i]}"
+  if [[ ${status[$i]} == connected ]]; then color=$C_GREEN; else color=$C_RED; fi
+  printf '%-11s %-15s %-12s %-29s %s%-14s%s %s\n' "${NAME[i]}" "${HOST[i]}" "$(profile_of "${NAME[i]}")" \
+    "$MCP_SCHEME://localhost:${LPORT[i]}$MCP_PATH" "$color" "${status[$i]}" "$C_RESET" "${connection_time[$i]}"
 done
-[[ $rc -eq 0 ]] || log "Deployment logs: $(agent_log_dir)/"
+[[ $rc -eq 0 ]] || log "ERROR: One or more nodes failed. Deployment logs: $(agent_log_dir)/"
 exit "$rc"

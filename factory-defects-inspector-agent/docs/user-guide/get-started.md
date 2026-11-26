@@ -6,7 +6,7 @@ Hermes host, unless the page says otherwise.
 1. [System Requirements](./get-started/system-requirements.md): Check the central host, the
    edge nodes, and the network.
 2. [Install Hermes, Set the Persona, and Bring Up the WebUI](./get-started/set-up-central-host.md):
-   Install Hermes and a local model, apply the persona, and, optionally, start the WebUI.
+   Install Hermes and a local model, apply the persona, and start the WebUI.
 3. [Prepare the Edge Nodes](./get-started/prepare-edge-nodes.md): Create the deployment account
    on each node. Set a proxy if your network needs one.
 4. [Configure the Inventory and Deploy](./get-started/deploy-the-fleet.md): Edit the inventory,
