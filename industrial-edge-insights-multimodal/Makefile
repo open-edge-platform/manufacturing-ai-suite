@@ -325,7 +325,7 @@ _download_agentic_model:
 	mkdir -p configs/agentic/models; \
 	docker run --rm --user 0:0 --entrypoint sh \
 		-v "$$PWD/configs/agentic/models:/opt/models" \
-		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
 		-c 'chown -R "$$(stat -c %u:%g /opt)" /opt/models' || exit 1; \
 	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_VLLM) up -d model-download || exit 1; \
 	echo "Waiting for model-download service to become healthy on port 8200..."; \
@@ -390,7 +390,7 @@ _download_vllm_models:
 		echo "configs/vllm is not writable; restoring ownership to $$(id -un)."; \
 		docker run --rm --user 0:0 --entrypoint sh \
 			-v "$$PWD/configs/vllm:/opt/models" \
-			$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+			$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
 			-c 'chown "$$1" /opt/models' sh "$$(id -u):$$(id -g)" || exit 1; \
 	fi; \
 	staging_dir=$$(mktemp -d configs/vllm/.download.XXXXXX) || exit 1; \
@@ -398,7 +398,7 @@ _download_vllm_models:
 	echo "Staging downloads in $$staging_dir (retained on failure)."; \
 	docker run --rm --user 0:0 --entrypoint sh \
 		-v "$$PWD/configs/vllm:/opt/models" \
-		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
 		-c 'chown "$$(stat -c %u:%g /opt)" "/opt/models/$$1"' sh "$$staging_name" || exit 1; \
 	resp_file=$$(mktemp) || exit 1; \
 	cleanup_download() { \
@@ -477,7 +477,7 @@ _download_vllm_models:
 	adapter_dst=$$(basename "${VLLM_ADAPTER_REPO_ID}"); \
 	docker run --rm --user 0:0 --entrypoint sh \
 		-v "$$PWD/configs/vllm:/opt/models" \
-		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(DEPS_IMAGE_SUFFIX) \
 		-c 'set -e; \
 			staging="/opt/models/$$1"; \
 			test -s "$$staging/huggingface/$$2/config.json"; \
