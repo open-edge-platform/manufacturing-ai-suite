@@ -77,6 +77,7 @@ install() {
     ( umask 077
       printf "HERMES_WEBUI_HOST=127.0.0.1\nHERMES_WEBUI_PORT=%s\nHERMES_WEBUI_PASSWORD='%s'\n" "$PORT" "$pw" > "$env_file" )
     unset pw pw2
+    RESTART_NEEDED=1
     echo "Saved settings to $env_file (mode 600)"
   fi
   chmod 600 "$env_file"
@@ -196,6 +197,8 @@ wait_healthy() {
 start_webui() {
   tls_install
   configure_bind
+  # The daemon reads .env only at launch, so a hand-edited .env (e.g. a reset password) needs a restart.
+  [[ $DIR/.env -nt $HERMES_HOME/webui.pid ]] && RESTART_NEEDED=1
   if (( RESTART_NEEDED )); then
     "$DIR/ctl.sh" restart   # apply the new settings to a running instance
   else
