@@ -3042,6 +3042,84 @@ def invoke_make_up_in_current_dir():
         return False
 
 
+def invoke_make_target_in_current_dir(target):
+    """Run `make <target>` in the current directory; returns True on success."""
+    try:
+        logger.info(f"Executing 'make {target}' command")
+        result, output = run_command(f"make {target}", capture_output=True)
+        if result == 0:
+            logger.info(f"make {target} succeeded")
+            return True
+
+        logger.error(f"make {target} failed with exit code: {result}")
+        if output:
+            logger.error(f"Error output: {output}")
+        _, status_output = run_command("make status", capture_output=True)
+        if status_output:
+            logger.info(f"make status output: {status_output}")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to run make {target}: {str(e)}")
+        return False
+
+
+def get_container_state(name):
+    """Return (status, health) for a container; health is 'none' without a healthcheck, None if not found."""
+    result = common_utils.exec_command(
+        ["docker", "inspect", "--format",
+         "{{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}", name],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        return None, None
+    parts = result.stdout.split()
+    return (parts[0], parts[1]) if len(parts) == 2 else (None, None)
+
+
+def wait_until_containers_healthy(containers, timeout, interval=15):
+    """
+    Poll until every container is running and, when it defines a healthcheck, healthy.
+
+    Returns:
+        dict: {"success": bool, "states": {name: (status, health)}, "failing": [names]}
+    """
+    deadline = time.time() + timeout
+    while True:
+        states = {name: get_container_state(name) for name in containers}
+        failing = [
+            name for name, (status, health) in states.items()
+            if status != "running" or health not in ("healthy", "none")
+        ]
+        if not failing:
+            return {"success": True, "states": states, "failing": []}
+        if time.time() >= deadline:
+            logger.error(f"Containers not running/healthy after {timeout}s: { {n: states[n] for n in failing} }")
+            return {"success": False, "states": states, "failing": failing}
+        logger.info(f"Waiting for containers to become healthy: {failing}")
+        time.sleep(interval)
+
+def _verify_stack_running_and_healthy(make_target, containers):
+    """Run `make <make_target>` and assert all containers become running and healthy."""
+    assert_condition(
+        invoke_make_target_in_current_dir(make_target),
+        f"'make {make_target}' command failed",
+    )
+
+    result = wait_until_containers_healthy(
+        containers,
+        timeout=constants.MULTIMODAL_VLLM_HEALTHY_TIMEOUT,
+        interval=constants.MULTIMODAL_HEALTH_POLL_INTERVAL,
+    )
+    for name, (status, health) in result["states"].items():
+        logger.info(f"Container {name}: status={status}, health={health}")
+    assert_condition(
+        result["success"],
+        f"Containers not running/healthy after 'make {make_target}': "
+        f"{ {n: result['states'][n] for n in result['failing']} }",
+    )
+    logger.info(f"✓ All {len(containers)} containers are running and healthy after 'make {make_target}'")
+
+
 def generate_multimodal_test_credentials(case_type="valid", invalid_field=None):
     """
     Generate test credentials for multimodal scenarios including WebRTC/MediaMTX variables.
