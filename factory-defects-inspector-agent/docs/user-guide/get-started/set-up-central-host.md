@@ -21,11 +21,11 @@ The sections are in order:
 
 ## Install Hermes with a Local Model
 
-The [Agent Harness Installer](https://github.com/open-edge-platform/edge-ai-libraries/tree/release-2026.3.0/frameworks/agent-harness-install) installs Hermes. It also installs a local OpenVINO™ Model Server (OVMS) and an Inference Router.
+The [Agent Harness Installer](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/agent-harness-install/index.html) installs Hermes. It also installs a local OpenVINO™ Model Server (OVMS) and an Inference Router.
 
 **Before you start:**
 
-- Read the [get-started prerequisites](https://github.com/open-edge-platform/edge-ai-libraries/blob/release-2026.3.0/frameworks/agent-harness-install/docs/user-guide/get-started.md) of the installer.
+- Read the [get-started prerequisites](https://docs.openedgeplatform.intel.com/2026.3/edge-ai-libraries/agent-harness-install/get-started.html) of the installer.
 - For a GPU install, make sure that the Intel GPU driver and compute runtime are installed.
 - Make sure that the host has enough memory and disk space for the model and the container images.
 - Review the license of the [OpenVINO/Qwen3.5-9B-int8-ov](https://huggingface.co/OpenVINO/Qwen3.5-9B-int8-ov) model prior to deployment.
