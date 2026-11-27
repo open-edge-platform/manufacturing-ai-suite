@@ -383,3 +383,11 @@ def setup_wind_turbine_environment(request):
         logger.error("[WT fixture] Failed to restore .env: %s", e)
 
     os.chdir(original_dir)
+
+
+@pytest.fixture(scope="module")
+def mcp_example_client(tmp_path_factory):
+    """Virtualenv with the MCP example client requirements, created once per module."""
+    venv_python = docker_utils.setup_mcp_example_client(str(tmp_path_factory.mktemp("mcp_client") / ".venv"))
+    common_utils.assert_condition(venv_python, "Failed to create the MCP example client virtualenv")
+    return venv_python

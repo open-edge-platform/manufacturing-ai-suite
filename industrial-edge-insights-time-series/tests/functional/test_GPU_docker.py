@@ -86,3 +86,31 @@ def test_gpu_opcua(setup_wind_turbine_environment):
     """TC_GPU_02: GPU device configuration with OPC-UA ingestion (Docker)."""
     logger.info("TC_GPU_02: GPU device configuration with OPC-UA ingestion (Docker)")
     _run_gpu_config_test(setup_wind_turbine_environment, "opcua")
+
+
+@pytest.mark.gpu
+@pytest.mark.mqtt
+@pytest.mark.skipif(
+    not docker_utils.check_system_gpu_devices(),
+    reason="No GPU devices detected on this system",
+)
+def test_gpu_mcp_mqtt(setup_wind_turbine_environment, mcp_example_client, tmp_path):
+    """TC_GPU_03: MCP start_pipeline on GPU with MQTT ingestion (Docker)."""
+    logger.info("TC_GPU_03: MCP start_pipeline on GPU with MQTT ingestion (Docker)")
+    docker_utils.run_mcp_pipeline_flow(
+        setup_wind_turbine_environment, mcp_example_client, tmp_path, "mqtt", device="GPU"
+    )
+
+
+@pytest.mark.gpu
+@pytest.mark.opcua
+@pytest.mark.skipif(
+    not docker_utils.check_system_gpu_devices(),
+    reason="No GPU devices detected on this system",
+)
+def test_gpu_mcp_opcua(setup_wind_turbine_environment, mcp_example_client, tmp_path):
+    """TC_GPU_04: MCP start_pipeline on GPU with OPC-UA ingestion (Docker)."""
+    logger.info("TC_GPU_04: MCP start_pipeline on GPU with OPC-UA ingestion (Docker)")
+    docker_utils.run_mcp_pipeline_flow(
+        setup_wind_turbine_environment, mcp_example_client, tmp_path, "opcua", device="GPU"
+    )

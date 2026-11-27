@@ -637,13 +637,14 @@ def invoke_make_build():
         logger.error(f"Failed to run make build: {str(e)}")
         return False, str(e)
 
-def invoke_make_up_opcua_ingestion(measure_time=False, app=None, num_of_streams=None):
+def invoke_make_up_opcua_ingestion(measure_time=False, app=None, num_of_streams=None, mcp=False):
     """Test if make up_opcua_ingestion command works
 
     Args:
         measure_time (bool): If True, measure and return deployment time
         app (str): Optional app parameter to specify which application to use
         num_of_streams (int): Optional number of streams parameter for multi-stream deployments
+        mcp (bool): If True, deploy with the MCP server (MCP=true)
 
     Returns:
         bool or tuple: If measure_time=False, returns True/False for success/failure
@@ -663,6 +664,8 @@ def invoke_make_up_opcua_ingestion(measure_time=False, app=None, num_of_streams=
             command += f" app=\"{app}\""
         if num_of_streams:
             command += f" num_of_streams={num_of_streams}"
+        if mcp:
+            command += " MCP=true"
         # Multi-stream OPC-UA needs a host port range so each scaled ia-opcua-server
         # container binds to a unique host port (single-stream binds to 30003 only).
         # See docs/user-guide/get-started.md - "Multi-Stream Ingestion support".
@@ -698,13 +701,14 @@ def invoke_make_up_opcua_ingestion(measure_time=False, app=None, num_of_streams=
         else:
             return (False, 0)
 
-def invoke_make_up_mqtt_ingestion(measure_time=False, app=None, num_of_streams=None):
+def invoke_make_up_mqtt_ingestion(measure_time=False, app=None, num_of_streams=None, mcp=False):
     """Test if make up_mqtt_ingestion command works
 
     Args:
         measure_time (bool): If True, measure and return deployment time
         app (str): Optional app parameter to specify which application to use
         num_of_streams (int): Optional number of streams parameter for multi-stream deployments
+        mcp (bool): If True, deploy with the MCP server (MCP=true)
 
     Returns:
         bool or tuple: If measure_time=False, returns True/False for success/failure
@@ -723,6 +727,8 @@ def invoke_make_up_mqtt_ingestion(measure_time=False, app=None, num_of_streams=N
             command += f" app={app}"
         if num_of_streams:
             command += f" num_of_streams={num_of_streams}"
+        if mcp:
+            command += " MCP=true"
         result, output = run_command(command, capture_output=True)
         deployment_time = time.time() - start_time
 
@@ -743,8 +749,8 @@ def invoke_make_up_mqtt_ingestion(measure_time=False, app=None, num_of_streams=N
         else:
             return (False, 0)
 
-def invoke_make_down():
-    """Test if make down command works"""
+def invoke_make_down(mcp=False):
+    """Test if make down command works (mcp=True also removes the MCP server)"""
     try:
         # Use the robust directory checking function - it will save and return the original dir
         success, original_dir = check_and_set_working_directory(return_original=True)
@@ -752,7 +758,7 @@ def invoke_make_down():
             logger.info("Failed to set working directory for make down")
             return False
 
-        result = run_command("make down")
+        result = run_command("make down MCP=true" if mcp else "make down")
 
         # Return to original directory before returning result
         os.chdir(original_dir)
@@ -788,6 +794,223 @@ def invoke_make_check_env_variables():
     except Exception as e:
         pytest.fail(f"Failed to run make check_env_variables: {str(e)}")
         return False
+
+
+def wait_until_container_healthy(name, timeout, poll_interval=5):
+    """Poll until the container's Docker healthcheck reports healthy."""
+    deadline = time.time() + timeout
+    status = None
+    while time.time() < deadline:
+        result = common_utils.exec_command(
+            ["docker", "inspect", "--format", "{{if .State.Health}}{{.State.Health.Status}}{{end}}", name],
+            capture_output=True, text=True,
+        )
+        status = result.stdout.strip() if result.returncode == 0 else None
+        if status == "healthy":
+            return True
+        time.sleep(poll_interval)
+    logger.error(f"Container {name} not healthy after {timeout}s (last status: {status})")
+    return False
+
+
+def count_container_log_occurrences(container_name, text):
+    """Count occurrences of text in a container's stdout and stderr logs."""
+    result = common_utils.exec_command(["docker", "logs", container_name], capture_output=True, text=True)
+    return ((result.stdout or "") + (result.stderr or "")).count(text)
+
+
+def fetch_mcp_gateway_certificate(dest_path, container_name=CONTAINERS["nginx_proxy"]["name"], timeout=60):
+    """Copy the gateway's self-signed certificate out of the nginx container (generated at container start)."""
+    deadline = time.time() + timeout
+    while True:
+        result = common_utils.exec_command(
+            ["docker", "exec", container_name, "cat", "/opt/nginx/certs/cert.pem"],
+            capture_output=True, text=True,
+        )
+        if result.returncode == 0 and "BEGIN CERTIFICATE" in result.stdout:
+            with open(dest_path, "w") as cert_file:
+                cert_file.write(result.stdout)
+            return True
+        if time.time() >= deadline:
+            logger.error(f"Could not read the gateway certificate from {container_name}: {result.stderr.strip()}")
+            return False
+        time.sleep(3)
+
+
+def setup_mcp_example_client(venv_dir):
+    """Create a virtualenv with the MCP example client's requirements; returns its python path or None."""
+    example_dir = os.path.join(constants.EDGE_AI_SUITES_DIR, "mcp-server", "example")
+    venv_python = os.path.join(venv_dir, "bin", "python")
+    steps = [
+        [sys.executable, "-m", "venv", venv_dir],
+        [os.path.join(venv_dir, "bin", "pip"), "install", "-r", os.path.join(example_dir, "requirements.txt")],
+    ]
+    for step in steps:
+        result = common_utils.exec_command(step, capture_output=True, text=True)
+        if result.returncode != 0:
+            logger.error(f"{' '.join(step)} failed:\n{result.stdout}\n{result.stderr}")
+            return None
+    return venv_python
+
+
+def run_mcp_example_client(venv_python, tool, mcp_url, ca_file, arguments=None, timeout=360):
+    """Run mcp-server/example/example_client.py for one tool; returns exit code, output and parsed JSON."""
+    client_path = os.path.join(constants.EDGE_AI_SUITES_DIR, "mcp-server", "example", "example_client.py")
+    command = [venv_python, client_path, tool]
+    if arguments is not None:
+        command += ["--arguments", json.dumps(arguments)]
+    env = {**os.environ, "MCP_URL": mcp_url, "MCP_CA_FILE": ca_file}
+    result = common_utils.exec_command(command, capture_output=True, text=True, env=env, timeout=timeout)
+    data = None
+    if result.returncode == 0:
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            logger.error(f"{tool} output is not valid JSON")
+    return {"returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr, "data": data}
+
+
+def call_mcp_tool(venv_python, tool, mcp_url, ca_file, arguments=None):
+    """Run one example_client tool, log its terminal output and return the parsed JSON."""
+    result = run_mcp_example_client(venv_python, tool, mcp_url, ca_file, arguments)
+    logger.info(f"example_client {tool} (exit code {result['returncode']}):\n{result['stdout']}")
+    if result["stderr"]:
+        logger.info(f"example_client {tool} stderr:\n{result['stderr']}")
+    assert_condition(
+        result["returncode"] == 0 and isinstance(result["data"], dict),
+        f"example_client {tool} failed: {result['stderr'] or result['stdout']}",
+    )
+    return result["data"]
+
+
+def run_mcp_pipeline_flow(context, venv_python, ca_dir, ingestion, device="CPU"):
+    """Deploy with MCP=true, drive every example_client tool and verify the TSAM start/stop logs.
+
+    Args:
+        context: Context from the setup_wind_turbine_environment fixture
+        venv_python: Python of the MCP example client virtualenv
+        ca_dir: Directory where the gateway certificate is stored
+        ingestion: "mqtt" or "opcua"
+        device: Inference device passed to start_pipeline ("CPU" or "GPU")
+    """
+    assert_condition(
+        os.environ.get("MCP_USERNAME") and os.environ.get("MCP_PASSWORD"),
+        "MCP_USERNAME/MCP_PASSWORD missing from the test environment",
+    )
+    base_containers = [
+        CONTAINERS["influxdb"]["name"],
+        CONTAINERS["telegraf"]["name"],
+        CONTAINERS["time_series_analytics"]["name"],
+        CONTAINERS["mqtt_broker"]["name"],
+    ]
+    if ingestion == "mqtt":
+        deploy = invoke_make_up_mqtt_ingestion
+        base_containers.append(CONTAINERS["mqtt_publisher"]["name"])
+    else:
+        deploy = invoke_make_up_opcua_ingestion
+        base_containers.append(CONTAINERS["opcua_server"]["name"])
+    tsam = CONTAINERS["time_series_analytics"]["name"]
+    mcp_server = CONTAINERS["mcp_server"]["name"]
+
+    try:
+        assert_condition(
+            deploy(app=constants.WIND_SAMPLE_APP, mcp=True),
+            f"make up_{ingestion}_ingestion MCP=true failed",
+        )
+        assert_condition(
+            wait_until_containers_up(
+                base_containers + [mcp_server, CONTAINERS["nginx_proxy"]["name"]],
+                timeout=constants.WIND_TURBINE_CONTAINER_READY_TIMEOUT,
+            ),
+            "Containers did not come up after deployment with MCP=true",
+        )
+        assert_condition(
+            wait_until_container_healthy(mcp_server, constants.MCP_SERVER_HEALTHY_TIMEOUT),
+            f"{mcp_server} did not become healthy",
+        )
+
+        ca_file = os.path.join(str(ca_dir), f"mcp-gateway-ca-{ingestion}.pem")
+        assert_condition(fetch_mcp_gateway_certificate(ca_file), "Failed to obtain the gateway certificate")
+        mcp_url = f"https://{HOST_IP}:{context['docker_grafana_port']}/mcp"
+
+        def call(tool, arguments=None):
+            return call_mcp_tool(venv_python, tool, mcp_url, ca_file, arguments)
+
+        described = call("describe")
+        tool_names = {tool["name"] for tool in described["tools"]}
+        expected_tools = {
+            "get_pipeline_status", "start_pipeline", "stop_pipeline", "list_sources",
+            "list_insights_data", "get_anomaly_summary", "get_processing_metrics",
+        }
+        assert_condition(expected_tools <= tool_names, f"describe is missing tools: {expected_tools - tool_names}")
+
+        status = call("get_pipeline_status")
+        assert_condition(status["status"] != "enabled", f"Analytics should wait for start_pipeline, got: {status}")
+
+        starts_before = count_container_log_occurrences(tsam, constants.MCP_PIPELINE_START_LOG)
+        started = call("start_pipeline", {"time_series_inf_device": device})
+        assert_condition(
+            started["status"] == "enabled" and started.get("device") == device and not started["execution_error"],
+            f"start_pipeline did not enable the task on {device}: {started}",
+        )
+        starts_after = count_container_log_occurrences(tsam, constants.MCP_PIPELINE_START_LOG)
+        logger.info(f"'{constants.MCP_PIPELINE_START_LOG}' in {tsam} logs: {starts_before} -> {starts_after}")
+        assert_condition(starts_after > starts_before, f"No start-pipeline log line found in {tsam} logs")
+
+        logger.info(f"Waiting {constants.TEST_DATA_PROCESSING_DELAY}s for data to flow through the pipeline...")
+        time.sleep(constants.TEST_DATA_PROCESSING_DELAY)
+
+        if device == "GPU":
+            assert_condition(
+                verify_sklearnex_device_offload(tsam, device, timeout=constants.WIND_TURBINE_GPU_LOG_TIMEOUT),
+                "sklearnex did not confirm accelerated GPU inference in logs",
+            )
+
+        # Raw ingestion is independent of analytics, so wait for processed points too.
+        output_deadline = time.time() + constants.MCP_ANALYTICS_OUTPUT_TIMEOUT
+        while True:
+            metrics = call("get_processing_metrics")
+            if metrics["processed_points"] > 0 or time.time() >= output_deadline:
+                break
+            time.sleep(constants.WIND_TURBINE_POLL_INTERVAL * 2)
+        assert_condition(
+            metrics["processed_points"] > 0,
+            f"No processed analytics output within {constants.MCP_ANALYTICS_OUTPUT_TIMEOUT}s: {metrics}",
+        )
+
+        insights = call("list_insights_data", {"severity": "anomaly", "page": 1, "page_size": 20})
+        assert_condition(
+            insights["page"] == 1 and insights["page_size"] == 20 and isinstance(insights["items"], list),
+            f"Unexpected list_insights_data result: {insights}",
+        )
+        summary = call("get_anomaly_summary")
+        assert_condition({"processed_points", "anomalous_points", "has_data"} <= summary.keys(), f"Unexpected summary: {summary}")
+        assert_condition(
+            summary["processed_points"] > 0 and summary["has_data"],
+            f"No processed analytics output reported by get_anomaly_summary: {summary}",
+        )
+        metrics = call("get_processing_metrics")
+        assert_condition(
+            metrics["ingested_points"] > 0 and metrics["processed_points"] > 0,
+            f"Expected both ingested and processed points from get_processing_metrics: {metrics}",
+        )
+        sources = call("list_sources")
+        assert_condition(isinstance(sources["items"], list), f"Unexpected list_sources result: {sources}")
+
+        stops_before = count_container_log_occurrences(tsam, constants.MCP_PIPELINE_STOP_LOG)
+        stopped = call("stop_pipeline")
+        assert_condition(stopped["status"] == "stopped", f"stop_pipeline did not stop the pipeline: {stopped}")
+        stops_after = count_container_log_occurrences(tsam, constants.MCP_PIPELINE_STOP_LOG)
+        logger.info(f"'{constants.MCP_PIPELINE_STOP_LOG}' in {tsam} logs: {stops_before} -> {stops_after}")
+        assert_condition(stops_after > stops_before, f"No stop-pipeline log line found in {tsam} logs")
+
+        final_status = call("get_pipeline_status")
+        assert_condition(final_status["status"] == "stopped", f"Pipeline should be stopped, got: {final_status}")
+    finally:
+        assert_condition(
+            invoke_make_down(mcp=True),
+            "make down MCP=true failed during MCP pipeline cleanup",
+        )
 
 
 def update_env_file(file_path=None, values=None):

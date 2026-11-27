@@ -972,4 +972,18 @@ def test_nginx_proxy_integration_wind_turbine(setup_wind_turbine_environment):
     else:
         logger.info("✓ Direct service access validated successfully")
 
+
+@pytest.mark.mqtt
+def test_mcp_server_pipeline_mqtt(setup_wind_turbine_environment, mcp_example_client, tmp_path):
+    """TC_031: make up_mqtt_ingestion MCP=true, MCP example client tools and TSAM start/stop pipeline logs"""
+    logger.info("TC_031: Testing the MCP server with MQTT ingestion")
+    docker_utils.run_mcp_pipeline_flow(setup_wind_turbine_environment, mcp_example_client, tmp_path, "mqtt")
+
+
+@pytest.mark.opcua
+def test_mcp_server_pipeline_opcua(setup_wind_turbine_environment, mcp_example_client, tmp_path):
+    """TC_032: make up_opcua_ingestion MCP=true, MCP example client tools and TSAM start/stop pipeline logs"""
+    logger.info("TC_032: Testing the MCP server with OPC-UA ingestion")
+    docker_utils.run_mcp_pipeline_flow(setup_wind_turbine_environment, mcp_example_client, tmp_path, "opcua")
+
 # GPU tests live in test_GPU_docker.py

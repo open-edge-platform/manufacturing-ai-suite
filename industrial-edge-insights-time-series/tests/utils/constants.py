@@ -71,6 +71,9 @@ CONTAINERS = {
     },
     "seaweedfs_s3": {
         "name": "seaweedfs-s3"
+    },
+    "mcp_server": {
+        "name": "time-series-mcp-server"
     }
 }
 
@@ -132,6 +135,12 @@ WIND_TURBINE_CONFIG_POST_POST_STABILIZE = 45  # Settle time after POSTing /ts-ap
 WIND_TURBINE_OPCUA_ALERT_SETTLE = 360         # Max time to wait for OPC UA alerts after restart when polling logs
 # Required for OPC-UA multi-stream so each scaled OPC-UA server container binds to a unique host port
 WIND_TURBINE_OPCUA_PORT_MAPPING = "30003-30100"
+
+# Time Series Analytics log lines written when the MCP start_pipeline / stop_pipeline tools run
+MCP_PIPELINE_START_LOG = "Kapacitor Tasks Enabled Successfully"
+MCP_PIPELINE_STOP_LOG = "Stopping Kapacitor tasks:"
+MCP_SERVER_HEALTHY_TIMEOUT = 120  # seconds to wait for the MCP server healthcheck
+MCP_ANALYTICS_OUTPUT_TIMEOUT = 120  # extra seconds to wait for processed points after the data wait
 
 # Multimodal wait durations (in seconds) to avoid hard-coded sleeps in tests
 MULTIMODAL_WAIT_FOR_VISION_DATA = 60
