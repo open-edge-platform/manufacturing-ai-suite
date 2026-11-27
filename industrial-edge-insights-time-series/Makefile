@@ -56,6 +56,7 @@ DOCKER_COMPOSE_FILE = ./docker-compose.yml
 DOCKER_COMPOSE_VALIDATION_FILE=./docker-compose-validation.override.yml
 DOCKER_COMPOSE = docker compose
 SECURE_MODE='false'
+INFLUXDB3_ADMIN_TOKEN_FILE = $(CURDIR)/.secrets/admin-token.json
 
 # Define the path to the .env file and scripts
 ENV_FILE = ./.env
@@ -85,6 +86,22 @@ DRI_MOUNT_PATH := $(shell [ -d /dev/dri ] && [ -n "$$(ls -A /dev/dri 2>/dev/null
 export DRI_MOUNT_PATH
 $(shell chmod 600 .env)
 
+.PHONY: prepare_influxdb3_token
+prepare_influxdb3_token:
+	@set -eu; \
+	image=$$($(DOCKER_COMPOSE) config --format json 2>/dev/null | jq -r '.services["ia-time-series-analytics-microservice"].image'); \
+	mkdir -p .secrets; \
+	chmod 700 .secrets; \
+	if [ ! -s "$(INFLUXDB3_ADMIN_TOKEN_FILE)" ]; then \
+		docker run --rm --user "$$(id -u):$$(id -g)" \
+			-v "$(CURDIR)/.secrets:/tokens" --entrypoint /usr/bin/influxdb3 "$$image" \
+			create token --admin --offline --output-file /tokens/admin-token.json >/dev/null 2>&1; \
+	fi; \
+	docker run --rm --user 0:0 \
+		-v "$(INFLUXDB3_ADMIN_TOKEN_FILE):/token.json" \
+		--entrypoint /bin/sh "$$image" \
+		-c 'chown $(shell id -u):1500 /token.json && chmod 440 /token.json'
+
 # Build Docker containers
 .PHONY: build
 build:
@@ -113,22 +130,6 @@ check_env_variables:
 			exit 1; \
 		fi; \
 		case "$$variable_name" in \
-			INFLUXDB_USERNAME) \
-				if [ "$$value" = "admin" ]; then \
-					echo "INFLUXDB_USERNAME must not be admin."; \
-					exit 1; \
-				fi; \
-				if ! echo "$$value" | grep -Eq "^[A-Za-z]{5,}$$"; then \
-					echo "INFLUXDB_USERNAME must contain only alphabets and be at least 5 characters minimum"; \
-					exit 1; \
-				fi \
-				;; \
-			INFLUXDB_PASSWORD) \
-				if ! echo "$$value" | grep -Eq "^[A-Za-z0-9]{10,}$$" || ! echo "$$value" | grep -q "[0-9]" || ! echo "$$value" | grep -q "[A-Za-z]"; then \
-					echo "The INFLUXDB_PASSWORD length must be a minimum of 10 alphanumeric characters with at least one digit"; \
-					exit 1; \
-				fi \
-				;; \
 			VISUALIZER_GRAFANA_USER) \
 				if ! echo "$$value" | grep -Eq "^[A-Za-z]{5,}$$"; then \
 					echo "VISUALIZER_GRAFANA_USER must contain only alphabets and be at least 5 characters minimum"; \
@@ -216,8 +217,36 @@ done; \
 echo "Time-Series Analytics microservice is accessible."
 endef
 
+define start_core_services
+export INFLUXDB3_AUTH_TOKEN=$$(jq -r '.token' "$(INFLUXDB3_ADMIN_TOKEN_FILE)"); \
+echo "Starting Core and Time Series Analytics services..."; \
+if [ $(INCLUDE) = 'validation' ]; then \
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_VALIDATION_FILE) up -d ia-influxdb3-data-init ia-mqtt-broker ia-time-series-analytics-microservice ia-grafana nginx; \
+else \
+	$(DOCKER_COMPOSE) up -d ia-influxdb3-data-init ia-mqtt-broker ia-time-series-analytics-microservice ia-grafana nginx; \
+fi
+endef
+
+define wait_for_core_trigger
+trigger_name=$$(jq -r '.plugin.name' "$(CURDIR)/apps/$(SAMPLE_APP)/time-series-analytics-config/$(CONFIG_JSON_FILE)"); \
+echo "Waiting for InfluxDB 3 Core trigger $$trigger_name..."; \
+token=$$(jq -r '.token' "$(INFLUXDB3_ADMIN_TOKEN_FILE)"); \
+retry=0; \
+until docker exec ia-time-series-analytics-microservice influxdb3 query --token "$$token" --database datain --format json \
+	'SELECT trigger_name, disabled FROM "system"."processing_engine_triggers"' 2>/dev/null | \
+	jq -e --arg name "$$trigger_name" 'any(.[]; .trigger_name == $$name and .disabled == false)' >/dev/null; do \
+	retry=$$((retry + 1)); \
+	if [ $$retry -ge 360 ]; then \
+		echo "Timed out waiting for Core trigger $$trigger_name to be enabled."; \
+		exit 1; \
+	fi; \
+	sleep 5; \
+done; \
+echo "Core trigger $$trigger_name is enabled."
+endef
+
 define upload_tar_file
-echo "Creating UDF deployment tar for $(SAMPLE_APP)..."; \
+echo "Creating plugin package tar for $(SAMPLE_APP)..."; \
 config_dir=$(CURDIR)/apps/$(SAMPLE_APP)/time-series-analytics-config; \
 tar_file=$(CURDIR)/apps/$(SAMPLE_APP)/time-series-analytics-config/$(SAMPLE_APP).tar; \
 if [ "$(CONFIG_JSON_FILE)" = "config-batch.json" ]; then \
@@ -240,14 +269,14 @@ if [ "$(CONFIG_JSON_FILE)" = "config-batch.json" ]; then \
 fi; \
 rm -f $$tar_file; \
 cd $$config_dir && \
-folders="udfs tick_scripts"; \
+folders="plugin"; \
 if [ -d models ] && [ -n "$$(ls -A models 2>/dev/null)" ]; then folders="$$folders models"; fi; \
-tar cf $$tar_file $$folders && \
+tar --exclude='__pycache__' --exclude='*.pyc' -cf $$tar_file $$folders && \
 echo "Created: $$tar_file"; \
 $(wait_for_tsam); \
-echo "Uploading UDF deployment tar for $(SAMPLE_APP) to Time-Series Analytics microservice..."; \
+echo "Uploading plugin package tar for $(SAMPLE_APP) to Time-Series Analytics microservice..."; \
 response=$$(curl -s -o /tmp/upload_response.json -w "%{http_code}" \
-	-X POST https://${HOST_IP}:${GRAFANA_PORT}/ts-api/udfs/package \
+	-X POST https://${HOST_IP}:${GRAFANA_PORT}/ts-api/plugin/package \
 	-F "file=@$$tar_file" \
 	-k); \
 if [ "$$response" = "200" ]; then \
@@ -261,17 +290,18 @@ fi
 endef
 
 .PHONY: up_mqtt_ingestion
-up_mqtt_ingestion: check_env_variables down
+up_mqtt_ingestion: check_env_variables prepare_influxdb3_token down
 	$(call multi_stream_check,mqtt)
+	@$(start_core_services)
+	@$(upload_tar_file)
+	@$(wait_for_core_trigger)
 	@export TELEGRAF_INPUT_PLUGIN=$$(if [ $(INCLUDE) = 'validation' ]; then echo "mqtt_consumer:net:cpu:disk:docker:diskio:kernel:mem:processes:swap:system"; else echo "mqtt_consumer"; fi); \
-	if [ $(num_of_streams) -gt 1 ]; then \
-		export TELEGRAF_CONFIG_PATH=/etc/telegraf/Telegraf_multi_stream.conf; \
-    fi; \
-	echo "Starting Docker containers..."; \
-	echo "GPU device path set to: $(DRI_MOUNT_PATH) based on its existence"; \
+	export INFLUXDB3_AUTH_TOKEN=$$(jq -r '.token' "$(INFLUXDB3_ADMIN_TOKEN_FILE)"); \
+	if [ $(num_of_streams) -gt 1 ]; then export TELEGRAF_CONFIG_PATH=/etc/telegraf/Telegraf_multi_stream.conf; fi; \
 	if [ $(INCLUDE) = 'validation' ]; then \
 		$(COMPOSE) up --scale ia-opcua-server=0 -d; \
 	else \
+		$(DOCKER_COMPOSE) up -d ia-telegraf; \
 		for i in $$(seq 1 $(num_of_streams)); do \
 			echo "Starting ia-mqtt-publisher instance $$i for SAMPLE_APP: $$SAMPLE_APP";\
 			$(COMPOSE) run -d --name ia-mqtt-publisher-$$i -e INSTANCE_ID=$$i ia-mqtt-publisher; \
@@ -287,14 +317,14 @@ endif
 
 # Run Docker containers
 .PHONY: up_opcua_ingestion
-up_opcua_ingestion: check_env_variables down
+up_opcua_ingestion: check_env_variables prepare_influxdb3_token down
 	$(call multi_stream_check,opcua)
+	@$(start_core_services)
+	@$(upload_tar_file)
+	@$(wait_for_core_trigger)
 	@export TELEGRAF_INPUT_PLUGIN=$$(if [ $(INCLUDE) = 'validation' ]; then echo "opcua:net:cpu:disk:docker:diskio:kernel:mem:processes:swap:system"; else echo "opcua"; fi); \
-	if [ $(num_of_streams) -gt 1 ]; then \
-		export TELEGRAF_CONFIG_PATH=/etc/telegraf/Telegraf_multi_stream.conf; \
-    fi; \
-	echo "Starting Docker containers..."; \
-	echo "GPU device path set to: $(DRI_MOUNT_PATH) based on its existence"; \
+	export INFLUXDB3_AUTH_TOKEN=$$(jq -r '.token' "$(INFLUXDB3_ADMIN_TOKEN_FILE)"); \
+	if [ $(num_of_streams) -gt 1 ]; then export TELEGRAF_CONFIG_PATH=/etc/telegraf/Telegraf_multi_stream.conf; fi; \
 	if [ $(INCLUDE) = 'validation' ]; then \
 		$(COMPOSE) up --scale ia-mqtt-publisher=0 -d ;\
 	else \
