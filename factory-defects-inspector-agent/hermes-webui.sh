@@ -27,8 +27,11 @@ DIR="${HERMES_WEBUI_DIR:-$HOME/hermes-webui}"
 PORT="${HERMES_WEBUI_PORT:-8787}"
 REQ_HOST="${HERMES_WEBUI_HOST:-}"
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+PID_FILE="${HERMES_WEBUI_PID_FILE:-$HERMES_HOME/webui.pid}"
+PASSWORD_FINGERPRINT_FILE="$HERMES_HOME/.webui-password.sha256"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RESTART_NEEDED=0
+PASSWORD_CHANGED=0
 
 die() { echo "error: $*" >&2; exit 1; }
 
@@ -78,6 +81,7 @@ install() {
       printf "HERMES_WEBUI_HOST=127.0.0.1\nHERMES_WEBUI_PORT=%s\nHERMES_WEBUI_PASSWORD='%s'\n" "$PORT" "$pw" > "$env_file" )
     unset pw pw2
     RESTART_NEEDED=1
+    PASSWORD_CHANGED=1
     echo "Saved settings to $env_file (mode 600)"
   fi
   chmod 600 "$env_file"
@@ -98,6 +102,39 @@ persona_install() {
 }
 
 env_value() { sed -n "s/^$1=//p" "$DIR/.env" | tail -1; }
+
+password_fingerprint() {
+  local password_setting
+  if [[ ${HERMES_WEBUI_PASSWORD+x} ]]; then
+    password_setting=$HERMES_WEBUI_PASSWORD
+  else
+    password_setting=$(env_value HERMES_WEBUI_PASSWORD)
+    if [[ $password_setting =~ ^\'(.*)\'$ ]]; then
+      password_setting=${BASH_REMATCH[1]}
+    elif [[ $password_setting =~ ^\"(.*)\"$ ]]; then
+      password_setting=${BASH_REMATCH[1]}
+    fi
+  fi
+  [[ -n $password_setting ]] || die "no HERMES_WEBUI_PASSWORD in $DIR/.env"
+  printf '%s' "$password_setting" | openssl dgst -sha256 | awk '{print $NF}'
+}
+
+webui_state_dir() {
+  local state_dir="${HERMES_WEBUI_STATE_DIR:-$(env_value HERMES_WEBUI_STATE_DIR)}"
+  state_dir="${state_dir:-$HERMES_HOME/webui}"
+  if [[ $state_dir =~ ^\'(.*)\'$ ]]; then
+    state_dir=${BASH_REMATCH[1]}
+  elif [[ $state_dir =~ ^\"(.*)\"$ ]]; then
+    state_dir=${BASH_REMATCH[1]}
+  fi
+  python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).expanduser().resolve())' "$state_dir"
+}
+
+save_password_fingerprint() {
+  local fingerprint=$1
+  ( umask 077; printf '%s\n' "$fingerprint" > "$PASSWORD_FINGERPRINT_FILE" )
+  chmod 600 "$PASSWORD_FINGERPRINT_FILE"
+}
 
 # Write KEY=VALUE to .env; a changed value means a running daemon must restart.
 set_env() {
@@ -195,16 +232,31 @@ wait_healthy() {
 }
 
 start_webui() {
+  local fingerprint previous_fingerprint state_dir
+  fingerprint=$(password_fingerprint)
+  if [[ -f $PASSWORD_FINGERPRINT_FILE ]]; then
+    previous_fingerprint=$(<"$PASSWORD_FINGERPRINT_FILE")
+    if [[ $fingerprint != "$previous_fingerprint" ]]; then
+      PASSWORD_CHANGED=1
+      RESTART_NEEDED=1
+    fi
+  fi
   tls_install
   configure_bind
   # The daemon reads .env only at launch, so a hand-edited .env (e.g. a reset password) needs a restart.
-  [[ $DIR/.env -nt $HERMES_HOME/webui.pid ]] && RESTART_NEEDED=1
-  if (( RESTART_NEEDED )); then
+  [[ $DIR/.env -nt $PID_FILE ]] && RESTART_NEEDED=1
+  if (( PASSWORD_CHANGED )); then
+    state_dir=$(webui_state_dir)
+    "$DIR/ctl.sh" stop
+    rm -f -- "$state_dir/.sessions.json"
+    "$DIR/ctl.sh" start
+  elif (( RESTART_NEEDED )); then
     "$DIR/ctl.sh" restart   # apply the new settings to a running instance
   else
     "$DIR/ctl.sh" start     # no-op if already running
   fi
   wait_healthy
+  save_password_fingerprint "$fingerprint"
 }
 
 ARGS=()
@@ -219,7 +271,10 @@ set -- "${ARGS[@]+"${ARGS[@]}"}"
 case "${1:-}" in
   start)
     # Re-run install when the checkout is missing, not at the pinned tag, or has no password.
-    [[ -f $DIR/.env && $(git -C "$DIR" describe --tags --exact-match 2>/dev/null) == "$VERSION" ]] || install
+    if [[ ! -f $DIR/.env || $(git -C "$DIR" describe --tags --exact-match 2>/dev/null) != "$VERSION" ]] \
+      || ! grep -q '^HERMES_WEBUI_PASSWORD=.' "$DIR/.env"; then
+      install
+    fi
     persona_install
     start_webui
     ;;
