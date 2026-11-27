@@ -30,7 +30,6 @@ from __future__ import annotations
 
 import argparse
 
-from datasets import load_dataset
 # Redundant by mandatorily import unsloth before importing trl
 # EOS token default changes if trl imported before unsloth
 # causing an exception in SFTTrainer
@@ -44,6 +43,7 @@ from unsloth.trainer import UnslothVisionDataCollator
 
 from common import convert_to_conversation
 from common import detect_device
+from common import load_local_dataset
 from common import validate_sample_index
 
 DEFAULT_MODEL_NAME = "unsloth/Qwen3.5-2B"
@@ -118,8 +118,8 @@ def main() -> None:
     device = detect_device()
     optim_name = "adamw_8bit" if device == "cuda" else "adamw_torch"
 
-    train_dataset = load_dataset(args.dataset_path, split="train")
-    eval_dataset = load_dataset(args.dataset_path, split="validation")
+    train_dataset = load_local_dataset(args.dataset_path, split="train")
+    eval_dataset = load_local_dataset(args.dataset_path, split="validation")
     validate_sample_index(train_dataset, args.sample_index)
 
     converted_train_dataset = [

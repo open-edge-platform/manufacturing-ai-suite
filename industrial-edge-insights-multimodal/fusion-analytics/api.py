@@ -26,7 +26,6 @@ APM_API_KEY = os.getenv("APM_API_KEY", "")
 API_PORT = int(os.getenv("API_PORT", "8080"))
 FUSION_MEASUREMENT = "fusion_result"
 
-# Label allow-list: only alphanumeric, underscore, hyphen, dot, and space
 _SAFE_LABEL_RE = re.compile(r"^[A-Za-z0-9_\-\. ]+$")
 
 _api_start_time = time.time()
@@ -59,12 +58,12 @@ def require_api_key(x_api_key: str | None = Header(default=None, alias="X-API-Ke
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
-def _influx_points(query: str) -> list:
+def _influx_points(query: str, bind_params: dict | None = None) -> list:
     """Execute an InfluxQL query and return results as a list of dicts."""
     if _influx_client is None:
         raise HTTPException(status_code=503, detail="InfluxDB client not initialized")
     try:
-        result = _influx_client.query(query)
+        result = _influx_client.query(query, bind_params=bind_params)
         data = []
         for (measurement, tags), points in result.items():
             fc = (tags or {}).get("fusion_classification", "UNKNOWN")
@@ -83,7 +82,7 @@ def health():
         raise HTTPException(status_code=503, detail="InfluxDB client not initialized")
     try:
         _influx_client.ping()
-        points = _influx_points(f"SELECT count(fused_decision) as count FROM \"{FUSION_MEASUREMENT}\"")
+        points = _influx_points(f"SELECT count(fused_decision) as count FROM \"{FUSION_MEASUREMENT}\"")  # nosec B608 - measurement is a module constant
         count = points[0].get("count", 0) if points else 0
         return {"status": "ok", "detections_count": count}
     except HTTPException:
@@ -104,10 +103,14 @@ def get_detections(
     global _api_request_count
     _api_request_count += 1
 
-    logger.info(f"Detections request: label={label}, min_confidence={min_confidence}, min_id={min_id}, max_id={max_id}, limit={limit}")
+    logger.info("Detections request: label=%r, min_confidence=%s, min_id=%s, max_id=%s, limit=%s", label, min_confidence, min_id, max_id, limit)
     conditions = []
+    bind_params = {}
     if label is not None:
-        conditions.append(f"fusion_classification = '{label}'")
+        if not _SAFE_LABEL_RE.fullmatch(label):
+            raise HTTPException(status_code=400, detail="Invalid label")
+        conditions.append("fusion_classification = $label")
+        bind_params["label"] = label
     if min_confidence is not None:
         conditions.append(f"fusion_confidence >= {min_confidence}")
     if min_id is not None:
@@ -117,8 +120,17 @@ def get_detections(
 
     where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ""
     limit_clause = f" LIMIT {limit}" if limit else ""
-    query = f"SELECT fused_decision, fusion_classification as label, fusion_confidence as confidence, mode, timeseries_anomaly, timeseries_classification, timeseries_confidence, timeseries_timestamp, ts_anomaly, vision_anomaly, vision_classification, vision_confidence, vision_rtsp_ts_diff_ms, vision_timestamp FROM \"{FUSION_MEASUREMENT}\"{where_clause} ORDER BY time DESC{limit_clause}"
-    return _influx_points(query)
+    query = f"SELECT frame_id, fused_decision, fusion_classification as label, fusion_confidence as confidence, mode, timeseries_anomaly, timeseries_classification, timeseries_confidence, timeseries_timestamp, ts_anomaly, vision_anomaly, vision_classification, vision_confidence, vision_rtsp_ts_diff_ms, vision_timestamp FROM \"{FUSION_MEASUREMENT}\"{where_clause} ORDER BY time DESC{limit_clause}"  # nosec B608 - measurement is constant; filter values are validated or bound parameters
+    return _influx_points(query, bind_params=bind_params)
+
+
+@api_app.get("/detections/labels")
+def get_detection_labels():
+    """Return distinct detection labels currently stored in InfluxDB."""
+    points = _influx_points(
+        f'SHOW TAG VALUES FROM "{FUSION_MEASUREMENT}" WITH KEY = "fusion_classification"'
+    )
+    return sorted({point["value"] for point in points if point.get("value")})
 
 
 @api_app.get("/detections/summary")
@@ -136,7 +148,7 @@ def get_summary(
         conditions.append(f"time <= {max_id}")
 
     where_clause = f" WHERE {' AND '.join(conditions)}" if conditions else ""
-    query = f"SELECT COUNT(fusion_confidence) as count, MEAN(fusion_confidence) as avg_confidence, MAX(fusion_confidence) as max_confidence, MIN(fusion_confidence) as min_confidence FROM \"{FUSION_MEASUREMENT}\"{where_clause} GROUP BY fusion_classification ORDER BY time ASC"
+    query = f"SELECT COUNT(fusion_confidence) as count, MEAN(fusion_confidence) as avg_confidence, MAX(fusion_confidence) as max_confidence, MIN(fusion_confidence) as min_confidence FROM \"{FUSION_MEASUREMENT}\"{where_clause} GROUP BY fusion_classification ORDER BY time ASC"  # nosec B608 - measurement is constant; bounds are validated integers
     points = _influx_points(query)
 
     # SELECT COUNT("fusion_confidence"), MEAN("fusion_confidence") FROM "fusion_result" GROUP BY "fusion_classification"
@@ -158,13 +170,13 @@ def get_summary(
         summary[label]["min_confidence"] = float(p.get("min_confidence") or 0.0)
         summary[label]["label"] = label
         summary[label]["fusion_mode"] = str(os.getenv("FUSION_MODE", "OR"))
-    return summary
+    return {"by_class": list(summary.values())}
 
 
 @api_app.get("/detections/max_id")
 def get_max_id():
     """Return total stored detection count used as a watermark by consumers."""
-    points = _influx_points(f"SELECT count(fused_decision) AS count,time FROM \"{FUSION_MEASUREMENT}\" ORDER BY time DESC LIMIT 1")
+    points = _influx_points(f"SELECT count(fused_decision) AS count,time FROM \"{FUSION_MEASUREMENT}\" ORDER BY time DESC LIMIT 1")  # nosec B608 - measurement is a module constant
     max_id = points[0].get("time", 0) if points else 0
     total_count = points[0].get("count", 0) if points else 0
     return {"max_id": max_id, "total_count": total_count}
@@ -177,10 +189,10 @@ def metrics():
     count = 0
     if _influx_client is not None:
         try:
-            points = list(_influx_client.query(f"SELECT count(fused_decision) as count FROM \"{FUSION_MEASUREMENT}\"").get_points())
+            points = list(_influx_client.query(f"SELECT count(fused_decision) as count FROM \"{FUSION_MEASUREMENT}\"").get_points())  # nosec B608 - measurement is a module constant
             count = points[0].get("count", 0) if points else 0
         except Exception:
-            pass
+            logger.warning("Could not query InfluxDB detection count for metrics", exc_info=True)
     return (
         f"# HELP fusion_detections_total Total fusion results stored\n"
         f"# TYPE fusion_detections_total gauge\n"

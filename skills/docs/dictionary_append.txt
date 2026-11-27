@@ -1,0 +1,9 @@
+OpenMES
+npx
+OPC
+MQTT
+RTSP
+PCB
+VLM
+vLLM
+Copilot

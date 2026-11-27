@@ -1,9 +1,6 @@
 #!/bin/bash
-#
-# Apache v2 license
-# Copyright (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-#
 
 # Set working directory for SSL certificates
 SSL_DIR="/opt/nginx/certs"
@@ -30,7 +27,7 @@ chmod 640 "$SSL_DIR/.htpasswd"
 # "agentic" adds all of them; "vllm" adds only insights-ui. These values
 # reproduce what used to be three separate, duplicated nginx.conf files.
 case "${NGINX_PROFILE:-base}" in
-    agentic)
+    agentic|agentic_mcp)
         NGINX_DEFAULT_TIMEOUT="${NGINX_DEFAULT_TIMEOUT:-60s}"
         NGINX_STREAM_TIMEOUT="${NGINX_STREAM_TIMEOUT:-300s}"
         cat > "$SSL_DIR/nginx-extra-locations.conf" <<'EOF'
@@ -94,6 +91,24 @@ case "${NGINX_PROFILE:-base}" in
             proxy_read_timeout 15s;
         }
 EOF
+        if [[ "$NGINX_PROFILE" == "agentic_mcp" ]]; then
+            cat >> "$SSL_DIR/nginx-extra-locations.conf" <<'EOF'
+        location = /mcp {
+            resolver 127.0.0.11 valid=10s ipv6=off;
+            set $mcp_upstream http://multimodal-mcp-server:8000;
+            proxy_pass $mcp_upstream;
+            proxy_http_version 1.1;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header Connection '';
+            proxy_buffering off;
+            proxy_cache off;
+            proxy_read_timeout 3600s;
+        }
+EOF
+        fi
         ;;
     vllm)
         NGINX_DEFAULT_TIMEOUT="${NGINX_DEFAULT_TIMEOUT:-180s}"
@@ -131,7 +146,12 @@ SHA_ALGO="sha384"
 
 echo "Generating SSL certificates for Nginx..."
 
-envsubst '$MEDIAMTX_SERVER $WHIP_SERVER_PORT $NGINX_DEFAULT_TIMEOUT $NGINX_STREAM_TIMEOUT' < /tmp/default.conf.template > /etc/nginx/nginx.conf
+envsubst "\$MEDIAMTX_SERVER \$WHIP_SERVER_PORT \$NGINX_DEFAULT_TIMEOUT \$NGINX_STREAM_TIMEOUT" < /tmp/default.conf.template > /etc/nginx/nginx.conf
 
-openssl req -x509 -nodes -days ${DAYS} -${SHA_ALGO} -newkey rsa:${KEY_LENGTH} -keyout "$SSL_DIR/key.pem" -out "$SSL_DIR/cert.pem" -subj "/CN=localhost"
+openssl req -x509 -nodes -days "${DAYS}" -"${SHA_ALGO}" -newkey "rsa:${KEY_LENGTH}" \
+    -keyout "$SSL_DIR/key.pem" -out "$SSL_DIR/cert.pem" -subj "/CN=localhost" \
+    -addext "basicConstraints=critical,CA:TRUE" \
+    -addext "keyUsage=critical,digitalSignature,keyEncipherment,keyCertSign,cRLSign" \
+    -addext "extendedKeyUsage=serverAuth" \
+    -addext "subjectAltName=DNS:localhost,IP:${HOST_IP:-127.0.0.1}"
 chmod 640 "$SSL_DIR/key.pem" "$SSL_DIR/cert.pem"

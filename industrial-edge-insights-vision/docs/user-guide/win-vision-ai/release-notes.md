@@ -1,5 +1,13 @@
 # Release Notes: Win Vision AI
 
+## Version 2026.3.0
+
+**Release Date**: December 7, 2026
+
+**Improved**:
+
+- Updated DL Streamer to 2026.3.0.
+
 ## Version 2026.2.0
 
 **Release Date**: September 10, 2026

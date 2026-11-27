@@ -23,10 +23,6 @@ The OPC-UA server simulator is used for ingesting the wind turbine data in the `
 
 For more details on deployment, refer to the [documentation](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started.html).
 
-#### Deploy on Kubernetes cluster using Helm Charts
-
-For more details on deployment, refer to the [documentation](https://docs.openedgeplatform.intel.com/2026.2/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/get-started/deploy-with-helm.html).
-
 ### [2026.1.0](https://docs.openedgeplatform.intel.com/2026.1/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/release-notes.html#version-2026-1)
 
 #### Deploy using Docker Compose

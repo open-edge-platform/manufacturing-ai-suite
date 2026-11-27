@@ -1,15 +1,15 @@
 #
 # Apache v2 license
-# Copyright (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 #
 
-HELM_REGISTRY = oci://registry-1.docker.io/intel
 MAKEFLAGS += --no-print-directory
 
 DOCKER_COMPOSE_FILE = ./docker-compose.yml
 DOCKER_COMPOSE_FILE_VLLM = ./docker-compose-vllm.yml
 DOCKER_COMPOSE_FILE_AGENTIC = ./docker-compose-agentic.yml
+DOCKER_COMPOSE_FILE_MCP = ./docker-compose-mcp.yml
 DOCKER_COMPOSE = docker compose
 SECURE_MODE='false'
 
@@ -21,32 +21,37 @@ export ACCEL_MOUNT_PATH
 
 # Define the path to the .env file and scripts
 ENV_FILE = ./.env
-HELM_PACKAGE_SCRIPT = ./package_helm.sh
 
 include $(ENV_FILE)
 export $(shell sed 's/=.*//' $(ENV_FILE))
-$(shell chmod 600 .env helm/values.yaml)
+$(shell chmod 600 .env)
 
 # Default values
 KEY_LENGTH=3072
 DAYS=365
 SHA_ALGO="sha384"
+VLLM_MODEL_REPO_ID := $(VLLM_SERVED_MODEL_NAME)
+VLLM_ADAPTER_REPO_ID := Intel/$(notdir $(patsubst %/,%,$(VLLM_ADAPTER_DIR)))
 LLM_DEVICE_LOWER := $(shell printf '%s' "$(LLM_DEVICE)" | tr '[:upper:]' '[:lower:]')
 LLM_WEIGHT_FORMAT_LOWER := $(shell printf '%s' "$(LLM_WEIGHT_FORMAT)" | tr '[:upper:]' '[:lower:]')
 MODEL_PATH ?= /model/llm_model_agentic/openvino_models/$(LLM_DEVICE_LOWER)/$(LLM_WEIGHT_FORMAT_LOWER)/$(LLM_MODEL_NAME)
 export MODEL_PATH
+DOWNLOAD_AGENTIC ?= false
 PLATFORM_CHECK ?= true
+MCP ?= false
+MCP_COMPOSE_ARG = $(if $(filter true,$(MCP)),-f $(DOCKER_COMPOSE_FILE_MCP))
+AGENTIC_NGINX_PROFILE = $(if $(filter true,$(MCP)),agentic_mcp,agentic)
 
 # Build Docker containers
 .PHONY: build
 build:
 	@echo "Building Docker containers...";
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) build --pull;
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_MCP) build --pull;
 
 .PHONY: build_copyleft_sources
 build_copyleft_sources:
 	@echo "Building Docker containers including copyleft licensed sources..."
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) build --build-arg COPYLEFT_SOURCES=true --pull;
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_MCP) build --build-arg COPYLEFT_SOURCES=true --pull;
 
 .PHONY: validate_host_ip
 validate_host_ip:
@@ -73,8 +78,13 @@ validate_host_ip:
 check_env_variables:
 	@echo "Checking if username/password in .env are matching the rules set..."
 	@variables="INFLUXDB_USERNAME INFLUXDB_PASSWORD VISUALIZER_GRAFANA_USER VISUALIZER_GRAFANA_PASSWORD MTX_WEBRTCICESERVERS2_0_USERNAME MTX_WEBRTCICESERVERS2_0_PASSWORD S3_STORAGE_USERNAME S3_STORAGE_PASSWORD SEAWEEDFS_WEB_AUTH_USER SEAWEEDFS_WEB_AUTH_PASSWORD"; \
+	if [ "$(MCP)" = "true" ]; then variables="$$variables MCP_USERNAME MCP_PASSWORD"; fi; \
 	for variable_name in $$variables; do \
-		value=$$(grep -E "^$$variable_name=" $(ENV_FILE) | cut -d'=' -f2); \
+		if printenv "$$variable_name" >/dev/null 2>&1; then \
+			value=$$(printenv "$$variable_name"); \
+		else \
+			value=$$(grep -E "^$$variable_name=" $(ENV_FILE) | cut -d'=' -f2); \
+		fi; \
 		if [ -z "$$value" ]; then \
 			echo "'$$variable_name' in $(ENV_FILE) is unassigned."; \
 			exit 1; \
@@ -141,6 +151,18 @@ check_env_variables:
 			SEAWEEDFS_WEB_AUTH_PASSWORD) \
 				if ! echo "$$value" | grep -Eq "^[A-Za-z0-9]{10,}$$" || ! echo "$$value" | grep -q "[0-9]" || ! echo "$$value" | grep -q "[A-Za-z]"; then \
 					echo "SEAWEEDFS_WEB_AUTH_PASSWORD length must be a minimum of 10 alphanumeric characters with at least one digit"; \
+					exit 1; \
+				fi \
+				;; \
+			MCP_USERNAME) \
+				if ! echo "$$value" | grep -Eq "^[A-Za-z]{5,}$$"; then \
+					echo "MCP_USERNAME must contain only alphabets and be at least 5 characters minimum"; \
+					exit 1; \
+				fi \
+				;; \
+			MCP_PASSWORD) \
+				if ! echo "$$value" | grep -Eq "^[A-Za-z0-9]{10,}$$" || ! echo "$$value" | grep -q "[0-9]" || ! echo "$$value" | grep -q "[A-Za-z]"; then \
+					echo "MCP_PASSWORD length must be a minimum of 10 alphanumeric characters with at least one digit"; \
 					exit 1; \
 				fi \
 				;; \
@@ -224,7 +246,7 @@ up: check_env_variables validate_host_ip down
 
 .PHONY: check_models
 check_models:
-	@echo "Checking if vllm models are available..."
+	@echo "Checking if VLM models are available..."
 	@for dir in configs/vllm/models configs/vllm/huggingface; do \
 		if [ ! -d "$$dir" ]; then \
 			echo "Error: $$dir directory does not exist."; \
@@ -271,8 +293,9 @@ check_hardware:
 	echo "Hardware check passed: $$cpu_model (Panther Lake)."
 
 .PHONY: up_vllm
-up_vllm: check_hardware check_models check_env_variables validate_host_ip down
-	@export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
+up_vllm: check_hardware check_env_variables validate_host_ip down
+	@$(MAKE) download_model || exit 1; \
+	export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
 	export NGINX_PROFILE=vllm; \
 	export AGENTIC_UI_ENABLED=false MQTT_DISABLED=true; \
 	echo "Starting Docker containers..."; \
@@ -282,11 +305,30 @@ up_vllm: check_hardware check_models check_env_variables validate_host_ip down
 	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) up -d; \
 	$(MAKE) upload_tar_file
 
+# The model-download container runs as a non-root user and must write into the bind-mounted
+# configs/agentic/models directory, which on the host is owned by the invoking user (or root,
+# if Docker created it). A one-off root container first chowns it to the uid:gid that owns /opt
+# in the image, i.e. the user the service runs as.
+.PHONY: download_model _download_agentic_model _download_vllm_models
 download_model:
+	@case "$(DOWNLOAD_AGENTIC)" in true|false) ;; *) echo "Use DOWNLOAD_AGENTIC=true or false" >&2; exit 2 ;; esac; \
+	if ! $(MAKE) check_models >/dev/null 2>&1; then \
+		echo "VLM models not found. Downloading the base model and adapter..."; \
+		$(MAKE) _download_vllm_models || exit 1; \
+	fi; \
+	$(MAKE) check_models || exit 1; \
+	if [ "$(DOWNLOAD_AGENTIC)" = "true" ]; then \
+		$(MAKE) _download_agentic_model || exit 1; \
+	fi
+
+_download_agentic_model:
 	@echo "Starting Model Download Service..."; \
 	mkdir -p configs/agentic/models; \
-	chmod -R 755 configs/agentic/models; \
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_VLLM) up -d model-download; \
+	docker run --rm --user 0:0 --entrypoint sh \
+		-v "$$PWD/configs/agentic/models:/opt/models" \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+		-c 'chown -R "$$(stat -c %u:%g /opt)" /opt/models' || exit 1; \
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_VLLM) up -d model-download || exit 1; \
 	echo "Waiting for model-download service to become healthy on port 8200..."; \
 	i=0; \
 	while [ $$i -lt 60 ]; do \
@@ -302,10 +344,12 @@ download_model:
 	done; \
 	echo "Requesting download+conversion of '${LLM_MODEL_NAME}' (device=${LLM_DEVICE}, precision=${LLM_WEIGHT_FORMAT})..."; \
 	payload='{"models":[{"name":"${LLM_MODEL_NAME}","hub":"openvino","type":"llm","is_ovms":true,"config":{"precision":"${LLM_WEIGHT_FORMAT}","device":"${LLM_DEVICE}","pipeline_type":"LM_CB"}}],"parallel_downloads":false}'; \
-	http_code=$$(curl -w "%{http_code}" -s -o /tmp/model_response.json -X POST "http://${HOST_IP}:8200/api/v1/models/download?download_path=llm_model_agentic" \
+	resp_file=$$(mktemp) || exit 1; \
+	trap 'rm -f "$$resp_file"' EXIT; \
+	http_code=$$(curl -w "%{http_code}" -s -o "$$resp_file" -X POST "http://${HOST_IP}:8200/api/v1/models/download?download_path=llm_model_agentic" \
 		-H "Content-Type: application/json" \
 		-d "$$payload"); \
-	response=$$(cat /tmp/model_response.json); \
+	response=$$(cat "$$resp_file"); \
 	echo "  HTTP Status: $$http_code"; \
 	echo "  Response: $$response"; \
 	if [ "$$http_code" != "200" ]; then \
@@ -339,22 +383,129 @@ download_model:
 	fi; \
 	echo "Model download completed successfully"
 
+# Downloads the VLM base model and LoRA adapter via the model-download microservice.
+_download_vllm_models:
+	@echo "Starting Model Download Service for the VLM models..."; \
+	mkdir -p configs/vllm || exit 1; \
+	if [ ! -w configs/vllm ]; then \
+		echo "configs/vllm is not writable; restoring ownership to $$(id -un)."; \
+		docker run --rm --user 0:0 --entrypoint sh \
+			-v "$$PWD/configs/vllm:/opt/models" \
+			$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+			-c 'chown "$$1" /opt/models' sh "$$(id -u):$$(id -g)" || exit 1; \
+	fi; \
+	staging_dir=$$(mktemp -d configs/vllm/.download.XXXXXX) || exit 1; \
+	staging_name=$${staging_dir##*/}; \
+	echo "Staging downloads in $$staging_dir (retained on failure)."; \
+	docker run --rm --user 0:0 --entrypoint sh \
+		-v "$$PWD/configs/vllm:/opt/models" \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+		-c 'chown "$$(stat -c %u:%g /opt)" "/opt/models/$$1"' sh "$$staging_name" || exit 1; \
+	resp_file=$$(mktemp) || exit 1; \
+	cleanup_download() { \
+		original_status=$$?; \
+		trap - 0; \
+		trap '' HUP INT TERM; \
+		if [ "$$original_status" -ne 0 ]; then \
+			(umask 077; docker logs vllm-model-download >"$$staging_dir.log" 2>&1); \
+			echo "Downloader failure logs saved to $$staging_dir.log" >&2; \
+		fi; \
+		docker rm -f vllm-model-download >/dev/null || echo "WARNING: Downloader cleanup failed." >&2; \
+		rm -f "$$resp_file"; \
+		exit "$$original_status"; \
+	}; \
+	trap cleanup_download 0; \
+	trap 'exit 129' HUP; \
+	trap 'exit 130' INT; \
+	trap 'exit 143' TERM; \
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) --profile model-download up -d model-download-vllm || exit $$?; \
+	echo "Waiting for model-download-vllm service to become healthy on port $${VLLM_MODEL_DOWNLOAD_PORT:-8200}..."; \
+	i=0; \
+	while [ $$i -lt 60 ]; do \
+		if curl -sf "http://127.0.0.1:$${VLLM_MODEL_DOWNLOAD_PORT:-8200}/api/v1/models/results" >/dev/null 2>&1; then \
+			break; \
+		fi; \
+		if [ "$$i" -eq 59 ]; then \
+			echo "ERROR: model-download-vllm service did not become ready in time"; \
+			exit 1; \
+		fi; \
+		sleep 2; \
+		i=$$(($$i + 1)); \
+	done; \
+	echo "Requesting download of '${VLLM_MODEL_REPO_ID}' and '${VLLM_ADAPTER_REPO_ID}' from HuggingFace..."; \
+	payload='{"models":[{"name":"${VLLM_MODEL_REPO_ID}","hub":"huggingface","type":"llm","is_ovms":false},{"name":"${VLLM_ADAPTER_REPO_ID}","hub":"huggingface","type":"llm","is_ovms":false}],"parallel_downloads":false}'; \
+	http_code=$$(curl -w "%{http_code}" -s -o "$$resp_file" -X POST "http://127.0.0.1:$${VLLM_MODEL_DOWNLOAD_PORT:-8200}/api/v1/models/download?download_path=$$staging_name" \
+		-H "Content-Type: application/json" \
+		-d "$$payload"); \
+	response=$$(cat "$$resp_file"); \
+	echo "  HTTP Status: $$http_code"; \
+	echo "  Response: $$response"; \
+	if [ "$$http_code" != "200" ]; then \
+		echo "ERROR: Unexpected HTTP status $$http_code from model-download"; \
+		exit 1; \
+	fi; \
+	job_ids=$$(echo "$$response" | python3 -c "import sys, json; jobs = json.load(sys.stdin)['job_ids']; assert len(jobs) == 2 and all(isinstance(job, str) and job for job in jobs) and jobs[0] != jobs[1]; print(' '.join(jobs))" 2>/dev/null) || { \
+		echo "ERROR: Failed to extract job_ids from response"; \
+		exit 1; \
+	}; \
+	echo "Download jobs submitted (job_ids=$$job_ids). Waiting for completion..."; \
+	for job_id in $$job_ids; do \
+		i=0; \
+		while [ $$i -lt 600 ]; do \
+			job=$$(curl -sf "http://127.0.0.1:$${VLLM_MODEL_DOWNLOAD_PORT:-8200}/api/v1/jobs/$$job_id" 2>/dev/null || echo '{}'); \
+			status=$$(echo "$$job" | python3 -c "import sys, json; print(json.load(sys.stdin).get('status', 'unknown'))" 2>/dev/null); \
+			if [ "$$status" = "completed" ]; then \
+				echo "Download job $$job_id complete."; \
+				break; \
+			fi; \
+			if [ "$$status" = "failed" ]; then \
+				echo "ERROR: Download job $$job_id failed"; \
+				exit 1; \
+			fi; \
+			echo "  [$$i/600] Job $$job_id status: $$status"; \
+			i=$$(($$i + 1)); \
+			sleep 5; \
+		done; \
+		if [ $$i -ge 600 ]; then \
+			echo "ERROR: Download timeout for job $$job_id (600 attempts exhausted)"; \
+			exit 1; \
+		fi; \
+	done; \
+	echo "Moving the models into the layout expected by docker-compose-vllm.yml..."; \
+	model_src=$$(printf '%s' "${VLLM_MODEL_REPO_ID}" | tr '/' '_'); \
+	model_dst=$$(basename "${VLLM_MODEL_REPO_ID}"); \
+	adapter_src=$$(printf '%s' "${VLLM_ADAPTER_REPO_ID}" | tr '/' '_'); \
+	adapter_dst=$$(basename "${VLLM_ADAPTER_REPO_ID}"); \
+	docker run --rm --user 0:0 --entrypoint sh \
+		-v "$$PWD/configs/vllm:/opt/models" \
+		$(DOCKER_REGISTRY)$(MODEL_DOWLOADER_IMAGE):$(IMAGE_SUFFIX) \
+		-c 'set -e; \
+			staging="/opt/models/$$1"; \
+			test -s "$$staging/huggingface/$$2/config.json"; \
+			test -s "$$staging/huggingface/$$4/adapter_config.json"; \
+			mkdir -p /opt/models/huggingface /opt/models/models; \
+			rm -rf "/opt/models/huggingface/$$3" "/opt/models/models/$$5"; \
+			mv "$$staging/huggingface/$$2" "/opt/models/huggingface/$$3"; \
+			mv "$$staging/huggingface/$$4" "/opt/models/models/$$5"; \
+			rm -rf "$$staging"' sh "$$staging_name" "$$model_src" "$$model_dst" "$$adapter_src" "$$adapter_dst" || exit $$?; \
+	echo "VLM model download completed successfully:"; \
+	echo "  configs/vllm/huggingface/$$model_dst"; \
+	echo "  configs/vllm/models/$$adapter_dst"
+
 
 .PHONY: up_agentic
-up_agentic: check_hardware check_models check_env_variables validate_host_ip down
+up_agentic: check_hardware check_env_variables validate_host_ip down
 	@export TELEGRAF_INPUT_PLUGIN=mqtt_consumer; \
-	export NGINX_PROFILE=agentic; \
+	export NGINX_PROFILE=$(AGENTIC_NGINX_PROFILE); \
 	export AGENTIC_UI_ENABLED=true MQTT_DISABLED=false; \
 	echo "Starting Docker containers..."; \
 	echo "GPU device path set to: $(DRI_MOUNT_PATH) based on its existence"; \
 	rm -f configs/grafana/provisioning/*.json; \
 	cp configs/grafana/dashboards_jsons/weld_defect_detection_vlm.json configs/grafana/provisioning/weld_defect_detection.json || exit 1; \
 	cp configs/grafana/dashboards_jsons/weld_defect_detection_agentic.json configs/grafana/provisioning/weld_defect_detection_agentic.json || exit 1; \
-	$(MAKE) download_model || exit 1; \
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) up -d || exit 1; \
-	$(MAKE) upload_tar_file
-
-
+	$(MAKE) download_model DOWNLOAD_AGENTIC=true || exit 1; \
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) up -d || exit 1; \
+	if [ "$(MCP)" != "true" ]; then $(MAKE) upload_tar_file; fi
 
 # Status of the deployed containers
 .PHONY: status
@@ -398,7 +549,7 @@ status:
 .PHONY: down
 down:
 	@echo "Stopping Docker containers...";
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) down -v --remove-orphans
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) $(MCP_COMPOSE_ARG) down -v --remove-orphans
 
 # Push the docker images to docker registry, ensure to configure DOCKER_REGISTRY in .env
 # and have logged into that. Applies mainly when one is dealing with internal docker registry.
@@ -407,57 +558,33 @@ down:
 .PHONY: push_images
 push_images: build
 	@echo "Pushing the images to docker registry"
-	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) push
+	$(DOCKER_COMPOSE) -f $(DOCKER_COMPOSE_FILE) -f $(DOCKER_COMPOSE_FILE_VLLM) -f $(DOCKER_COMPOSE_FILE_AGENTIC) -f $(DOCKER_COMPOSE_FILE_MCP) push
 
-
-# Generate helm packages
-.PHONY: gen_helm_charts
-gen_helm_charts:
-	@echo "Generating Helm packages"
-	$(eval version := $(shell if [ -n "$(WEEKLY_BUILD_DATE)" ] && [ "$(WEEKLY_BUILD_DATE)" != '""' ]; then echo "$(IMAGE_SUFFIX)-$(WEEKLY_BUILD_DATE)-weekly"; else echo "$(IMAGE_SUFFIX)"; fi))
-	@cp -f configs/grafana/provisioning/* helm/
-	@cp -f configs/grafana/dashboards_jsons/weld_defect_detection.json helm/
-	@cp -f configs/influxdb/config/*.conf helm/
-	@cp -f configs/influxdb/init-influxdb.sh helm/
-	@cp -f configs/mqtt-broker/*.conf helm/
-	@cp -f configs/telegraf/config/*.conf helm/
-	@cp -f configs/telegraf/entrypoint.sh helm/telegraf_entrypoint.sh
-	@cp -f configs/nginx/nginx-cert-gen.sh helm/nginx-cert-gen.sh
-	@cp -f configs/nginx/nginx.conf helm/nginx.conf
-	@cp -f configs/dlstreamer-pipeline-server/config.json helm/dlstreamer-pipeline-server.json
-	@sed -i 's/"auto_start": true,/"auto_start": false,/' helm/dlstreamer-pipeline-server.json
-	@cp -f configs/seaweedfs-s3/seaweedfs_s3_config.json.template helm/seaweedfs_s3_config.json.template
-	@cp -f configs/seaweedfs-s3/s3-init-buckets.sh helm/s3-init-buckets.sh
-	@sed -i "s/version: .*/version: ${version}/" "helm/Chart.yaml"
-	@sed -i "s/appVersion: .*/appVersion: \"${version}\"/" "helm/Chart.yaml"
-	@sed -i "s/weekly_build_date: .*/weekly_build_date: \"$(WEEKLY_BUILD_DATE)\"/" "helm/values.yaml"
-	@echo "Helm packages generated with version: ${version}"
-
-# To push the helm charts to docker registry, ensure to configure DOCKER_REGISTRY in .env
-# and have logged into that. Applies mainly when one is dealing with internal docker registry.
-# If you are using docker hub, ensure to have logged in with `docker login` command
-# before running this command.
-.PHONY: push_helm_charts
-push_helm_charts: gen_helm_charts
-	@mkdir -p helm-packages
-	@rm -f helm-packages/*.tgz
-	@pkg_file=$$(helm package helm/ -d helm-packages/ | awk '{print $$NF}'); \
-	echo "Helm chart packaged successfully: $$pkg_file"; \
-	helm push $$pkg_file $(HELM_REGISTRY) && echo "Helm chart package pushed successfully to $(HELM_REGISTRY)"; \
-	cd ..
 
 # Help
 .PHONY: help
 help:
 	@echo "Makefile commands:"
-	@echo "  make build                        - Build Docker containers"
-	@echo "  make up_agentic                   - Start the application and the agentic stack including vLLM service"
+	@echo "  make build                        - Build all Docker images, including the MCP server"
+	@echo "  make build_copyleft_sources       - Build all Docker images including copyleft licensed sources"
+	@echo "  make up                           - Start the base application (MQTT ingestion)"
 	@echo "  make up_vllm                      - Start the application and the vLLM stack"
-	@echo "  make build_copyleft_sources       - Build Docker containers including copyleft licensed sources"
-	@echo "  make up                           - Start Docker containers"
-	@echo "  make down                         - Stop Docker containers"
-	@echo "  make clean                        - Remove all stopped containers and unused images"
-	@echo "  make push_images                  - Push the images to docker registry"
-	@echo "  make gen_helm_charts              - Generate Helm packages for the selected sample app"
-	@echo "  make push_helm_charts             - Package and Push Helm charts to docker registry"
+	@echo "      Requires a supported platform; downloads VLM models if missing"
+	@echo "  make up_agentic                   - Start the application and the agentic stack including vLLM"
+	@echo "      Requires a supported platform; ensures VLM models and downloads the agentic model"
+	@echo "  make up_agentic MCP=true          - Also start the authenticated MCP server"
+	@echo "      Set MCP_USERNAME and MCP_PASSWORD in .env first. Pipelines are then started through MCP."
+	@echo "  make down                         - Stop Docker containers and remove volumes"
+	@echo "      Use MCP=true if the MCP server was started."
+	@echo "  make status                       - Show status of deployed containers and check for errors"
+	@echo "  make check_env_variables          - Validate required .env variables (MCP=true also checks MCP_USERNAME/MCP_PASSWORD)"
+	@echo "  make validate_host_ip             - Validate HOST_IP in .env"
+	@echo "  make check_models                 - Check that the VLM model directories are populated"
+	@echo "  make check_hardware               - Check the platform for the vLLM/agentic stacks"
+	@echo "      Optional: PLATFORM_CHECK=false skips the check (CI/validation use only)"
+	@echo "  make download_model [DOWNLOAD_AGENTIC=true] - Download VLM models; optionally include the agentic model"
+	@echo "  make upload_tar_file              - Upload the weld anomaly detection UDF package to the Time-Series Analytics microservice"
+	@echo "  make post_config                  - Post the weld anomaly detection config to the Time-Series Analytics microservice"
+	@echo "  make push_images                  - Build and push all images, including the MCP server, to the docker registry"
+	@echo "      Optional: DOCKER_REGISTRY (set in .env or as param)"
 	@echo "  make help                         - Display this help message"

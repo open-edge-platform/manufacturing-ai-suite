@@ -1,4 +1,9 @@
 Telegraf
+FastMCP
+InfluxQL
+MCP
+MiB
+Streamable
 Kapacitor
 config
 conf
@@ -32,7 +37,7 @@ ps
 kapacitor
 Eg
 statuscode
-xml 
+xml
 minio
 Grafana
 preconfigured

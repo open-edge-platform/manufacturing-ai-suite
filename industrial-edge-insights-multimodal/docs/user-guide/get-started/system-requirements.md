@@ -9,6 +9,10 @@ provided as part of Open Edge Platform.
 
 ## Minimum Requirements
 
+> [!NOTE]
+> The requirements below are for the default deployment described in the [Get Started](../get-started.md) guide.
+> For optional deployments, see the hardware requirements in the [vLLM service](../how-to-guides/how-to-deploy-vllm-service.md) and [agentic workflow](../how-to-guides/how-to-deploy-agent-workflow.md) deployment guides.
+
 | Component           | Specification                                                                                   |
 |---------------------|-------------------------------------------------------------------------------------------------|
 | **Processor**       | 13th Gen Intel® Core™ or Intel® Xeon® processor                                                 |
@@ -19,7 +23,7 @@ provided as part of Open Edge Platform.
 
 **Required Software**:
 
-- Operating System Ubuntu 24.04
+- Operating System Ubuntu 24.04/Ubuntu 26.04
 - Docker 24.0.7 or higher
 - Python 3.10+
 

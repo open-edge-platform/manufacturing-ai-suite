@@ -20,7 +20,7 @@ provided as part of Open Edge Platform.
 
 | Software | Version |
 |---|---|
-| Operating system | Ubuntu 22.04 LTS or Ubuntu 24.04 LTS |
+| Operating system | Ubuntu 24.04 LTS or Ubuntu 26.04 LTS |
 | Python Programming Language Version | 3.10 or higher |
 | Docker Engine | Docker Engine 27.3.1 or higher |
 

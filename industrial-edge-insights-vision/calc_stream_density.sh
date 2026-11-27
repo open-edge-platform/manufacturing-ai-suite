@@ -62,6 +62,88 @@ function get_pipeline_status() {
     curl -k -s "https://$DLSPS_NODE_IP/api/pipelines/status"
 }
 
+# Max seconds to wait for DLSPS to become ready after 'docker compose up'.
+COMPOSE_READY_TIMEOUT=${COMPOSE_READY_TIMEOUT:-300}
+# Seconds the readiness probe instance runs on a fresh stack.
+READY_PROBE_DURATION=${READY_PROBE_DURATION:-10}
+
+function compose_down() {
+  echo ">>>>> Bringing down the application stack (docker compose down -v)..." >&2
+  docker compose down -v --remove-orphans >&2
+}
+
+# On a fresh DLSPS container the first pipeline instance pays a one-time model load/compile
+# cost that stalls streams started alongside it. Readiness therefore includes briefly running
+# one un-measured instance, so every round starts from the same state as a long-running stack.
+function probe_pipeline_ready() {
+  local pipeline_name=$1
+  local payload=$2
+  local id attempts=0
+
+  payload=$(echo "$payload" | jq '
+    (if .destination.frame."peer-id" then .destination.frame."peer-id" = "readiness_probe" else . end)
+    | (if .destination.metadata.topic then .destination.metadata.topic = "readiness_probe" else . end)')
+  id=$(curl -k -s "https://$DLSPS_NODE_IP/api/pipelines/user_defined_pipelines/${pipeline_name}" \
+    -X POST -H "Content-Type: application/json" -d "$payload" | tr -d '"[:space:]')
+  [[ "$id" =~ ^[0-9a-fA-F-]+$ ]] || return 1
+
+  until [ "$(curl -k -s "https://$DLSPS_NODE_IP/api/pipelines/${id}/status" | jq -r '.state')" = "RUNNING" ]; do
+    attempts=$((attempts + 1))
+    [ "$attempts" -ge 60 ] && return 1
+    echo -n "." >&2
+    sleep 2
+  done
+  sleep "$READY_PROBE_DURATION"
+
+  curl -k -s -X DELETE "https://$DLSPS_NODE_IP/api/pipelines/${id}" > /dev/null
+  attempts=0
+  while [ "$(curl -k -s "https://$DLSPS_NODE_IP/api/pipelines/${id}/status" | jq -r '.state')" = "RUNNING" ]; do
+    attempts=$((attempts + 1))
+    [ "$attempts" -ge 30 ] && return 1
+    sleep 1
+  done
+  return 0
+}
+
+# Usage: compose_up <payload_file> <pipeline_name>...
+function compose_up() {
+  local payload_file=$1
+  shift
+
+  echo ">>>>> Starting a fresh application stack (docker compose up -d)..." >&2
+  if ! docker compose up -d >&2; then
+    echo "Error: 'docker compose up' failed." >&2
+    return 1
+  fi
+
+  echo -n ">>>>> Waiting for DL Streamer Pipeline Server to become ready..." >&2
+  local start_time=$SECONDS
+  until curl -k -s --fail "https://$DLSPS_NODE_IP/api/pipelines/status" > /dev/null; do
+    if (( SECONDS - start_time >= COMPOSE_READY_TIMEOUT )); then
+      echo " timed out after ${COMPOSE_READY_TIMEOUT}s." >&2
+      return 1
+    fi
+    echo -n "." >&2
+    sleep 3
+  done
+
+  local pname payload
+  for pname in "$@"; do
+    payload=$(jq -r --arg name "$pname" '.[] | select(.pipeline == $name) | .payload' "$payload_file")
+    if [ -z "$payload" ]; then
+      echo " Error: Pipeline '$pname' not found in $payload_file" >&2
+      return 1
+    fi
+    check_and_loop_video "$payload" > /dev/null 2>&1 || { echo " video preparation failed." >&2; return 1; }
+    if ! probe_pipeline_ready "$pname" "$payload"; then
+      echo " not ready." >&2
+      return 1
+    fi
+  done
+  echo " ready." >&2
+  return 0
+}
+
 function check_and_loop_video() {
   local payload=$1
   local source_uri; source_uri=$(echo "$payload" | jq -r '.source.uri // empty')
@@ -245,7 +327,6 @@ function run_and_analyze_workload() {
     local pipeline_name_arg=$2
     local payload_file=$3
 
-    # NOTE: To convert to a full orchestrator, add 'docker compose up' here.
     rm -rf "benchmark-$num_streams" && mkdir -p "benchmark-$num_streams"
 
     local payload_body
@@ -265,10 +346,16 @@ function run_and_analyze_workload() {
       return 1
     fi
 
+    # Fresh application stack for every round; return 2 so callers abort instead of scoring 0 FPS.
+    if ! compose_up "$payload_file" "$pipeline_name_arg"; then
+        compose_down
+        return 2
+    fi
+
     run_pipelines "$num_streams" "$payload_body" "$pipeline_name_arg"
     if [ $? -ne 0 ]; then
       echo "Failed to start pipelines. Aborting." >&2
-
+      compose_down
       return 1
     fi
 
@@ -284,7 +371,8 @@ function run_and_analyze_workload() {
 
     stop_all_pipelines
 
-    # NOTE: To convert to a full orchestrator, add 'docker compose down' here.
+    compose_down
+
     gawk -v ns=$num_streams -v percentile=${THROUGHPUT_PERCENTILE:-0.9} "$awk_utils"'
     /^\[/ {
       split("",fps_running)
@@ -336,7 +424,10 @@ run_workload_with_retries () {
     echo "Invoking workload with $num_streams streams...try#$retry_ct" >&2
 
     
-    if run_and_analyze_workload "$num_streams" "$pipeline_name_arg" "$payload_file"; then
+    run_and_analyze_workload "$num_streams" "$pipeline_name_arg" "$payload_file"
+    local rc=$?
+    [ $rc -eq 2 ] && return 2
+    if [ $rc -eq 0 ]; then
 
       sed "s|^|stream-density#$num_streams: |" "benchmark-$num_streams/kpi.txt" >&2
       throughput=$(grep -m1 -F 'throughput min:' "benchmark-$num_streams/kpi.txt" | cut -f2 -d: | tr -d ' ' | head -1)
@@ -494,6 +585,20 @@ function run_concurrent_workload() {
 
 # --- Main Script ---
 
+# Exits with a clear error if any requested pipeline is missing from the payload file.
+function validate_pipelines() {
+  local payload_file=$1
+  shift
+  local name
+  for name in "$@"; do
+    if ! jq -e --arg name "$name" 'any(.[]; .pipeline == $name)' "$payload_file" > /dev/null; then
+      echo "Error: Pipeline '$name' not found in $payload_file (SAMPLE_APP=$SAMPLE_APP)." >&2
+      echo "Available pipelines: $(jq -r '[.[].pipeline] | join(", ")' "$payload_file")" >&2
+      exit 1
+    fi
+  done
+}
+
 function usage() {
     echo "Usage (stream-density mode — automatic, no search range needed):"
     echo "  $0 -p <pipeline_name> [-t <target_fps>] [-i <interval>] [-c <throughput_percentile>]"
@@ -511,6 +616,8 @@ function usage() {
     echo "  -c <throughput_percentile> : Throughput percentile for KPI calculation (default: 0.9)."
     echo
     echo "Notes:"
+    echo "  Prerequisite: set up the app up to './setup.sh' first. The script runs 'docker compose up -d' and"
+    echo "  'docker compose down -v' itself, giving each benchmark round a fresh application stack."
     echo "  Stream density is discovered automatically (exponential ramp-up, then bisect)."
     echo "  Set MAX_STREAMS=<n> in the environment to change the internal safety ceiling (default: 64)."
     exit 1
@@ -617,17 +724,24 @@ if [ ! -f "$payload_file" ]; then
     exit 1
 fi
 
+if $NSTREAMS_MODE; then
+    validate_pipelines "$payload_file" "${pipeline_names[@]}"
+else
+    validate_pipelines "$payload_file" "$pipeline_name_arg"
+fi
+
 echo ">>>>> Performing pre-flight checks..." >&2
-if ! curl -k -s --fail "https://$DLSPS_NODE_IP/api/pipelines/status" > /dev/null; then
-    echo "Error: DL Streamer Pipeline Server is not running or not reachable at https://$DLSPS_NODE_IP" >&2
+if [ ! -f "./docker-compose.yml" ]; then
+    echo "Error: docker-compose.yml not found. Run the script from the industrial-edge-insights-vision directory." >&2
     exit 1
 fi
-echo "DLSPS is reachable." >&2
-
-stop_all_pipelines
-if [ $? -ne 0 ]; then
-   exit 1
+if ! docker compose version > /dev/null 2>&1; then
+    echo "Error: 'docker compose' is not available." >&2
+    exit 1
 fi
+# Ensure a clean state; each round brings the stack up and down itself.
+compose_down
+trap 'compose_down; exit 130' INT TERM
 
 # ---------------------------------------------------------------------------
 # NStreams mode: run the requested pipelines concurrently at fixed stream
@@ -644,10 +758,17 @@ if $NSTREAMS_MODE; then
     echo "       ${pipeline_names[$_i]}: ${nstreams_list[$_i]} stream(s)" >&2
   done
 
+  if ! compose_up "$payload_file" "${pipeline_names[@]}"; then
+    compose_down
+    echo "❌ FINAL RESULT: Nstreams-mode pipeline run failed." >&2
+    exit 1
+  fi
+
   if run_concurrent_workload \
       "$(IFS=,; echo "${pipeline_names[*]}")" \
       "$(IFS=,; echo "${nstreams_list[*]}")" \
       "$payload_file"; then
+    compose_down
     echo >&2
     echo "======================================================" >&2
     echo "✅ FINAL RESULT: Nstreams-mode Pipeline Run Completed!" >&2
@@ -659,6 +780,7 @@ if $NSTREAMS_MODE; then
     echo "KPIs (all $_total_concurrent streams combined):"
     cat "benchmark-multi/kpi.txt" 2>/dev/null
   else
+    compose_down
     echo "❌ FINAL RESULT: Nstreams-mode pipeline run failed." >&2
     exit 1
   fi
@@ -680,9 +802,18 @@ hi=-1
 tns=0
 exp_phase=true
 
+function abort_compose_failure() {
+  echo >&2
+  echo "======================================================" >&2
+  echo "❌ FINAL RESULT: Benchmark aborted — the application stack could not be started, or DL Streamer Pipeline Server did not become ready." >&2
+  echo "   Check the docker compose output above and 'docker compose logs dlstreamer-pipeline-server'; ensure '.env' is filled in (e.g. HOST_IP), './setup.sh' was run, and no other benchmark is running." >&2
+  echo "======================================================" >&2
+  exit 1
+}
+
 [[ "$*" = *"--trace"* ]] || echo "Start-Trace:"
 while true; do
-  throughput=$(run_workload_with_retries "$ns" "$pipeline_name_arg" "$payload_file")
+  throughput=$(run_workload_with_retries "$ns" "$pipeline_name_arg" "$payload_file") || [ $? -ne 2 ] || abort_compose_failure
 
   if [ $hi -gt 0 ]; then hi_display=$hi; else hi_display=$max_streams_cap; fi
   echo "streams: $ns throughput: $throughput range: [$lo,$hi_display]"
@@ -711,7 +842,7 @@ done
 
 if [[ "$*" = *"--trace"* ]] && [ "$tns" -gt 0 ]; then
   echo "Start-Trace:"
-  throughput=$(run_workload_with_retries "$tns" "$pipeline_name_arg" "$payload_file")
+  throughput=$(run_workload_with_retries "$tns" "$pipeline_name_arg" "$payload_file") || [ $? -ne 2 ] || abort_compose_failure
 fi
 echo "Stop-Trace:"
 

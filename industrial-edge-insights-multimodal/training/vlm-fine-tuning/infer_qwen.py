@@ -34,7 +34,6 @@ from __future__ import annotations
 
 import argparse
 
-from datasets import load_dataset
 from PIL import Image
 from transformers import TextStreamer
 
@@ -43,6 +42,7 @@ from unsloth import FastVisionModel
 from common import build_inference_messages
 from common import detect_device
 from common import get_sample_prompt
+from common import load_local_dataset
 
 DEFAULT_MODEL_PATH = "unsloth/Qwen3.5-2B"
 DEFAULT_DATASET_PATH = "processed_dataset/parquet"
@@ -165,7 +165,7 @@ def run_single_image(args, model, tokenizer, device):
 
 
 def run_dataset_samples(args, model, tokenizer, device):
-    dataset = load_dataset(args.dataset_path, split=args.split)
+    dataset = load_local_dataset(args.dataset_path, split=args.split)
 
     if args.sample_index is not None:
         indices = [args.sample_index]

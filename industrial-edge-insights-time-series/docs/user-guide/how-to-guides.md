@@ -9,6 +9,7 @@ This section collects guides for Time Series Analytics microservice and associat
 - [Update Configuration](./how-to-guides/update-config.md)
 - [Create a new sample app](./how-to-guides/create-a-new-sample-app.md)
 - [Write a User Defined Function (UDF)](./how-to-guides/write-user-defined-function.md)
+- [Use the MCP server](./how-to-guides/use-mcp-server.md)
 
 <!--hide_directive
 :::{toctree}
@@ -23,6 +24,7 @@ This section collects guides for Time Series Analytics microservice and associat
 ./how-to-guides/write-user-defined-function
 ./how-to-guides/benchmarking
 ./how-to-guides/multi-stream-ingestion
+./how-to-guides/use-mcp-server
 
 :::
 hide_directive-->

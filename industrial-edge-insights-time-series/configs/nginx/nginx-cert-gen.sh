@@ -1,9 +1,8 @@
 #!/bin/bash
-#
-# Apache v2 license
-# Copyright (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
-#
+
+set -euo pipefail
 
 # Set working directory for SSL certificates
 SSL_DIR="/opt/nginx/certs"
@@ -15,7 +14,12 @@ DAYS=365
 SHA_ALGO="sha384"
 
 echo "Generating SSL certificates for Nginx..."
-if [ -d "$SSL_DIR" ]; then rm -rf "${SSL_DIR:?}"/*; fi
+rm -f "$SSL_DIR/key.pem" "$SSL_DIR/cert.pem"
 
-openssl req -x509 -nodes -days ${DAYS} -${SHA_ALGO} -newkey rsa:${KEY_LENGTH} -keyout "$SSL_DIR/key.pem" -out "$SSL_DIR/cert.pem" -subj "/CN=localhost"
+openssl req -x509 -nodes -days "${DAYS}" -"${SHA_ALGO}" -newkey "rsa:${KEY_LENGTH}" \
+    -keyout "$SSL_DIR/key.pem" -out "$SSL_DIR/cert.pem" -subj "/CN=localhost" \
+    -addext "basicConstraints=critical,CA:TRUE" \
+    -addext "keyUsage=critical,digitalSignature,keyEncipherment,keyCertSign,cRLSign" \
+    -addext "extendedKeyUsage=serverAuth" \
+    -addext "subjectAltName=DNS:localhost,IP:${HOST_IP:-127.0.0.1}"
 chmod 640 "$SSL_DIR/key.pem" "$SSL_DIR/cert.pem"

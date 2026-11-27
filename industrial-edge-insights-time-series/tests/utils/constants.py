@@ -5,6 +5,7 @@
 #
 
 import os
+HOST_IP = os.getenv("HOST_IP", "127.0.0.1")
 
 # Centralized container definitions for all sample apps
 CONTAINERS = {
@@ -75,7 +76,7 @@ CONTAINERS = {
 
 TELEGRAF_MQTT_PLUGIN = "mqtt_consumer"
 TELEGRAF_OPCUA_PLUGIN = "opcua"
-OPCUA_SERVER_URL = f"opc.tcp://localhost:{CONTAINERS['opcua_server']['port']}"  # Update if needed
+OPCUA_SERVER_URL = f"opc.tcp://{HOST_IP}:{CONTAINERS['opcua_server']['port']}"  # Update if needed
 ALERT_NODE_ID = "ns=2;s=Alert"  # Replace with the actual node ID used for alerts
 MODEL_DIR = "../../apps/wind-turbine-anomaly-detection/time-series-analytics-config/models/"
 # Fix PYTEST_DIR to use absolute path
@@ -98,8 +99,6 @@ TARGET_SUBPATH = "edge-ai-suites/manufacturing-ai-suite/industrial-edge-insights
 
 # Configuration directory paths
 WINDTURBINE_CONFIG_DIR = "apps/wind-turbine-anomaly-detection/time-series-analytics-config"
-HELM_TIMESERIES = "apps/wind-turbine-anomaly-detection/time-series-analytics-config"
-
 
 # KPI Test Constants
 KPI_DEPLOYMENT_TIME_THRESHOLD = 120  # Maximum acceptable deployment time in seconds
@@ -131,11 +130,6 @@ WIND_TURBINE_OPCUA_ALERT_SETTLE = 360         # Max time to wait for OPC UA aler
 WIND_TURBINE_OPCUA_PORT_MAPPING = "30003-30100"
 
 # Multimodal wait durations (in seconds) to avoid hard-coded sleeps in tests
-MULTIMODAL_WAIT_AFTER_CHART_GEN = 10
-MULTIMODAL_WAIT_AFTER_VALUES_UPDATE = 15
-MULTIMODAL_WAIT_AFTER_HELM_INSTALL = 30
-MULTIMODAL_WAIT_AFTER_PODS_READY = 20
-MULTIMODAL_WAIT_AFTER_UDF_ACTIVATION = 25
 MULTIMODAL_WAIT_FOR_VISION_DATA = 60
 
 # Multimodal SeaweedFS S3 wait durations (in seconds)
@@ -304,26 +298,20 @@ KAPACITOR_TASK_MARKER = "windturbine"  # substring expected in Kapacitor tasks
 KAPACITOR_UDF_INSTALL_TIMEOUT = 420    # seconds - max wait for Kapacitor to install UDF packages and restart
 KAPACITOR_UDF_POLL_INTERVAL = 10       # seconds - polling interval during UDF installation
 MQTT_SAMPLE_TIMEOUT = 240              # seconds - timeout for MQTT sample data verification
-POD_TERMINATION_TIMEOUT = 120      # seconds to wait for pods to terminate before helm install
-POD_CLEANUP_TIMEOUT = 60           # seconds to wait for pods to stop after helm uninstall
-SERVICE_TERMINATION_TIMEOUT = 30   # seconds to wait for services (especially NodePort) to be deleted before helm install
 PODS_HEALTHY_CHECK_STATUS_TIMEOUT = 60    # seconds - standard pod cleanup timeout
 PODS_HEALTHY_CHECK_STATUS_TIMEOUT_MULTI = 120  # seconds - extended timeout for multimodal (dual-service) cleanup
-PODS_VERIFY_TIMEOUT = 600          # seconds - timeout for verify_pods after Helm install (raised for slower GitHub-hosted runners where upstream image pulls happen on first use)
 MQTT_PORT_INT = CONTAINERS["mqtt_broker"]["port"]
 MULTIMODAL_DOCKER_PRE_TEARDOWN_WAIT = 5   # seconds before teardown validations
 MULTIMODAL_DOCKER_POST_TEARDOWN_WAIT = 10 # seconds to let containers stop
 MULTIMODAL_DOCKER_FUSION_READY_WAIT = 10  # seconds to ensure fusion logs propagate
 
 # MediaMTX streaming constants - access via nginx proxy
-MEDIAMTX_STREAM_URL = f"https://localhost:{CONTAINERS['nginx_proxy']['https_port']}/samplestream"
+MEDIAMTX_STREAM_URL = f"https://{HOST_IP}:{CONTAINERS['nginx_proxy']['https_port']}/samplestream"
 
 # Documented DL Streamer Pipeline Server API endpoints
-DOCKER_DSPS_API_BASE_URL = f"https://localhost:{CONTAINERS['nginx_proxy']['https_port']}/dsps-api"
-HELM_DSPS_API_BASE_URL = "https://localhost:30001/dsps-api"
+DOCKER_DSPS_API_BASE_URL = f"https://{HOST_IP}:{CONTAINERS['nginx_proxy']['https_port']}/dsps-api"
 
 # Documented Time Series Analytics Microservice API endpoints
-DOCKER_TSA_API_BASE_URL = f"https://localhost:{CONTAINERS['nginx_proxy']['https_port']}/ts-api"
-HELM_TSA_API_BASE_URL = "https://localhost:30001/ts-api"
+DOCKER_TSA_API_BASE_URL = f"https://{HOST_IP}:{CONTAINERS['nginx_proxy']['https_port']}/ts-api"
 
 OPCUA_SERVER_PORT = 30003

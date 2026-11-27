@@ -17,6 +17,8 @@ services:
       - "110"
       # render group ID for ubuntu 24.04 host OS
       - "992"
+      # render group ID for ubuntu 26.04 host OS
+      - "990"
     devices:
       # you can add specific devices in case you don't want to provide access to all like below.
       - "/dev:/dev"
@@ -81,19 +83,3 @@ The pipeline `pcb_anomaly_detection_gpu` contains GPU specific elements and uses
 :::
 ::::
 hide_directive-->
-
-## Deployment with Helm
-
-### Intel® GPU K8S Extension
-
-If you are deploying a GPU based pipeline (example: with VA elements like `vapostproc`, `vah264dec`, etc., and/or with `device=GPU` in `gvadetect` in `dlstreamer_pipeline_server_config.json`) with Intel® GPU k8s Extension, ensure to set the below details in the file `helm/values.yaml` appropriately in order to utilize the underlying GPU.
-
-```sh
-gpu:
-  enabled: true
-  type: "gpu.intel.com/i915"
-  count: 1
-```
-
-> [!NOTE]
-> If your node uses Intel Xe discrete GPUs (Arc), set `gpu.type` to `"gpu.intel.com/xe"`.

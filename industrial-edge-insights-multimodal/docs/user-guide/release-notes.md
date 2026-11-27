@@ -1,5 +1,31 @@
 # Release Notes: Industrial Edge Insights Multimodal
 
+## Version 2026.3
+
+**Release Date**: December 7, 2026
+
+This release adds **authentication for the SeaweedFS filer UI**, **AI agent skills for deploying the application and Model Context Protocol (MCP) server**, and **AI agent skills for building the multimodal sample application**. It also updates the agentic workflow's Large Language Model (LLM) for better results, preserves SeaweedFS data across restarts, and includes bug fixes and documentation improvements.
+
+**New**:
+
+- **MCP server**: added agent tools to control pipelines, retrieve fusion data, and run agentic analyses.
+- **AI agent skills**: added cross-harness guidance for building a multimodal sample application from a business use case and for deploying the application and MCP server, with example prompts and testing helpers.
+
+**Improved**:
+
+- **Insights UI**: integrated the Insights Workbench into the multimodal UI service, replacing the standalone service.
+- **Detection controls**: added label and confidence filters with parameterized queries.
+- **Classification model**: updated the weld defect model to Geti™ 3.
+- **Deployment**: removed Helm support; Docker Compose is now the supported deployment method.
+- **Runtime and validation**: updated Python base images to 3.14 and sample application images to 2026.3.0.
+- **Security**: added HTTP Basic Authentication to the SeaweedFS filer UI and restricted published ports to the configured host, defaulting to loopback.
+- **Documentation**: updated MCP, agentic workflow, Vision-Language Model (VLM) fine-tuning, and platform guidance.
+
+**Fixed**:
+
+- **SeaweedFS data persistence**: fixed long-running data loss by persisting storage to disk and restarting services after failures.
+- **Code and shell checks**: addressed code-scanning findings and unsafe shell operations.
+
 ## Version 2026.2
 
 **Release Date**: September 10, 2026

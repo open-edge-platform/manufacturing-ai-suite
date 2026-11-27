@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Reviewed SkillSpector false positives for this skill. Picked up automatically
+# by the Skill Scanner workflow (any *baseline.yaml in the skill directory).
+version: 2
+rules:
+  - id: "PE3"
+    path: "scripts/*.sh"
+    message: "*.env*"
+    reason: >-
+      Scripts read non-secret settings (registry, image name/tag, HOST_IP,
+      ports) from the app's own .env; values are never printed or transmitted.
+  - id: "PE3"
+    path: "SKILL.md"
+    message: "*.env*"
+    reason: "Documentation warning that functional tests overwrite .env, with a backup tip."
+  - id: "PE3"
+    path: "example-prompts/*.md"
+    message: "*.env*"
+    reason: "Documentation warning that functional tests overwrite .env, with a backup tip."
+  - id: "E1"
+    path: "scripts/smoke-check.sh"
+    reason: "JSON-RPC POST to the locally deployed MCP server at ${HOST_IP}; no external host."
+  - id: "TM1"
+    path: "SKILL.md"
+    message: "*curl -sk https://${HOST_IP}*"
+    reason: >-
+      Read-only probe of the locally deployed stack, which uses a generated
+      self-signed certificate (CN=localhost) that cannot be verified by IP.
+  - id: "RP1"
+    message: "*npx skills*"
+    reason: "Mentions the skills installer used to install this skill; not an MCP server reference."
+  - id: "RP1"
+    path: "SKILL.md"
+    message: "*docker pull <image>*"
+    reason: "Placeholder telling the user how to restore the published image named in .env."

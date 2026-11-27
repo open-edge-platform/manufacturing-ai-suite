@@ -1,3 +1,8 @@
+```{eval-rst}
+.. meta::
+   :description: Deploy agents to analyze fusion results, make policy decisions, and create maintenance tickets.
+```
+
 # Deploy the Agentic Workflow for the Multimodal Weld Defect Detection Sample Application
 
 This section shows how to deploy the multimodal sample application with the agentic workflow enabled. The multimodal application produces fusion results, and when new fusion results arrive, the meta-agent in the agentic stack is triggered. The meta-agent, powered by an LLM served through OpenVINO™ model server, produces structured policy decisions, root-cause analysis, and maintenance tickets.
@@ -24,19 +29,25 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
 | Component    | Minimum Requirement                                 |
 |--------------|-----------------------------------------------------|
 | **Hardware** | Intel® Core™ Ultra Series 3 processor or newer only |
-| **RAM**      | Minimum 32 GB                                       |
-| **Storage**  | Minimum 256 GB (512 GB recommended)                 |
+| **RAM**      | Minimum 48 GB (recommended 64GB)                                      |
+| **Storage**  | Minimum 512 GB                                      |
 
 ### Validated Platforms
 
 | Product / Family                                                            | Validated inference devices |
 |-----------------------------------------------------------------------------|-----------------------------|
-| Intel® Core™ Ultra Processors Series 3 (Intel Core Ultra 7 356H, 16 Cores, 32GB) | CPU, iGPU                   |
+| Intel® Core™ Ultra Processors Series 3 (Intel Core Ultra 7 356H, 16 Cores, 48GB) | CPU, iGPU              |
 
 
 ## Prerequisites
 
 1. Ensure the `.env` file is configured with valid values for:
+
+   > [!NOTE]
+   >
+   > - If you are trying to deploy it on Ubuntu 26.04, update the `DLSTREAMER_PIPELINE_SERVER_IMAGE` value in .env
+   >   to `intel/dlstreamer-pipeline-server:2026.3.0-ubuntu26-rc1` before deployment.
+
 
    - `HOST_IP`
    - `INFLUXDB_USERNAME`, `INFLUXDB_PASSWORD`
@@ -44,12 +55,20 @@ In addition to the [minimum requirements](../get-started/system-requirements.md#
    - `MTX_WEBRTCICESERVERS2_0_USERNAME`, `MTX_WEBRTCICESERVERS2_0_PASSWORD`
    - `S3_STORAGE_USERNAME`, `S3_STORAGE_PASSWORD`
    - `SEAWEEDFS_WEB_AUTH_USER`, `SEAWEEDFS_WEB_AUTH_PASSWORD`
+   - `VLLM_GPU_MEMORY_UTILIZATION`: fraction of the memory available to the GPU that vLLM preallocates
+   (VRAM on discrete GPU; shared system memory on integrated GPU). Set it to
+   `memory to allocate to vLLM (GB) / total memory available to the GPU (GB)`. For the default
+   setup (Qwen3.5-2B fp8 + LoRA adapter, 8192 max context), vLLM is budgeted 8.5 GB: set `0.27` for
+   32 GB, `0.19` for 45 GB, or `0.13` for 64 GB of memory.
 
-2. Download the Vision-Language Model (VLM) model by following the [guide](./how-to-deploy-vllm-service.md#download-models).
+2. Review the licenses of the models prior to deployment. `make up_agentic` downloads them automatically on the first run:
+
+   - Vision-Language Model (VLM) and LoRA adapter: see the [guide](./how-to-deploy-vllm-service.md#prerequisites) for the license details.
+   - Agentic LLM set in `LLM_MODEL_NAME`: [OpenVINO/Qwen3.6-35B-A3B-int4-ov](https://huggingface.co/OpenVINO/Qwen3.6-35B-A3B-int4-ov).
 
 ## Deploy the Agentic Workflow
 
-Run the full agentic stack (downloads the LLM model first, then starts all containers):
+Run the agentic stack (downloads the LLM model first, then starts the containers):
 
 > [!NOTE]
 >
@@ -61,6 +80,14 @@ Run the full agentic stack (downloads the LLM model first, then starts all conta
 cd industrial-edge-insights-multimodal
 make up_agentic
 ```
+
+To include the MCP server, set `MCP_USERNAME` and `MCP_PASSWORD` in `.env`, then run:
+
+```bash
+make up_agentic MCP=true
+```
+
+See [Use the MCP server](./use-mcp-server.md) for the tools and the example client.
 
 For a fresh build before deployment:
 
@@ -149,7 +176,7 @@ Agent reasoning prompts are in `configs/agentic/prompts/weld-quality-monitoring.
 
 2. Check the output in Grafana dashboard:
 
-   - Use the link `https://127.0.0.1:3000` to open Grafana dashboard in a browser, preferably the Chrome browser. For Helm deployment, use the link `https://127.0.0.1:30001`.
+   - Use the link `https://127.0.0.1:3000` to open Grafana dashboard in a browser, preferably the Chrome browser.
 
    - Log in to Grafana dashboard using the `VISUALIZER_GRAFANA_USER` and `VISUALIZER_GRAFANA_PASSWORD` values
      from the `.env` file:

@@ -559,7 +559,7 @@ def build_records(
     """
     records: List[Dict[str, Any]] = []
     missing_frames: List[str] = []
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # nosec B311 - seeded RNG keeps dataset generation reproducible
 
     rows_iter = df.iterrows()
     processed = 0
@@ -587,7 +587,7 @@ def build_records(
 
         details = parse_prediction_details(row.get("output_prediction_details"))
         sensor_block = build_sensor_block(row)
-        prompt_idx = rng.randint(0, len(USER_PROMPT_TEMPLATES) - 1)
+        prompt_idx = rng.randint(0, len(USER_PROMPT_TEMPLATES) - 1)  # nosec B311 - seeded RNG keeps dataset generation reproducible
         user_prompt = build_user_prompt(sensor_block, prompt_idx)
         assistant_response = build_assistant_response(row, details)
         messages = build_conversation(image_path, user_prompt, assistant_response)
@@ -630,7 +630,7 @@ def stratified_split(
     for record in records:
         by_label[record.get("canonical_category") or "UNKNOWN"].append(record)
 
-    rng = random.Random(seed)
+    rng = random.Random(seed)  # nosec B311 - seeded RNG keeps dataset splits reproducible
     split_records: Dict[str, List[Dict[str, Any]]] = {
         "train": [],
         "validation": [],
@@ -638,7 +638,7 @@ def stratified_split(
     }
 
     for label_records in by_label.values():
-        rng.shuffle(label_records)
+        rng.shuffle(label_records)  # nosec B311 - seeded RNG keeps dataset splits reproducible
         n = len(label_records)
         n_train = int(n * train_ratio)
         n_val = int(n * val_ratio)
@@ -667,7 +667,7 @@ def stratified_split(
         split_records["test"].extend(label_records[n_train + n_val :])
 
     for split_name in split_records:
-        rng.shuffle(split_records[split_name])
+        rng.shuffle(split_records[split_name])  # nosec B311 - seeded RNG keeps dataset splits reproducible
 
     return split_records
 

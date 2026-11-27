@@ -1,1 +1,0 @@
-Refer to the [Deploy with Helm](../docs/user-guide/get-started/deploy-with-helm.md) guide.

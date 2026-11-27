@@ -31,6 +31,7 @@ It includes:
 | [Win Vision AI](./industrial-edge-insights-vision/win-vision-ai/) | A Windows application for running any Vision workloads on DL Streamer-supported models.                     | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-vision/win-vision-ai/index.html)                  |
 | [Wind Turbine Anomaly Detection](./industrial-edge-insights-time-series/apps/wind-turbine-anomaly-detection) | A time series use case of detecting anomalous power generation patterns relative to wind speed. | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-time-series/index.html) |
 | [Multimodal Weld Defect Detection](./industrial-edge-insights-multimodal/) | A multimodal use case combining vision and sensor data analysis to identify anomalies in welding data. | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/industrial-edge-insights-multimodal/index.html) |
+| [Factory Defects Inspector Agent](./factory-defects-inspector-agent/) | A Hermes agent that investigates defects and anomalies reported by manufacturing applications on remote edge nodes. | [Documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-suites/ai-suite-manufacturing/factory-defects-inspector-agent/index.html) |
 
 **Main tools and AI Libraries the Suite uses**
 
@@ -43,6 +44,35 @@ It includes:
 | [Intel&reg; Geti&trade; SDK](https://github.com/open-edge-platform/geti-sdk)                                                                          | A python package containing tools to interact with a Geti&trade; server via the REST API, helping you build a full MLOps for vision based use cases. |
 | [OpenVINO&trade; toolkit](https://github.com/openvinotoolkit/openvino)                                                                                | An open source toolkit for deploying performant AI solutions across Intel hardware for generative and conventional AI models.    |
 | [OpenVINO&trade; Model Server](https://github.com/openvinotoolkit/model_server)                                                                       | An OpenVINO server solution for enabling remote model inference for AI applications deployed on low-performance devices.         |
+
+## Skills
+
+This repository ships [Agent Skills](https://agentskills.io) that let AI coding assistants
+(GitHub Copilot, Claude Code, Codex and other compatible agents) build, deploy, validate and review
+the applications in this suite. Suite-level skills live in [`.github/skills/`](.github/skills/) and
+are discovered automatically; app-level skills live in the `.github/skills/` folder of each
+application and are indexed by its `skill-catalog.json`.
+
+### Suite-level skills
+
+| Skill | Description |
+|-------|-------------|
+| [manufacturing-ai-app-builder](.github/skills/manufacturing-ai-app-builder/SKILL.md) | Conversational orchestrator that turns a plain manufacturing-quality business objective into a working Intel Edge AI application by asking only business questions, proposing a plan, and delegating the build to the right skills. |
+| [manufacturing-app-recipe](.github/skills/manufacturing-app-recipe/SKILL.md) | Stands up a complete, ready-to-run manufacturing analytics stack (vision, time series, multimodal, with optional VLM narrative and agentic orchestration) with one Docker Compose command. |
+| [onboarding-validation](.github/skills/onboarding-validation/SKILL.md) | Validates the get-started experience of Open Edge Platform components by following the documented path exactly and producing a structured pass/fail report. |
+| [security-review](.github/skills/security-review/SKILL.md) | On-demand security review for code, containers, Docker Compose, Helm/Kubernetes configuration and CI/CD workflows. |
+
+To start from a business goal, such as "alert me before a pump fails", copy a ready-made prompt from
+[`skills/prompts/`](skills/prompts/) into your AI agent. Each prompt hands off to
+`manufacturing-ai-app-builder`. For details, see the
+[Manufacturing Application Builder guide](skills/docs/user-guide/index.md).
+
+### Application skills
+
+| Skill | Application | Description |
+|-------|-------------|-------------|
+| [multimodal-deploy](industrial-edge-insights-multimodal/.github/skills/multimodal-deploy/SKILL.md) | [Industrial Edge Insights - Multimodal](industrial-edge-insights-multimodal/) | Build, deploy, smoke-check and functionally test the Multimodal Weld Defect Detection application, including the vLLM, agentic and MCP variants. |
+| [time-series-deploy](industrial-edge-insights-time-series/.github/skills/time-series-deploy/SKILL.md) | [Industrial Edge Insights - Time Series](industrial-edge-insights-time-series/) | Build, deploy, smoke-check and functionally test the Time Series sample applications (for example wind turbine anomaly detection) with MQTT or OPC-UA ingestion. |
 
 ## Contribute
 

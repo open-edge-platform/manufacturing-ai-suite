@@ -86,7 +86,6 @@ The `udfs` section specifies the details of the UDFs used in the task.
 The `alerts` section defines the settings for alert mechanisms, using the MQTT protocol by
 default.
 For publishing OPC-UA alerts in Docker, refer to [Docker OPC-UA Alerts](../how-to-guides/configure-alerts.md#docker---publish-opc-ua-alerts).
-For OPC-UA Alerts in Helm, refer to [Helm OPC-UA Alerts](../how-to-guides/configure-alerts.md#helm---publish-opc-ua-alerts)
 
 > [!NOTE]
 > Enable only one type of alerts: either MQTT or OPC-UA.

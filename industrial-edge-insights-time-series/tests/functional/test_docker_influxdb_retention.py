@@ -8,7 +8,6 @@ import os
 import sys
 import pytest
 import time
-import subprocess
 import logging
 from pathlib import Path
 sys.path.append(os.path.join(os.path.dirname(__file__), '../utils'))

@@ -46,7 +46,6 @@ It also consists of the following third-party microservices:
 
 ## Learn More
 
-- [Helm based deployment](../../docs/user-guide/get-started/deploy-with-helm.md)
 - [MLOps using Model Download](../../docs/user-guide/how-to-extend-functionality/enable-mlops.md)
 - [Run multiple AI pipelines](../../docs/user-guide/how-to-customize/run-multiple-ai-pipelines.md)
 - [Publish frames to S3 storage pipelines](../../docs/user-guide/how-to-extend-functionality/store-frames-in-s3.md)

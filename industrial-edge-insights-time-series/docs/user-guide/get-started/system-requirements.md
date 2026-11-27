@@ -18,7 +18,7 @@ provided as part of Open Edge Platform.
 
 **Required Software**:
 
-- Operating System Ubuntu 24.04
+- Operating System Ubuntu 24.04/Ubuntu 26.04
 - Docker 24.0.7 or higher
 - Python 3.10+
 

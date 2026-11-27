@@ -19,10 +19,6 @@ Use `num_of_streams` in the deployment command:
 
 Run one of the following commands based on your sample app and ingestion mode.
 
-<!--hide_directive::::{tab-set}
-:::{tab-item}hide_directive--> **Wind Turbine Anomaly Detection**
-<!--hide_directive:sync: tab1hide_directive-->
-
 ```bash
 # Deploy with OPC-UA multi-stream ingestion
 export OPCUA_SERVER_PORT_MAPPING=30003-30100
@@ -31,9 +27,6 @@ make up_opcua_ingestion app="wind-turbine-anomaly-detection" num_of_streams=<NUM
 # Deploy with MQTT multi-stream ingestion
 make up_mqtt_ingestion app="wind-turbine-anomaly-detection" num_of_streams=<NUMBER_OF_STREAMS>
 ```
-
-<!--hide_directive:::
-::::hide_directive-->
 
 ## Verification
 

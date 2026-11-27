@@ -7,3 +7,5 @@ resources/
 apps/*/configs/nginx/ssl/
 
 temp_apps/*
+__pycache__/
+*.pyc

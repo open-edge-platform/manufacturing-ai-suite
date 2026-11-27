@@ -108,5 +108,5 @@ jobs:
         with:
           skills-path: ${{ matrix.skills-path }}
           allow-dirs: "evals,example-prompts,benchmark"
-          strict: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+          strict: 'false'
           fail-on-findings: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}

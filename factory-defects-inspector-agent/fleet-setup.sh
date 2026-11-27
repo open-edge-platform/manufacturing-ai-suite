@@ -1,0 +1,845 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# Prepares nodes, installs deployment skills, deploys apps with their MCP servers,
+# and registers each node's MCP server with the agent harness on this host
+# (Hermes by default; see HARNESS_AGENT and agents/).
+set -euo pipefail
+
+SSH_USER=
+SKIP_PLATFORM_CHECK=false
+DEPLOY=true
+PREPARE_ONLY=false
+INTERACTIVE=false
+HOSTS_FILE=
+LIST_ONLY=false
+SELECTORS=()
+
+REPO_URL=${REPO_URL:-https://github.com/open-edge-platform/manufacturing-ai-suite}
+REPO_BRANCH=${REPO_BRANCH:-main}
+REMOTE_ROOT=${REMOTE_ROOT:-manufacturing-ai-suite}
+APP_SUBDIR=${APP_SUBDIR:-industrial-edge-insights-multimodal}
+APP_REL="$REMOTE_ROOT/$APP_SUBDIR"
+REMOTE_PORT=${REMOTE_PORT:-3000}
+BASE_PORT=13000
+USER_KEYS=(INFLUXDB_USERNAME VISUALIZER_GRAFANA_USER MTX_WEBRTCICESERVERS2_0_USERNAME S3_STORAGE_USERNAME SEAWEEDFS_WEB_AUTH_USER MCP_USERNAME)
+PASS_KEYS=(INFLUXDB_PASSWORD VISUALIZER_GRAFANA_PASSWORD MTX_WEBRTCICESERVERS2_0_PASSWORD S3_STORAGE_PASSWORD SEAWEEDFS_WEB_AUTH_PASSWORD MCP_PASSWORD)
+MCP_TOOLS='["describe","list_insights_data","explain","run_agent","get_run_results","start_pipeline","stop_pipeline"]'
+SKILL_NAME=${SKILL_NAME:-multimodal-deploy}
+SKILL_PATH=${SKILL_PATH:-$APP_SUBDIR/.github/skills/$SKILL_NAME}
+SKILL_REPO_URL=${SKILL_REPO_URL:-$REPO_URL}
+SKILL_REPO_REF=${SKILL_REPO_REF:-$REPO_BRANCH}
+MCP_SCHEME=${MCP_SCHEME:-https}
+MCP_PATH=${MCP_PATH:-/mcp}
+MCP_CERT_CONTAINER=${MCP_CERT_CONTAINER-nginx_proxy}
+MCP_CERT_PATH=${MCP_CERT_PATH:-/opt/nginx/certs/cert.pem}
+MCP_AUTH_TYPE=${MCP_AUTH_TYPE:-basic}
+MCP_USER_KEY=${MCP_USER_KEY:-MCP_USERNAME}
+MCP_PASS_KEY=${MCP_PASS_KEY:-MCP_PASSWORD}
+MCP_TOKEN_KEY=${MCP_TOKEN_KEY:-MCP_TOKEN}
+if [[ ${FLEET_RECIPE_MODE:-} == 1 ]]; then
+  mapfile -t USER_KEYS < <(python3 -c 'import json,os; print("\n".join(json.loads(os.environ["USER_KEYS_JSON"])))')
+  mapfile -t PASS_KEYS < <(python3 -c 'import json,os; print("\n".join(json.loads(os.environ["PASS_KEYS_JSON"])))')
+  # Empty lists must not create a single empty variable name.
+  [[ -n ${USER_KEYS[0]:-} ]] || USER_KEYS=()
+  [[ -n ${PASS_KEYS[0]:-} ]] || PASS_KEYS=()
+  MCP_TOOLS=${MCP_TOOLS_JSON:-'[]'}
+fi
+# An application deployed outside this installer lives at FLEET_APP_PATH (relative to the node user's home);
+# it is only connected (--no-deploy), never prepared or deployed.
+if [[ -n ${FLEET_APP_PATH:-} ]]; then
+  [[ $FLEET_APP_PATH =~ ^[A-Za-z0-9_.-]+(/[A-Za-z0-9_.-]+)*$ && $FLEET_APP_PATH != *..* ]] \
+    || { echo "ERROR: invalid app_path: $FLEET_APP_PATH" >&2; exit 2; }
+  APP_REL=$FLEET_APP_PATH
+fi
+# DEPLOY_PROMPT and SMART_POLICY have no defaults: recipes in hosts.yaml supply them (prompt, approval_policy).
+RUN_STARTED=$SECONDS
+log() { printf '[%(%Y-%m-%dT%H:%M:%S%z)T] [+%ss] %s\n' -1 "$((SECONDS - RUN_STARTED))" "$*" >&2; }
+die() { log "ERROR: $*"; exit 1; }
+stage_finished() {
+  if (( $1 == 0 )); then
+    log "DONE: $STAGE_LABEL (elapsed=$((SECONDS - STAGE_STARTED))s)"
+  else
+    log "ERROR: $STAGE_LABEL (exit=$1, elapsed=$((SECONDS - STAGE_STARTED))s)"
+  fi
+}
+run_stage() (
+  STAGE_LABEL=$1 STAGE_STARTED=$SECONDS
+  shift
+  trap 'stage_finished "$?"' EXIT
+  log "START: $STAGE_LABEL"
+  "$@"
+)
+
+# Agent harness adapter: every harness-specific operation (isolated per-node
+# contexts, skills, one-shot deploy tasks, MCP registration) goes through the
+# agent_* functions defined by agents/<HARNESS_AGENT>.sh. Hermes is the only
+# adapter implemented today; see agents/hermes.sh for the contract.
+HARNESS_AGENT=${HARNESS_AGENT:-hermes}
+[[ $HARNESS_AGENT =~ ^[a-z][a-z0-9_-]{0,31}$ ]] || die "invalid HARNESS_AGENT: $HARNESS_AGENT"
+AGENT_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/agents/$HARNESS_AGENT.sh"
+[[ -f $AGENT_LIB ]] || die "unsupported agent harness '$HARNESS_AGENT': $AGENT_LIB not found"
+# shellcheck source=agents/hermes.sh
+source "$AGENT_LIB"
+agent_supports() { agent_capabilities 2>/dev/null | grep -qx "$1"; }
+usage() {
+  cat >&2 <<EOF
+usage: $0 [--hosts FILE] [--list] [--user NAME] [--interactive] [--no-deploy | --prepare-only] [--skip-platform-check]
+       $0 [--list] [--user NAME] [--interactive] [--no-deploy | --prepare-only] [--skip-platform-check] <node-ip> [<node-ip> ...]
+Without node IPs, nodes are read from FILE (default: hosts.yaml next to this script).
+--list prints the resolved nodes and exits without changing anything.
+--no-deploy connects the MCP servers of applications that are already running: it checks SSH access,
+  starts the tunnels, and registers and tests the servers. It does not prepare nodes, copy source,
+  change the applications' .env files, or create node profiles.
+--prepare-only prepares the nodes (packages, checkout, credentials, node profiles) and stops, so that
+  you can deploy the applications yourself and then connect them with --no-deploy.
+--node NAME and --recipe NAME select deployments from a recipe inventory (repeatable).
+EOF
+  exit 2
+}
+
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --hosts) [[ $# -ge 2 ]] || usage; HOSTS_FILE=$2; shift 2 ;;
+    --list) LIST_ONLY=true; shift ;;
+    --node|--recipe) [[ $# -ge 2 ]] || usage; SELECTORS+=("$1" "$2"); shift 2 ;;
+    --user) [[ $# -ge 2 ]] || usage; SSH_USER=$2; shift 2 ;;
+    --interactive) INTERACTIVE=true; shift ;;
+    --no-deploy) DEPLOY=false; shift ;;
+    --prepare-only) PREPARE_ONLY=true; shift ;;
+    --skip-platform-check) SKIP_PLATFORM_CHECK=true; shift ;;
+    -h|--help|-*) usage ;;
+    *) break ;;
+  esac
+done
+if $PREPARE_ONLY && ! $DEPLOY; then die "--prepare-only and --no-deploy cannot be combined"; fi
+if [[ $# == 0 && ${FLEET_RECIPE_MODE:-} != 1 ]]; then
+  HOSTS_FILE=${HOSTS_FILE:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hosts.yaml"}
+  command -v python3 >/dev/null || die "python3 is required for YAML inventories"
+  python3 -c 'import yaml' 2>/dev/null || die "PyYAML is required (install python3-yaml)"
+  inventory_kind=$(python3 - "$HOSTS_FILE" <<'PY'
+import sys, yaml
+try:
+    with open(sys.argv[1]) as stream:
+        doc = yaml.safe_load(stream)
+    print("recipes" if isinstance(doc, dict) and "recipes" in doc else "legacy")
+except (OSError, yaml.YAMLError):
+    sys.exit("ERROR: cannot read inventory; check the file path and YAML syntax")
+PY
+  ) || exit 2
+  if [[ $inventory_kind == recipes ]]; then
+    inventory_args=(--hosts "$HOSTS_FILE" --script "${BASH_SOURCE[0]}" --user "$SSH_USER" "${SELECTORS[@]}")
+    $LIST_ONLY && inventory_args+=(--list)
+    $INTERACTIVE && inventory_args+=(--interactive)
+    $DEPLOY || inventory_args+=(--no-deploy)
+    $PREPARE_ONLY && inventory_args+=(--prepare-only)
+    $SKIP_PLATFORM_CHECK && inventory_args+=(--skip-platform-check)
+    exec python3 "$(dirname "${BASH_SOURCE[0]}")/fleet_inventory.py" "${inventory_args[@]}"
+  fi
+fi
+(( ${#SELECTORS[@]} == 0 )) || die "--node/--recipe require a recipe inventory"
+[[ $# -ge 1 && -n $HOSTS_FILE ]] && die "give either --hosts or node IPs, not both"
+[[ -z $SSH_USER || $SSH_USER =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "invalid --user: $SSH_USER"
+[[ $REPO_URL =~ ^https://[A-Za-z0-9./_-]+$ ]] || die "invalid REPO_URL: $REPO_URL"
+[[ $REPO_BRANCH =~ ^[A-Za-z0-9._/-]+$ ]] || die "invalid REPO_BRANCH: $REPO_BRANCH"
+
+# Per-node settings by position (0-based). Node N (1-based) defaults to name fleet_nodeN and local port BASE_PORT+N.
+NAME=() HOST=() NUSER=() SSH_PORT=() KEY=() LPORT=() SKIP=()
+
+# Prints one tab-separated line per node: name host user port identity_file local_port skip_platform_check.
+read_hosts_file() {
+  command -v python3 >/dev/null || die "python3 is needed to read $1"
+  python3 -c 'import yaml' 2>/dev/null || die "PyYAML is needed to read $1 (sudo apt-get install python3-yaml)"
+  python3 - "$1" "$SSH_USER" "$SKIP_PLATFORM_CHECK" <<'PY'
+import sys, yaml
+
+path, cli_user, cli_skip = sys.argv[1], sys.argv[2], sys.argv[3] == "true"
+NODE_KEYS = {"name", "host", "user", "port", "identity_file", "local_port", "skip_platform_check"}
+DEFAULT_KEYS = {"user", "port", "identity_file", "skip_platform_check"}
+
+def fail(msg):
+    sys.exit(f"ERROR: {path}: {msg}")
+
+try:
+    with open(path) as f:
+        doc = yaml.safe_load(f) or {}
+except (OSError, yaml.YAMLError) as e:
+    fail(f"cannot read: {e}")
+if not isinstance(doc, dict) or set(doc) - {"defaults", "nodes"}:
+    fail("the top level may contain only 'defaults' and 'nodes'")
+defaults = doc.get("defaults") or {}
+nodes = doc.get("nodes") or []
+if not isinstance(defaults, dict):
+    fail("'defaults' must be a mapping")
+if not isinstance(nodes, list) or not nodes:
+    fail("'nodes' must be a non-empty list")
+for d in [defaults, *nodes]:
+    if isinstance(d, dict) and any("pass" in str(k).lower() for k in d):
+        fail("passwords are not supported; use key-based SSH (identity_file)")
+if set(defaults) - DEFAULT_KEYS:
+    fail(f"'defaults' may contain only {sorted(DEFAULT_KEYS)}")
+
+for i, node in enumerate(nodes, 1):
+    if not isinstance(node, dict):
+        fail(f"node {i} must be a mapping")
+    if set(node) - NODE_KEYS:
+        fail(f"node {i}: unknown keys {sorted(set(node) - NODE_KEYS)}")
+    if "host" not in node:
+        fail(f"node {i}: 'host' is required")
+    v = {"name": f"fleet_node{i}", "user": cli_user, "port": 22, "identity_file": "", "local_port": 0,
+         "skip_platform_check": cli_skip, **defaults, **node}
+    if not v["user"]:
+        fail(f"node {i}: 'user' is required (set it under 'defaults' or on the node, or pass --user)")
+    if v["name"] == "default":
+        fail(f"node {i}: name 'default' is reserved for the agent's central profile")
+    if not isinstance(v["skip_platform_check"], bool):
+        fail(f"node {i}: skip_platform_check must be true or false")
+    for k in ("port", "local_port"):
+        if not isinstance(v[k], int) or isinstance(v[k], bool):
+            fail(f"node {i}: {k} must be a number")
+    fields = [str(x) for x in (v["name"], v["host"], v["user"], v["port"], v["identity_file"] or "-",
+                               v["local_port"], str(v["skip_platform_check"]).lower())]
+    if any(not x or any(c.isspace() for c in x) for x in fields):
+        fail(f"node {i}: values must be non-empty and contain no whitespace")
+    print("\t".join(fields))
+PY
+}
+
+valid_host() {
+  local h=$1 o
+  if [[ $h =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]]; then
+    for o in "${BASH_REMATCH[@]:1}"; do (( 10#$o <= 255 )) || return 1; done
+    return 0
+  fi
+  [[ ${#h} -le 253 && $h =~ ^[A-Za-z0-9]([A-Za-z0-9-]{0,62})(\.[A-Za-z0-9]([A-Za-z0-9-]{0,62}))*$ ]]
+}
+
+if [[ $# -ge 1 ]]; then
+  [[ -n $SSH_USER ]] || die "--user is required when node IPs are given on the command line"
+  for ip in "$@"; do
+    NAME+=("fleet_node$((${#NAME[@]} + 1))") HOST+=("$ip") NUSER+=("$SSH_USER") SSH_PORT+=(22) KEY+=("")
+    LPORT+=(0) SKIP+=("$SKIP_PLATFORM_CHECK")
+  done
+else
+  HOSTS_FILE=${HOSTS_FILE:-"$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/hosts.yaml"}
+  [[ -f $HOSTS_FILE ]] || { echo "ERROR: no node IPs given and $HOSTS_FILE not found" >&2; usage; }
+  hosts_tsv=$(read_hosts_file "$HOSTS_FILE") || exit 1
+  while IFS=$'\t' read -r n h u p k lp sk; do
+    [[ $k == - ]] && k=""
+    NAME+=("$n") HOST+=("$h") NUSER+=("$u") SSH_PORT+=("$p") KEY+=("$k") LPORT+=("$lp") SKIP+=("$sk")
+  done <<<"$hosts_tsv"
+fi
+
+declare -A seen_name seen_port
+for i in "${!NAME[@]}"; do
+  n=${NAME[i]}
+  [[ $n =~ ^[a-z][a-z0-9_]{0,31}$ ]] || die "invalid node name: $n (lowercase letters, digits, _)"
+  [[ $n != default ]] || die "node name 'default' is reserved for the agent's central profile"
+  valid_host "${HOST[i]}" || die "[$n] not an IPv4 address or hostname: ${HOST[i]}"
+  [[ ${NUSER[i]} =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || die "[$n] invalid user: ${NUSER[i]}"
+  if ! [[ ${SSH_PORT[i]} =~ ^[0-9]{1,5}$ ]] || (( SSH_PORT[i] < 1 || SSH_PORT[i] > 65535 )); then
+    die "[$n] invalid port: ${SSH_PORT[i]}"
+  fi
+  [[ ${LPORT[i]} == 0 ]] && LPORT[i]=$((BASE_PORT + i + 1))
+  if ! [[ ${LPORT[i]} =~ ^[0-9]{4,5}$ ]] || (( LPORT[i] < 1024 || LPORT[i] > 65535 )); then
+    die "[$n] invalid local_port: ${LPORT[i]}"
+  fi
+  if [[ -n ${KEY[i]} ]]; then
+    # shellcheck disable=SC2088  # matching a literal "~/" from the hosts file
+    [[ ${KEY[i]} == "~/"* ]] && KEY[i]="$HOME/${KEY[i]:2}"
+    [[ ${KEY[i]} =~ ^/[A-Za-z0-9._/-]+$ && ${KEY[i]} != *..* ]] \
+      || die "[$n] identity_file must be an absolute or ~/ path without spaces: ${KEY[i]}"
+  fi
+  [[ ${SKIP[i]} == true || ${SKIP[i]} == false ]] || die "[$n] invalid skip_platform_check: ${SKIP[i]}"
+  [[ -z ${seen_name[$n]:-} ]] || die "duplicate node name: $n"
+  [[ -z ${seen_port[${LPORT[i]}]:-} ]] || die "[$n] local_port ${LPORT[i]} is already used by ${seen_port[${LPORT[i]}]}"
+  seen_name[$n]=1 seen_port[${LPORT[i]}]=$n
+done
+
+# Agent context/profile per node: underscores in the node name map to hyphens.
+profile_of() {
+  printf '%s' "${1//_/-}"
+}
+
+# ssh and scp with the node's port and key; the first argument is the node index.
+node_opts() {
+  local i=$1 port_flag=$2
+  NODE_OPTS=("$port_flag" "${SSH_PORT[i]}")
+  if [[ -n ${KEY[i]} ]]; then NODE_OPTS+=(-i "${KEY[i]}" -o IdentitiesOnly=yes); fi
+}
+# shellcheck disable=SC2029  # remote commands are fixed strings with validated arguments
+nssh() { node_opts "$1" -p; shift; ssh "${NODE_OPTS[@]}" "$@"; }
+nscp() { node_opts "$1" -P; shift; scp -q "${NODE_OPTS[@]}" "$@"; }
+
+if $LIST_ONLY; then
+  printf '%-11s %-15s %-10s %-5s %-12s %-6s %-14s %s\n' NODE HOST USER PORT PROFILE LOCAL SKIP_PLATFORM IDENTITY_FILE
+  for i in "${!NAME[@]}"; do
+    printf '%-11s %-15s %-10s %-5s %-12s %-6s %-14s %s\n' "${NAME[i]}" "${HOST[i]}" "${NUSER[i]}" "${SSH_PORT[i]}" \
+      "$(profile_of "${NAME[i]}")" "${LPORT[i]}" "${SKIP[i]}" "${KEY[i]:-(ssh default)}"
+  done
+  exit 0
+fi
+
+finish() {
+  local result=$?
+  if [[ -n ${LOCAL_TMP:-} && -z ${FLEET_STATE_DIR:-} ]]; then rm -rf "$LOCAL_TMP"; fi
+  if (( result == 0 )); then
+    log "DONE: Fleet setup (nodes=${#NAME[@]}, total=$((SECONDS - RUN_STARTED))s)"
+  else
+    log "ERROR: Fleet setup (exit=$result, total=$((SECONDS - RUN_STARTED))s); see the last stage above"
+  fi
+}
+trap finish EXIT
+log "Inventory validated: ${#NAME[@]} node(s); deploy=$DEPLOY; interactive=$INTERACTIVE"
+if $DEPLOY && ! $PREPARE_ONLY && ! agent_supports deploy; then
+  die "the '$HARNESS_AGENT' adapter does not support agentic deployment; use --prepare-only and deploy the applications yourself, then --no-deploy to connect their MCP servers"
+fi
+if $DEPLOY && agent_supports deploy; then
+  [[ -n ${SMART_POLICY:-} ]] || die "SMART_POLICY is not set; define approval_policy for the recipe in hosts.yaml (or export SMART_POLICY)"
+  $PREPARE_ONLY || [[ -n ${DEPLOY_PROMPT:-} ]] \
+    || die "DEPLOY_PROMPT is not set; define prompt for the recipe in hosts.yaml (or export DEPLOY_PROMPT)"
+fi
+if [[ -n ${FLEET_APP_PATH:-} ]] && $DEPLOY; then
+  die "this deployment uses app_path (an application managed outside this installer); run it with --no-deploy"
+fi
+if $INTERACTIVE && $DEPLOY && (( ${#NAME[@]} > 1 )); then
+  die "Parallel deployments cannot share an interactive terminal; omit --interactive or select a single node"
+fi
+FLEET_STAGE=${FLEET_STAGE:-all}
+case "$FLEET_STAGE" in
+  all|prepare|deploy|connect) ;;
+  *) die "invalid fleet stage: $FLEET_STAGE" ;;
+esac
+if [[ $FLEET_STAGE != all ]]; then
+  [[ ${FLEET_RECIPE_MODE:-} == 1 && -d ${FLEET_STATE_DIR:-} ]] \
+    || die "staged execution requires a recipe inventory and state directory"
+fi
+
+rand_user() { printf 'fdi%s' "$(openssl rand -base64 48 | tr -dc 'a-z' | cut -c1-8)"; }
+rand_pass() { printf '%sa7' "$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | cut -c1-22)"; }
+
+write_helpers() {
+  cat > "$LOCAL_TMP/node-prepare.sh" <<'REMOTE'
+set -euo pipefail
+repo_url=$1 branch=$2 root=$HOME/$3 app_subdir=$4
+log() { printf '[%(%Y-%m-%dT%H:%M:%S%z)T] [remote +%ss] %s\n' -1 "$SECONDS" "$*" >&2; }
+trap 'result=$?; log "Node preparation finished (exit=$result, elapsed=${SECONDS}s)"' EXIT
+log "Checking packages and Docker Compose"
+need=()
+for c in make curl git; do command -v "$c" >/dev/null || need+=("$c"); done
+command -v docker >/dev/null || need+=(docker.io)
+docker compose version >/dev/null 2>&1 || need+=(docker-compose-v2)
+if (( ${#need[@]} )); then
+  command -v apt-get >/dev/null || { echo "Install these on $(hostname) first: ${need[*]}" >&2; exit 1; }
+  log "Installing missing packages: ${need[*]} (sudo may prompt)"
+  sudo apt-get update -q
+  sudo apt-get install -y -q "${need[@]}"
+fi
+log "Package checks complete; checking Docker group membership"
+if ! getent group docker | cut -d: -f4 | tr ',' '\n' | grep -qx "$USER"; then
+  log "Adding deployment user to Docker group (sudo may prompt)"
+  sudo usermod -aG docker "$USER"
+fi
+if [[ $3 == fleet-deployments/* ]]; then
+  [[ $3 =~ ^fleet-deployments/[a-z][a-z0-9_]{0,31}/checkout$ ]] \
+    || { echo "Refusing operation outside a managed deployment checkout" >&2; exit 1; }
+  parent=${root%/checkout}
+  base=$HOME/fleet-deployments
+  for directory in "$base" "$parent"; do
+    [[ ! -L $directory ]] && [[ ! -e $directory || ( -d $directory && -O $directory ) ]] \
+      || { echo "Unsafe managed deployment directory" >&2; exit 1; }
+    install -d -m 0700 "$directory"
+  done
+  marker=$parent/.managed-checkout
+  [[ ! -L $marker && ( ! -e $marker || ( -f $marker && -O $marker ) ) ]] \
+    || { echo "Unsafe managed checkout marker" >&2; exit 1; }
+  if [[ -e $root || -L $root ]]; then
+    [[ -f $marker && ! -L $marker && -O $marker &&
+       $(cat "$marker") == fleet-checkout-v1 && -d $root && ! -L $root && -O $root ]] \
+      || { echo "Refusing to use an unrecognized deployment checkout" >&2; exit 1; }
+    if [[ ${9:-false} == true ]]; then
+      log "Removing managed checkout; local credentials, models, and edits will be discarded"
+      if ! rm -rf -- "$root" 2>/dev/null; then
+        # Containers (model-download) leave files owned by other UIDs that the SSH user cannot delete
+        log "Some files are owned by another UID; removing them with a throwaway container"
+        image=$(docker inspect -f '{{.Config.Image}}' apm-model-download 2>/dev/null || true)
+        docker run --rm --user 0 --network none --cap-drop ALL --cap-add DAC_OVERRIDE --cap-add FOWNER \
+          --security-opt no-new-privileges --entrypoint rm -v "$parent:/work" "${image:-alpine:3.20}" \
+          -rf -- /work/checkout
+        [[ ! -e $root ]] || { echo "Could not remove $root" >&2; exit 1; }
+      fi
+    fi
+  elif [[ ! -e $marker ]]; then
+    printf '%s\n' fleet-checkout-v1 > "$marker"
+    chmod 600 "$marker"
+  elif [[ ! -f $marker || ! -O $marker || $(cat "$marker") != fleet-checkout-v1 ]]; then
+    echo "Unsafe managed checkout marker" >&2
+    exit 1
+  fi
+elif [[ ${9:-false} == true ]]; then
+  echo "Refusing cleanup outside a managed deployment checkout" >&2
+  exit 1
+fi
+if [[ ${5:-node_clone} == central_copy ]]; then
+  bundle=$6 digest=$7 commit=$8
+  log "Verifying transferred Git bundle"
+  printf '%s  %s\n' "$digest" "$bundle" | sha256sum --check --status
+  git bundle list-heads "$bundle" >/dev/null
+  if [[ -d $root/.git ]]; then
+    log "Updating checkout from central bundle (no upstream fetch)"
+    git -C "$root" fetch -q "$bundle" refs/heads/fleet-source
+    [[ $(git -C "$root" rev-parse FETCH_HEAD) == "$commit" ]]
+    git -C "$root" checkout -q --no-overwrite-ignore -B "$branch" FETCH_HEAD
+  else
+    [[ ! -e $root ]] || { echo "Existing non-Git path blocks source delivery" >&2; exit 1; }
+    log "Creating checkout from central bundle (no upstream clone)"
+    git clone -q --sparse --branch fleet-source "$bundle" "$root"
+    git -C "$root" checkout -q -B "$branch" "$commit"
+    git -C "$root" remote set-url origin "$repo_url"
+  fi
+  git -C "$root" bundle verify "$bundle"
+  [[ $(git -C "$root" rev-parse HEAD) == "$commit" ]]
+  log "Central source installed at commit $commit"
+elif [[ -d $root/.git ]]; then
+  log "Fetching app branch and updating existing checkout"
+  git -C "$root" fetch -q "$repo_url" "$branch"
+  git -C "$root" checkout -q -B "$branch" FETCH_HEAD \
+    || { echo "Local changes in $root block switching to $branch (usually .env); commit or stash them and rerun" >&2; exit 1; }
+else
+  log "Cloning app branch (this may take several minutes)"
+  git clone -q --filter=blob:none --sparse --branch "$branch" "$repo_url" "$root"
+fi
+if [[ $app_subdir != . ]]; then
+  [[ $(git -C "$root" cat-file -t "HEAD:$app_subdir" 2>/dev/null) == tree ]] \
+    || { echo "Requested app directory $app_subdir is not present in the selected source revision" >&2; exit 1; }
+fi
+if [[ $(git -C "$root" config --bool core.sparseCheckout) == true ]]; then
+  if [[ $app_subdir == . ]]; then
+    git -C "$root" sparse-checkout disable
+  else
+    log "Including requested app in existing sparse checkout"
+    git -C "$root" sparse-checkout add "$app_subdir"
+  fi
+fi
+[[ -d $root/$app_subdir ]] \
+  || { echo "Requested app directory $app_subdir is missing after checkout preparation" >&2; exit 1; }
+log "App checkout ready"
+REMOTE
+
+  cat > "$LOCAL_TMP/env-merge.sh" <<'REMOTE'
+set -euo pipefail
+env_file=$1 updates=$2
+trap 'rm -f "$updates"' EXIT
+touch "$env_file"
+while read -r mode key val; do
+  cur=$(sed -n "s/^${key}=//p" "$env_file" | tail -n 1)
+  [[ $mode == fill && -n $cur ]] && continue
+  if grep -q "^${key}=" "$env_file"; then
+    sed -i "s|^${key}=.*|${key}=${val}|" "$env_file"
+  else
+    printf '%s=%s\n' "$key" "$val" >> "$env_file"
+  fi
+done < "$updates"
+chmod 600 "$env_file"
+REMOTE
+}
+
+write_tunnel_unit() {
+  install -d "$HOME/.config/systemd/user" "$HOME/.config/fleet-tunnels"
+  # One-time migration: earlier releases named these units weld-tunnel@. Stop
+  # and remove them so they don't hold the local ports the renamed units reuse.
+  if [[ -f "$HOME/.config/systemd/user/weld-tunnel@.service" ]]; then
+    log "Removing legacy weld-tunnel units (renamed to fleet-tunnel)"
+    systemctl --user stop 'weld-tunnel@*' 2>/dev/null || true
+    rm -f "$HOME/.config/systemd/user/weld-tunnel@.service" \
+          "$HOME"/.config/systemd/user/default.target.wants/weld-tunnel@*.service
+    rm -rf "$HOME/.config/weld-tunnels"
+  fi
+  cat > "$HOME/.config/systemd/user/fleet-tunnel@.service" <<'UNIT'
+[Unit]
+Description=SSH tunnel to a node's MCP endpoint (%i)
+After=network-online.target
+
+[Service]
+EnvironmentFile=%h/.config/fleet-tunnels/%i.env
+ExecStart=/usr/bin/ssh -N -o BatchMode=yes -o ExitOnForwardFailure=yes -o ServerAliveInterval=30 -o ServerAliveCountMax=3 $SSH_OPTS -L ${LOCAL_PORT}:127.0.0.1:${REMOTE_PORT} ${NODE}
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
+UNIT
+  systemctl --user daemon-reload
+  loginctl enable-linger "$USER" || log "WARN: could not enable linger; tunnels stop when you log out"
+}
+
+setup_profile() {
+  local i=$1 ip=${HOST[$1]} p
+  p=$(profile_of "${NAME[i]}")
+  log "[$p] $AGENT_LABEL context for $ip"
+  agent_context_recreate "$p" "Runs $SKILL_NAME on $ip over SSH"
+  log "[${NAME[i]}] Configuring SSH backend, timeout, approval policy, and deploy skill"
+  agent_context_set_ssh "$p" "$ip" "${NUSER[i]}" "${SSH_PORT[i]}" "${KEY[i]}"
+  agent_context_set_policy "$p" "$SMART_POLICY"
+  [[ $SKILL_NAME =~ ^[a-z][a-z0-9_-]{0,63}$ ]] || die "invalid skill name"
+  agent_skill_install "$p" "$SKILL_NAME" "$SKILL_SRC"
+}
+
+ensure_node_ssh() {
+  local i=$1 name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}"
+  local copy_id=(-p "${SSH_PORT[$1]}" -o StrictHostKeyChecking=accept-new)
+  if [[ -n ${KEY[i]} ]]; then copy_id+=(-i "${KEY[i]}.pub"); fi
+  log "[$name] Checking key-based SSH connectivity"
+  if ! nssh "$i" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new "$target" true 2>/dev/null; then
+    log "[$name] SSH check failed; installing public key (enter the node password in the terminal)"
+    run_stage "[$name] Install SSH public key" ssh-copy-id "${copy_id[@]}" "$target"
+  fi
+}
+
+# Stores the node app's MCP credentials on the central host for the agent's config references. Sources, in
+# order: the app's .env on the node (the source of truth), credentials already stored on this host, and, for a
+# terminal session only, a hidden prompt. Values are never logged or passed as command-line arguments.
+save_mcp_credentials() {
+  local i=$1 name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}" creds mcp_user="" mcp_pass=""
+  local var="${name^^}_MCP_BASIC"
+  [[ $MCP_AUTH_TYPE != none ]] || return 0
+  [[ $MCP_AUTH_TYPE == basic ]] || var="${name^^}_MCP_TOKEN"
+  log "[$name] Retrieving MCP authentication from ~/$APP_REL/.env on the node (values will not be logged)"
+  if [[ $MCP_AUTH_TYPE == basic ]]; then
+    creds=$(nssh "$i" -n "$target" grep -E "'^($MCP_USER_KEY|$MCP_PASS_KEY)='" "$APP_REL/.env" 2>/dev/null || true)
+    mcp_user=$(sed -n "s/^$MCP_USER_KEY=//p" <<<"$creds" | tail -n 1)
+    mcp_pass=$(sed -n "s/^$MCP_PASS_KEY=//p" <<<"$creds" | tail -n 1)
+  else
+    creds=$(nssh "$i" -n "$target" grep -E "'^$MCP_TOKEN_KEY='" "$APP_REL/.env" 2>/dev/null || true)
+    mcp_pass=$(sed -n "s/^$MCP_TOKEN_KEY=//p" <<<"$creds" | tail -n 1)
+  fi
+  if [[ $MCP_AUTH_TYPE == basic && -n $mcp_user && -n $mcp_pass ]]; then
+    agent_env_set "$var" "$(printf '%s:%s' "$mcp_user" "$mcp_pass" | base64 -w0)"
+    return 0
+  elif [[ $MCP_AUTH_TYPE == bearer && -n $mcp_pass ]]; then
+    [[ $mcp_pass =~ ^[A-Za-z0-9._~+/-]+=*$ ]] || die "[$name] MCP bearer token has an unsupported format"
+    agent_env_set "$var" "$mcp_pass"
+    return 0
+  fi
+  if agent_env_has "$var"; then
+    log "[$name] MCP authentication not found in the node's .env; using the credentials already stored on this host"
+    return 0
+  fi
+  if [[ -t 0 ]]; then
+    log "[$name] MCP authentication not found in ~/$APP_REL/.env on the node; enter it now (input is hidden)"
+    if [[ $MCP_AUTH_TYPE == basic ]]; then
+      read -r -p "[$name] MCP username: " mcp_user
+      read -r -s -p "[$name] MCP password: " mcp_pass
+      echo >&2
+      [[ -n $mcp_user && -n $mcp_pass && $mcp_user != *:* ]] || die "[$name] invalid MCP username or password"
+      agent_env_set "$var" "$(printf '%s:%s' "$mcp_user" "$mcp_pass" | base64 -w0)"
+    else
+      read -r -s -p "[$name] MCP bearer token: " mcp_pass
+      echo >&2
+      [[ $mcp_pass =~ ^[A-Za-z0-9._~+/-]+=*$ ]] || die "[$name] MCP bearer token is empty or has an unsupported format"
+      agent_env_set "$var" "$mcp_pass"
+    fi
+    return 0
+  fi
+  die "[$name] MCP authentication not found in ~/$APP_REL/.env on the node and none is stored as $var; set app_path in the inventory if the application is deployed elsewhere, or run from a terminal to enter it"
+}
+
+prepare_node() {
+  local i=$1 ip=${HOST[$1]} name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}" rtmp upd
+  ensure_node_ssh "$i"
+  log "[$name] SSH ready; creating remote workspace and uploading helpers"
+
+  rtmp=$(nssh "$i" "$target" mktemp -d)
+  [[ $rtmp =~ ^/[A-Za-z0-9._/-]+$ ]] || die "[$name] unexpected remote temp dir"
+  nscp "$i" "$LOCAL_TMP/node-prepare.sh" "$LOCAL_TMP/env-merge.sh" "$target:$rtmp/"
+  local source_args=(node_clone - - -)
+  if [[ ${SOURCE_DELIVERY:-node_clone} == central_copy ]]; then
+    log "[$name] Transferring centrally prepared app source (commit=$SOURCE_COMMIT)"
+    nscp "$i" "$SOURCE_BUNDLE" "$target:$rtmp/source.bundle"
+    source_args=(central_copy "$rtmp/source.bundle" "$SOURCE_SHA256" "$SOURCE_COMMIT")
+  fi
+  run_stage "[$name] Packages, Docker group, and app checkout" \
+    nssh "$i" -t "$target" bash "$rtmp/node-prepare.sh" "$REPO_URL" "$REPO_BRANCH" "$REMOTE_ROOT" "$APP_SUBDIR" "${source_args[@]}" "${FLEET_CLEAN_CHECKOUT:-false}"
+  log "[$name] Verifying Docker access in a new SSH session"
+  nssh "$i" "$target" docker info >/dev/null 2>&1 || die "[$name] ${NUSER[i]} cannot use Docker on $ip"
+
+  log "[$name] Preparing missing app credentials (values will not be logged)"
+  upd="$LOCAL_TMP/$name.updates"
+  {
+    for k in "${USER_KEYS[@]}"; do printf 'fill %s %s\n' "$k" "$(rand_user)"; done
+    for k in "${PASS_KEYS[@]}"; do printf 'fill %s %s\n' "$k" "$(rand_pass)"; done
+    if [[ ${FLEET_RECIPE_MODE:-} == 1 ]]; then
+      python3 - <<'PY'
+import json, os
+for key, value in json.loads(os.environ["ENV_UPDATES_JSON"]).items():
+    print(f"set {key} {value}")
+PY
+    else
+      printf 'set HOST_IP 127.0.0.1\n'
+    fi
+    if [[ ${SKIP[i]} == true ]]; then printf 'set PLATFORM_CHECK false\n'; fi
+  } > "$upd"
+  nscp "$i" "$upd" "$target:$rtmp/updates"
+  rm -f "$upd"
+  run_stage "[$name] Apply app environment updates" \
+    nssh "$i" "$target" bash "$rtmp/env-merge.sh" "$APP_REL/.env" "$rtmp/updates"
+  log "[$name] Removing remote temporary files"
+  nssh "$i" "$target" rm -rf "$rtmp"
+
+  save_mcp_credentials "$i"
+}
+
+deploy_node() {
+  local p=$1 file=$2 started=$SECONDS result=0
+  log "START: Deployment and smoke check" > "$file" 2>&1
+  if agent_task_run "$p" "$SKILL_NAME" "$DEPLOY_PROMPT" >> "$file" 2>&1; then
+    log "DONE: Deployment and smoke check (elapsed=$((SECONDS - started))s)" >> "$file" 2>&1
+  else
+    result=$?
+    log "ERROR: Deployment and smoke check (exit=$result, elapsed=$((SECONDS - started))s)" >> "$file" 2>&1
+  fi
+  return "$result"
+}
+
+deploy_all() {
+  local i n p pid result active next_report=$((SECONDS + 30))
+  local log_dir pids=() nodes=()
+  log_dir=$(agent_log_dir)
+  install -d "$log_dir"
+  for i in "${!NAME[@]}"; do
+    n=${NAME[i]} p=$(profile_of "${NAME[i]}")
+    if $INTERACTIVE; then
+      log "[$p] Interactive deployment; enter /quit when it finishes"
+      if run_stage "[$n] Interactive deployment" \
+        agent_task_run_interactive "$p" "$SKILL_NAME" "$DEPLOY_PROMPT"; then
+        log "[$n] $AGENT_LABEL chat completed; MCP readiness will be checked separately"
+      else
+        result=$?
+        log "WARN: [$n] $AGENT_LABEL chat exited with $result; continuing to MCP readiness check"
+        printf '%s\n' "$result" > "$LOCAL_TMP/$n.deploy-failed"
+      fi
+    else
+      log "[$p] Deploying skill $SKILL_NAME in the background (log: $log_dir/$n.deploy.log)"
+      run_stage "[$n] Deployment (log: $log_dir/$n.deploy.log)" deploy_node "$p" "$log_dir/$n.deploy.log" &
+      pids+=("$!")
+      nodes+=("$n")
+    fi
+  done
+  while :; do
+    active=()
+    for i in "${!pids[@]}"; do
+      if kill -0 "${pids[i]}" 2>/dev/null; then active+=("${nodes[i]}"); fi
+    done
+    (( ${#active[@]} )) || break
+    if (( SECONDS >= next_report )); then
+      log "WAIT: Deployment still running on ${active[*]}; follow $log_dir/<node>.deploy.log"
+      next_report=$((SECONDS + 30))
+    fi
+    sleep 5
+  done
+  # The MCP check in connect_node decides success, not the agent's exit code.
+  for i in "${!pids[@]}"; do
+    pid=${pids[i]}
+    if wait "$pid"; then
+      log "[${nodes[i]}] $AGENT_LABEL deployment completed; MCP readiness will be checked separately"
+    else
+      result=$?
+      log "WARN: [${nodes[i]}] Deployment exited with $result; see $log_dir/${nodes[i]}.deploy.log; continuing to MCP readiness check"
+      printf '%s\n' "$result" > "$LOCAL_TMP/${nodes[i]}.deploy-failed"
+    fi
+  done
+}
+
+connect_node() {
+  local i=$1 ip=${HOST[$1]} name=${NAME[$1]} target="${NUSER[$1]}@${HOST[$1]}" port=${LPORT[$1]}
+  local cert url="$MCP_SCHEME://localhost:${LPORT[$1]}$MCP_PATH" code=000
+  cert="$(agent_cert_dir)/${NAME[$1]}.pem"
+  local attempt ready_started tls_args=()
+  node_opts "$i" -p
+  # systemd splits $SSH_OPTS on spaces; all values were validated to contain none.
+  printf 'LOCAL_PORT=%s\nREMOTE_PORT=%s\nNODE=%s\nSSH_OPTS=%s\n' "$port" "$REMOTE_PORT" "$target" "${NODE_OPTS[*]}" \
+    > "$HOME/.config/fleet-tunnels/$name.env"
+  log "[$name] Starting SSH tunnel on local port $port"
+  systemctl --user enable -q "fleet-tunnel@$name"
+  systemctl --user restart "fleet-tunnel@$name"
+
+  # Refresh the pin over authenticated SSH, because app certificates may change on redeploy.
+  install -d -m 0700 "$(agent_cert_dir)"
+  if [[ $MCP_SCHEME == https ]]; then
+    log "[$name] Fetching and validating current MCP certificate over SSH"
+    if [[ -n $MCP_CERT_CONTAINER ]]; then
+      nssh "$i" "$target" docker exec "$MCP_CERT_CONTAINER" cat "$MCP_CERT_PATH" > "$cert.tmp" \
+        || die "[$name] cannot fetch MCP certificate"
+    else
+      nssh "$i" "$target" cat "$MCP_CERT_PATH" > "$cert.tmp" \
+        || die "[$name] cannot fetch MCP certificate"
+    fi
+    openssl x509 -in "$cert.tmp" -noout
+    mv "$cert.tmp" "$cert"
+    tls_args=(--cacert "$cert")
+  fi
+
+  ready_started=$SECONDS
+  log "[$name] Waiting for MCP tools/list readiness (up to 60 attempts)"
+  for attempt in {1..60}; do
+    # Authenticated endpoints are verified by the agent harness below; do not put secrets in curl's argv.
+    code=$(curl -s --connect-timeout 5 --max-time 15 "${tls_args[@]}" -o /dev/null -w '%{http_code}' -X POST "$url" \
+      -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \
+      -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' || true)
+    [[ $code == 200 || ( $MCP_AUTH_TYPE != none && $code == 401 ) ]] && break
+    if (( attempt == 1 || attempt % 6 == 0 )); then
+      log "WAIT: [$name] MCP not ready (attempt=$attempt/60, HTTP=$code, elapsed=$((SECONDS - ready_started))s)"
+    fi
+    sleep 5
+  done
+  [[ $code == 200 || ( $MCP_AUTH_TYPE != none && $code == 401 ) ]] || die "[$name] $url not ready (HTTP $code)"
+  log "[$name] MCP endpoint responding (HTTP=$code, attempt=$attempt/60, elapsed=$((SECONDS - ready_started))s); verifying with $AGENT_LABEL next"
+
+  log "[$name] Registering MCP URL, pinned certificate, credential reference, and tool allow-list"
+  local ssl_verify=true
+  [[ $MCP_SCHEME == https ]] && ssl_verify=$cert
+  agent_mcp_register "$name" "$url" "$ssl_verify" "$MCP_AUTH_TYPE" "$MCP_TOOLS"
+  run_stage "[$name] $AGENT_LABEL MCP verification" agent_mcp_verify "$name"
+}
+
+ensure_user_systemd() {
+  if systemctl --user show-environment >/dev/null 2>&1; then
+    return 0
+  fi
+  local runtime_dir="/run/user/$(id -u)"
+  if test -S "$runtime_dir/bus" && test -O "$runtime_dir" && test -O "$runtime_dir/bus"; then
+    export XDG_RUNTIME_DIR="$runtime_dir"
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$runtime_dir/bus"
+    if systemctl --user show-environment >/dev/null; then
+      log "Recovered systemd user-session environment from $runtime_dir"
+      return 0
+    fi
+  elif ! systemctl --user show-environment >/dev/null; then
+    log "No existing user-owned systemd bus socket at $runtime_dir/bus"
+  fi
+  die "systemd user services are unavailable for UID $(id -u). Run from a normal login/SSH session as the central-host user, not via sudo or a container. If needed, ask an administrator to run loginctl enable-linger for that user, then log in again."
+}
+
+LOCAL_TMP=${FLEET_STATE_DIR:-$(mktemp -d)}
+if [[ $FLEET_STAGE == all || $FLEET_STAGE == prepare ]]; then
+stage_started=$SECONDS
+log "START: Central host prerequisites and SSH keys"
+mapfile -t agent_cmds < <(agent_required_commands)
+for c in "${agent_cmds[@]}" ssh scp ssh-copy-id ssh-keygen curl openssl git base64 systemctl loginctl; do
+  command -v "$c" >/dev/null || die "missing on this host: $c"
+done
+ensure_user_systemd
+agent_init
+install -d -m 0700 "$HOME/.ssh"
+if ! compgen -G "$HOME/.ssh/id_*.pub" >/dev/null; then
+  log "Creating default SSH key (private key contents will not be logged)"
+  ssh-keygen -q -t ed25519 -N '' -f "$HOME/.ssh/id_ed25519"
+fi
+for i in "${!KEY[@]}"; do
+  k=${KEY[i]}
+  [[ -n $k ]] || continue
+  if [[ ! -e $k ]]; then
+    log "[${NAME[i]}] Creating configured SSH key (private key contents will not be logged)"
+    install -d -m 0700 "$(dirname "$k")"
+    ssh-keygen -q -t ed25519 -N '' -C "fleet-setup@$(hostname)" -f "$k"
+  fi
+  [[ -f $k.pub ]] || die "[${NAME[i]}] public key $k.pub not found"
+done
+log "DONE: Central host prerequisites and SSH keys (elapsed=$((SECONDS - stage_started))s)"
+
+# Preparing nodes (skill, packages, source, app environment, node profiles) is only for runs that deploy or
+# prepare. A --no-deploy run connects applications that are already running and touches none of it.
+if $DEPLOY; then
+if agent_supports deploy; then
+stage_started=$SECONDS
+log "START: Acquire $SKILL_NAME skill"
+if [[ -z ${SKILL_SRC:-} ]]; then
+  cache="$HOME/.cache/fleet-setup/${REMOTE_ROOT}-${SKILL_NAME}"
+  if [[ -d $cache/.git ]]; then
+    log "Updating cached skill checkout"
+    git -C "$cache" fetch -q "$SKILL_REPO_URL" "$SKILL_REPO_REF"
+    git -C "$cache" checkout -q -f -B "$SKILL_REPO_REF" FETCH_HEAD
+  else
+    log "Cloning skill source (this may take several minutes)"
+    git clone -q --filter=blob:none --sparse --branch "$SKILL_REPO_REF" "$SKILL_REPO_URL" "$cache"
+  fi
+  git -C "$cache" sparse-checkout set "$SKILL_PATH"
+  SKILL_SRC="$cache/$SKILL_PATH"
+else
+  log "Using supplied local skill directory"
+fi
+[[ -f $SKILL_SRC/SKILL.md ]] || die "$SKILL_NAME skill not found at $SKILL_SRC"
+if [[ ${FLEET_RECIPE_MODE:-} == 1 ]]; then
+  python3 - "$SKILL_SRC/SKILL.md" "$SKILL_NAME" <<'PY'
+import sys, yaml
+from pathlib import Path
+try:
+    content = Path(sys.argv[1]).read_text()
+    parts = content.split("---", 2)
+    metadata = yaml.safe_load(parts[1]) if content.startswith("---\n") and len(parts) == 3 else None
+    if not isinstance(metadata, dict) or metadata.get("name") != sys.argv[2]:
+        sys.exit("ERROR: SKILL.md frontmatter name must match the configured skill name")
+except (OSError, yaml.YAMLError):
+    sys.exit("ERROR: cannot read skill metadata")
+PY
+fi
+log "DONE: Acquire $SKILL_NAME skill (elapsed=$((SECONDS - stage_started))s)"
+else
+  log "SKIP: Skill acquisition and $AGENT_LABEL contexts (the '$HARNESS_AGENT' adapter does not support agentic deployment)"
+fi
+
+run_stage "Write remote helper scripts" write_helpers
+fi
+run_stage "Install SSH tunnel service template" write_tunnel_unit
+
+if $DEPLOY; then
+# Contexts first, so they don't clone MCP credentials stored for other nodes.
+if agent_supports deploy; then
+  for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Configure $AGENT_LABEL context" setup_profile "$i"; done
+fi
+for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Prepare node" prepare_node "$i"; done
+else
+  # Connect-only: just SSH access and the MCP credentials. Credentials are retrieved in the foreground so
+  # that a hidden prompt, if ever needed, can use the terminal.
+  for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Check SSH access" ensure_node_ssh "$i"; done
+  for i in "${!NAME[@]}"; do run_stage "[${NAME[i]}] Retrieve MCP credentials" save_mcp_credentials "$i"; done
+fi
+fi
+[[ $FLEET_STAGE != prepare ]] || exit 0
+if $PREPARE_ONLY; then
+  log "DONE: Nodes prepared (--prepare-only). Deploy the applications yourself, then run with --no-deploy to connect their MCP servers"
+  exit 0
+fi
+if [[ $FLEET_STAGE == all || $FLEET_STAGE == deploy ]]; then
+if $DEPLOY; then
+  run_stage "Deploy apps across fleet" deploy_all
+else
+  log "SKIP: App deployment (--no-deploy); connecting the MCP servers of the running applications"
+fi
+fi
+[[ $FLEET_STAGE != deploy ]] || exit 0
+ensure_user_systemd
+
+declare -A status connection_time
+rc=0
+for i in "${!NAME[@]}"; do
+  log "[${NAME[i]}] Connecting the MCP server"
+  # Run in a background job so a failure on one node doesn't stop the others.
+  stage_started=$SECONDS
+  run_stage "[${NAME[i]}] Connect MCP server" connect_node "$i" &
+  if wait "$!"; then status[$i]=connected; else status[$i]="not connected"; rc=1; fi
+  if [[ ${FLEET_RECIPE_MODE:-} == 1 && -f $LOCAL_TMP/${NAME[i]}.deploy-failed ]]; then
+    status[$i]="deploy failed"
+    rc=1
+  fi
+  connection_time[$i]=$((SECONDS - stage_started))
+done
+
+log "Summary"
+printf '%-11s %-15s %-12s %-29s %-14s %s\n' NODE HOST PROFILE "MCP URL" STATUS "CONNECT TIME"
+for i in "${!NAME[@]}"; do
+  printf '%-11s %-15s %-12s %-29s %-14s %ss\n' "${NAME[i]}" "${HOST[i]}" "$(profile_of "${NAME[i]}")" \
+    "$MCP_SCHEME://localhost:${LPORT[i]}$MCP_PATH" "${status[$i]}" "${connection_time[$i]}"
+done
+[[ $rc -eq 0 ]] || log "Deployment logs: $(agent_log_dir)/"
+exit "$rc"
