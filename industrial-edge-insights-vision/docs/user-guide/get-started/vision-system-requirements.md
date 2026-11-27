@@ -41,7 +41,7 @@ Other required software or tools: Git, jq, and unzip.
 See the list of certified edge AI systems as enabled through the  Intel® Edge System Qualification (Intel® ESQ) through the [catalog](https://builders.intel.com/ecosystem-engagement/solution-hub/edge-ai-catalog/partner-spotlight). On the left menu, you can filter by **Verticals > Manufacturing** or by **Intel Open Software Platform** > **Manufacturing AI Suite**.
 
 > [!NOTE]
-> Only a subset of sample applications are represented by the Intel® ESQ package. See [Test Suites](https://open-edge-platform.github.io/edge-system-qualification/main/getting-started/suites/) for more information.
+> Only a subset of sample applications are represented by the Intel® ESQ package. See [Test Suites](https://open-edge-platform.github.io/edge-system-qualification/2026.3/getting-started/suites/) for more information.
 
 > [!NOTE]
 > You can also create apps tailored to your use case using models supported by DL Streamer.
