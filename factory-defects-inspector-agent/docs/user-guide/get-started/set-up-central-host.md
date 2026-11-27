@@ -194,7 +194,9 @@ The `start` command that installs the persona also starts the WebUI. Run
    `start` reuse it and do not ask again. To read it, run
    `grep HERMES_WEBUI_PASSWORD ~/hermes-webui/.env`. To change it, edit that line in the file, then
    run `./hermes-webui.sh stop` and `./hermes-webui.sh start`. A running WebUI keeps the old
-   password until it is stopped.
+   password until it is stopped, and changing the password revokes existing browser sessions. The
+   first `start` after upgrading this launcher also revokes existing sessions once to establish its
+   password-change baseline; later stop/start cycles preserve sessions when the password is unchanged.
 
 4. The script creates a self-signed certificate in `~/.hermes/webui-tls` (`cert.pem` and `key.pem`,
    mode `600`, valid 365 days) if there is none or it expires within 30 days. It adds the
