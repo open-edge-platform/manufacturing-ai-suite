@@ -115,7 +115,7 @@ To use the application effectively, make sure that all the steps mentioned in th
 
 ## Other Documentation
 
-- [Edge Microvisor Toolkit Main Page](https://github.com/open-edge-platform/edge-microvisor-toolkit)
+- [Edge Microvisor Toolkit Main Page](https://docs.openedgeplatform.intel.com/2026.3/edge-microvisor-toolkit/index.html)
 - [Create Edge Microvisor Toolkit bootable USB drive using source code](https://github.com/open-edge-platform/edge-microvisor-toolkit-standalone-node/blob/main/standalone-node/docs/user-guide/get-started-guide.md#create-a-bootable-usb-drive-using-source-code)
 - [Desktop Virtualization on Edge Microvisor Toolkit](https://github.com/open-edge-platform/edge-microvisor-toolkit-standalone-node/blob/main/standalone-node/docs/user-guide/desktop-virtualization-image-guide.md)
 - [Edge Microvisor Toolkit Documentation](https://docs.openedgeplatform.intel.com/2026.3/edge-microvisor-toolkit/index.html)
