@@ -233,6 +233,7 @@ wait_healthy() {
 
 start_webui() {
   local fingerprint previous_fingerprint state_dir
+  state_dir=$(webui_state_dir)
   fingerprint=$(password_fingerprint)
   if [[ -f $PASSWORD_FINGERPRINT_FILE ]]; then
     previous_fingerprint=$(<"$PASSWORD_FINGERPRINT_FILE")
@@ -240,13 +241,15 @@ start_webui() {
       PASSWORD_CHANGED=1
       RESTART_NEEDED=1
     fi
+  elif [[ -f $state_dir/.sessions.json && $DIR/.env -nt $state_dir/.sessions.json ]]; then
+    PASSWORD_CHANGED=1
+    RESTART_NEEDED=1
   fi
   tls_install
   configure_bind
   # The daemon reads .env only at launch, so a hand-edited .env (e.g. a reset password) needs a restart.
   [[ $DIR/.env -nt $PID_FILE ]] && RESTART_NEEDED=1
   if (( PASSWORD_CHANGED )); then
-    state_dir=$(webui_state_dir)
     "$DIR/ctl.sh" stop
     rm -f -- "$state_dir/.sessions.json"
     "$DIR/ctl.sh" start
