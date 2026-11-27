@@ -119,15 +119,69 @@ password_fingerprint() {
   printf '%s' "$password_setting" | openssl dgst -sha256 | awk '{print $NF}'
 }
 
+dotenv_value() {
+  local env_file=$1 wanted_key=$2 line key value result found=0
+  [[ -f $env_file ]] || return 1
+  while IFS= read -r line || [[ -n $line ]]; do
+    line="${line#${line%%[![:space:]]*}}"
+    [[ -z $line || $line == \#* ]] && continue
+    if [[ $line =~ ^export[[:space:]]+(.+)$ ]]; then
+      line=${BASH_REMATCH[1]}
+      line="${line#${line%%[![:space:]]*}}"
+    fi
+    [[ $line == *=* ]] || continue
+    key="${line%%=*}"
+    key="${key//[[:space:]]/}"
+    [[ $key == "$wanted_key" ]] || continue
+
+    value="${line#*=}"
+    value="${value#${value%%[![:space:]]*}}"
+    if [[ $value =~ ^\"(([^\"\\]|\\.)*)\"([[:space:]]*\#.*)?[[:space:]]*$ ]]; then
+      value=${BASH_REMATCH[1]}
+      value=$(printf '%s' "$value" | awk '{
+        for (i = 1; i <= length($0);) {
+          c = substr($0, i, 1)
+          if (c == "\\" && i < length($0)) {
+            escaped_char = substr($0, i + 1, 1)
+            if (escaped_char == "n") printf "\n"
+            else if (escaped_char == "r") printf "\r"
+            else if (escaped_char == "t") printf "\t"
+            else if (escaped_char == "\"") printf "\""
+            else if (escaped_char == "\\") printf "\\"
+            else printf "\\%s", escaped_char
+            i += 2
+          } else {
+            printf "%s", c
+            i++
+          }
+        }
+      }')
+    elif [[ $value =~ ^\'([^\']*)\'([[:space:]]*\#.*)?[[:space:]]*$ ]]; then
+      value=${BASH_REMATCH[1]}
+    else
+      value="${value%%[[:space:]]\#*}"
+      value="${value%${value##*[![:space:]]}}"
+    fi
+    result=$value
+    found=1
+  done < "$env_file"
+  (( found )) || return 1
+  printf '%s' "$result"
+}
+
 webui_state_dir() {
-  local state_dir="${HERMES_WEBUI_STATE_DIR:-$(env_value HERMES_WEBUI_STATE_DIR)}"
-  state_dir="${state_dir:-$HERMES_HOME/webui}"
-  if [[ $state_dir =~ ^\'(.*)\'$ ]]; then
-    state_dir=${BASH_REMATCH[1]}
-  elif [[ $state_dir =~ ^\"(.*)\"$ ]]; then
-    state_dir=${BASH_REMATCH[1]}
+  local state_dir value
+  if [[ ${HERMES_WEBUI_STATE_DIR+x} ]]; then
+    state_dir=$HERMES_WEBUI_STATE_DIR
+  elif [[ ${HERMES_WEBUI_NO_DOTENV:-0} != 1 ]]; then
+    if value=$(dotenv_value "$DIR/.env" HERMES_WEBUI_STATE_DIR); then
+      state_dir=$value
+    elif value=$(dotenv_value "$HERMES_HOME/.env" HERMES_WEBUI_STATE_DIR); then
+      state_dir=$value
+    fi
   fi
-  python3 -c 'from pathlib import Path; import sys; print(Path(sys.argv[1]).expanduser().resolve())' "$state_dir"
+  state_dir="${state_dir:-$HERMES_HOME/webui}"
+  python3 -c 'from pathlib import Path; import sys; p = Path(sys.argv[1]).expanduser(); p = p if p.is_absolute() else Path(sys.argv[2]) / p; print(p.resolve())' "$state_dir" "$DIR"
 }
 
 save_password_fingerprint() {
@@ -241,7 +295,7 @@ start_webui() {
       PASSWORD_CHANGED=1
       RESTART_NEEDED=1
     fi
-  elif [[ -f $state_dir/.sessions.json && $DIR/.env -nt $state_dir/.sessions.json ]]; then
+  else
     PASSWORD_CHANGED=1
     RESTART_NEEDED=1
   fi
