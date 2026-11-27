@@ -4,11 +4,11 @@ This document provides step-by-step instructions for building the `Chat Q&A Core
 
 ## Build Chat Q&A Core from Source
 
-For detailed instructions on building from source, visit the [Build from Source Guide](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/sample-applications/chat-question-and-answer-core/docs/user-guide/build-from-source.md).
+For detailed instructions on building from source, visit the [Build from Source Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/chat-question-and-answer-core/build-from-source.html).
 
 ### Chat Q&A Core Docker Compose Deployment
 
-For Docker Compose deployment instructions, visit the [Running Application Container Guide](https://github.com/open-edge-platform/edge-ai-libraries/blob/main/sample-applications/chat-question-and-answer-core/docs/user-guide/build-from-source.md#running-the-application-container).
+For Docker Compose deployment instructions, visit the [Running Application Container Guide](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/chat-question-and-answer-core/build-from-source.html#running-the-application-container).
 
 ## Build File Watcher Service from Source
 
@@ -121,7 +121,7 @@ To learn more on partial cloning, check the [Repository Cloning guide](https://d
 
      - **DOCUMENT_ENDPOINT**:
 
-       This variable should be set to the URL of your backend service where the file data will be sent. Replace <your-backend-service-ip> with the actual IP address or hostname of your backend service.
+       This variable should be set to the URL of your backend service where the file data will be sent. Replace `<your-backend-service-ip>` with the actual IP address or hostname of your backend service.
 
      - **no_proxy**:
 
